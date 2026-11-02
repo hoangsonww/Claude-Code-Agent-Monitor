@@ -309,6 +309,20 @@ describe("existing imported session: subagents without tokens", () => {
   });
 });
 
+describe("existing imported session: unchanged re-scan", () => {
+  it("is not reported as a backfill when its subagents carry tokens", async () => {
+    const sid = uid("rescan");
+    const stage = mkStage();
+    writeSession(stage, sid, 3, [2]);
+    await importFromDirectory(dbModule, stage);
+    const before = tokenRows(sid);
+    assert.ok(before.length > 0, "fixture imports subagent tokens");
+    const again = await importFromDirectory(dbModule, stage);
+    assert.deepEqual(tokenRows(sid), before);
+    assert.equal(again.backfilled, 0);
+  });
+});
+
 describe("lastTranscriptActivityMs reads from the tail", () => {
   it("returns the newest timestamp of a large file without reading it whole", () => {
     const f = path.join(TMP_ROOT, "big.jsonl");

@@ -490,7 +490,8 @@ function syncCodexCardContext(sessionId, agentId) {
          SUM(CASE WHEN event_type = 'codex_task_started' THEN 1 ELSE 0 END) AS started,
          COUNT(DISTINCT CASE WHEN event_type = 'codex_user_message'
            THEN COALESCE(json_extract(data, '$.turn_id'), 'event:' || id) END) AS prompts
-       FROM events WHERE session_id = ?`
+       FROM events WHERE session_id = ?
+         AND event_type IN ('codex_task_started', 'codex_user_message')`
     )
     .get(sessionId);
   const turnCount = Math.max(asNumber(totals?.started), asNumber(totals?.prompts));
@@ -581,19 +582,30 @@ function syncCodexSessionTitle(session) {
 function refreshCodexSessionTitles() {
   const titles = getCodexSessionTitles();
   if (!titles.size) return [];
-  const sessions = db.prepare("SELECT * FROM sessions WHERE provider = 'codex'").all();
   const changed = [];
-  for (const session of sessions) {
-    if (!titles.has(session.id)) continue;
-    const synced = syncCodexSessionTitle(session);
-    if (synced.changed) {
-      changed.push({
-        changed: true,
-        created: false,
-        session: synced.session,
-        agent: stmts.getAgent.get(`codex:${session.id}`),
-        events: [],
-      });
+  const entries = [...titles];
+  // Compare only IDs present in the native title index and materialize actual
+  // renames. Two bound values per title stay below legacy SQLite's 999 limit.
+  for (let offset = 0; offset < entries.length; offset += 250) {
+    const chunk = entries.slice(offset, offset + 250);
+    const sessions = db
+      .prepare(
+        `WITH desired(id, name) AS (VALUES ${chunk.map(() => "(?, ?)").join(",")})
+         SELECT s.id, s.name FROM desired d JOIN sessions s ON s.id = d.id
+         WHERE s.provider = 'codex' AND s.name IS NOT d.name`
+      )
+      .all(...chunk.flat());
+    for (const session of sessions) {
+      const synced = syncCodexSessionTitle(session);
+      if (synced.changed) {
+        changed.push({
+          changed: true,
+          created: false,
+          session: synced.session,
+          agent: stmts.getAgent.get(`codex:${session.id}`),
+          events: [],
+        });
+      }
     }
   }
   return changed;
@@ -662,6 +674,36 @@ function createCodexSession(meta, transcriptPath, options = {}) {
  * Only very recent rows become placeholders; older sessions remain owned by
  * normal rollout discovery, avoiding an unexpected history import at startup.
  */
+function readRecentCodexThreads(stateDb, minCreatedAt) {
+  const bounded = Number.isFinite(minCreatedAt);
+  const params = bounded ? [minCreatedAt] : [];
+  const query = (hint = "") =>
+    `SELECT id, rollout_path, created_at, cwd, model, model_provider, cli_version
+     FROM threads${hint}
+     WHERE archived = 0 ${bounded ? "AND created_at >= ?" : ""}
+     ORDER BY created_at DESC
+     LIMIT 50`;
+  if (bounded) {
+    try {
+      // Native state can contain years of wide rows. Some SQLite plans prefer
+      // the low-selectivity archived index and sort them instead of reading the
+      // recent creation-time range. Never add/alter an index in Codex's DB.
+      const index = stateDb
+        .pragma("index_list(threads)")
+        .find((row) => row.name === "idx_threads_created_at" && !row.partial);
+      if (index && stateDb.pragma("index_info(idx_threads_created_at)")[0]?.name === "created_at") {
+        return stateDb.prepare(query(" INDEXED BY idx_threads_created_at")).all(...params);
+      }
+    } catch (error) {
+      // INDEXED BY is mandatory. Older schemas, or an index disappearing
+      // between inspection and prepare, must retry the original portable read.
+      // A busy/corrupt/unreadable DB must not incur the same wait twice.
+      if (error.code && !["SQLITE_ERROR", "SQLITE_SCHEMA"].includes(error.code)) throw error;
+    }
+  }
+  return stateDb.prepare(query()).all(...params);
+}
+
 function syncCodexStateSessions(options = {}) {
   const maxAgeMs = options.maxAgeMs ?? LIVE_THREAD_MAX_AGE_MS;
   const statePath = getCodexStateDbPath();
@@ -671,15 +713,8 @@ function syncCodexStateSessions(options = {}) {
   try {
     const Database = require("better-sqlite3");
     stateDb = new Database(statePath, { readonly: true, fileMustExist: true });
-    const threads = stateDb
-      .prepare(
-        `SELECT id, rollout_path, created_at, cwd, model, model_provider, cli_version
-         FROM threads
-         WHERE archived = 0
-         ORDER BY created_at DESC
-         LIMIT 50`
-      )
-      .all();
+    const minCreatedAt = (Date.now() - maxAgeMs) / 1_000;
+    const threads = readRecentCodexThreads(stateDb, minCreatedAt);
     const now = Date.now();
     const changed = [];
     for (const thread of threads) {
@@ -1724,6 +1759,7 @@ module.exports = {
   resumeCodexSessionAtPrompt,
   refreshCodexSessionTitles,
   syncCodexStateSessions,
+  readRecentCodexThreads,
   isCodexTranscript,
   setReadWindowBytesForTests,
 };

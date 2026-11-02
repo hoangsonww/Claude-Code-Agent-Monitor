@@ -1658,6 +1658,35 @@ const CARD_PROMPT_PREVIEW_SQL = `COALESCE(
   )
 )`;
 
+/** Bounded SQLite 3.46+ statistics maintenance; never fall back to a full ANALYZE. */
+function optimizeQueryPlanner(connection = db) {
+  try {
+    const version = connection.prepare("SELECT sqlite_version() AS version").get().version;
+    const [major, minor] = String(version).split(".").map(Number);
+    if (
+      !Number.isInteger(major) ||
+      !Number.isInteger(minor) ||
+      major < 3 ||
+      (major === 3 && minor < 46)
+    )
+      return false;
+    const started = performance.now();
+    console.error(`[db] Optimizing query planner statistics (SQLite ${version})`);
+    connection.pragma("optimize(0x10002)");
+    console.error(
+      `[db] Query planner statistics ready in ${Math.round(performance.now() - started)}ms`
+    );
+    return true;
+  } catch (error) {
+    console.warn("[db] query planner optimization skipped:", error?.message || error);
+    return false;
+  }
+}
+
+// All migrations/index creation have finished. Prepared statements below should
+// be planned using the actual distribution of a populated history database.
+optimizeQueryPlanner();
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -1935,14 +1964,7 @@ const stmts = {
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
 
-  stats: db.prepare(`
-    SELECT
-      (SELECT COUNT(*) FROM sessions) as total_sessions,
-      (SELECT COUNT(*) FROM sessions WHERE status = 'active') as active_sessions,
-      (SELECT COUNT(*) FROM agents WHERE status IN ('working', 'waiting')) as active_agents,
-      (SELECT COUNT(*) FROM agents) as total_agents,
-      (SELECT COUNT(*) FROM events) as total_events
-  `),
+  stats: db.prepare(require("./lib/scoped-stats").GLOBAL_STATS_SQL),
   agentStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status"),
   sessionStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM sessions GROUP BY status"),
 
@@ -2438,7 +2460,91 @@ const stmts = {
   ),
 };
 
+// Heavy HTTP counts use a lazy read-only worker. In-memory databases retain
+// their existing synchronous connection; a different worker cannot share them.
+const { ReadonlyQuery, databaseGeneration } = require("./lib/readonly-query");
+const queryReader = DB_PATH === ":memory:" ? null : new ReadonlyQuery(DB_PATH);
+const closeDatabase = db.close.bind(db);
+db.close = () => {
+  if (queryReader) queryReader.close();
+  return closeDatabase();
+};
+
+function readCountQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader) return Promise.resolve(db.prepare(sql).get(...params));
+  return queryReader.read({ op: "get", sql, params }, databaseGeneration(db));
+}
+
+function readRowsQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader) return Promise.resolve(db.prepare(sql).all(...params));
+  return queryReader.read({ op: "all", sql, params }, databaseGeneration(db));
+}
+
+function readEventPageSync(page, count) {
+  return db.transaction(() => {
+    const events = db.prepare(page.sql).all(...(page.params || []));
+    const { count: total } = db.prepare(count.sql).get(...(count.params || []));
+    return { events, total };
+  })();
+}
+
+// Page payloads and their exact total must describe one SQLite snapshot, even
+// when a hook commits between the page query and count/counter resolution.
+// The worker measures payload bytes first; a page too large for its heap is
+// read here on the main thread, exactly as it was before the worker existed.
+function readEventPageQuery(page, count) {
+  page = { ...page, sql: page.sql.trim() };
+  count = { ...count, sql: count.sql.trim() };
+  if (!queryReader) return Promise.resolve(readEventPageSync(page, count));
+  const measured = {
+    ...page,
+    sizeSql: `SELECT id, IFNULL(length(CAST(summary AS BLOB)), 0) + IFNULL(length(CAST(data AS BLOB)), 0) AS bytes FROM (${page.sql})`,
+    fetchSql: "SELECT * FROM events WHERE id IN (SELECT value FROM json_each(?))",
+  };
+  return queryReader.read({ op: "eventPage", page: measured, count }, databaseGeneration(db)).then(
+    (result) => (result.overflow ? readEventPageSync(page, count) : result),
+    (error) => {
+      if (error?.cause?.code === "ERR_WORKER_OUT_OF_MEMORY") return readEventPageSync(page, count);
+      throw error;
+    }
+  );
+}
+
+function readDashboardStats(sources, providers, todayStart) {
+  if (!queryReader) {
+    const scoped = require("./lib/scoped-stats");
+    const isScoped = !!sources || !!providers;
+    return Promise.resolve({
+      ...(isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get()),
+      events_today: (isScoped
+        ? scoped.countEventsToday(db, sources, providers, todayStart)
+        : stmts.countEventsSince.get(todayStart)
+      ).count,
+      agents_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.agentStatusCounts(db, sources, providers)
+          : stmts.agentStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+      sessions_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.sessionStatusCounts(db, sources, providers)
+          : stmts.sessionStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+    });
+  }
+  return queryReader.read({ op: "stats", sources, providers, todayStart }, databaseGeneration(db));
+}
+
 module.exports = {
+  optimizeQueryPlanner,
+  readCountQuery,
+  readRowsQuery,
+  readEventPageQuery,
+  readDashboardStats,
   db,
   stmts,
   DB_PATH,

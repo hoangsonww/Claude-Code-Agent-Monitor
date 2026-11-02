@@ -1431,29 +1431,28 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
       : await importFromDirectory(dbModule, dest, { onProgress, isExcludedSession, originSource });
 
   const ids = [];
+  // Cached legacy rows may never re-enter the parser. Normalize only absent
+  // metadata, preserving object fields and leaving nonempty malformed or
+  // nonobject bytes untouched. CASE guards every JSON operation explicitly.
+  const tagOrigin = dbModule.db.prepare(
+    `UPDATE sessions SET metadata = json_set(
+      CASE WHEN metadata IS NULL OR trim(metadata) = '' THEN '{}'
+        WHEN json_valid(metadata) THEN
+          CASE WHEN json_type(metadata) = 'object' THEN metadata END
+      END, '$.origin_host', ?)
+    WHERE id = ? AND CASE
+      WHEN metadata IS NULL OR trim(metadata) = '' THEN 1
+      WHEN json_valid(metadata) THEN CASE WHEN json_type(metadata) = 'object'
+        THEN COALESCE(json_extract(metadata, '$.origin_host'), '') != ?
+        ELSE 0 END
+      ELSE 0 END`
+  );
   const tag = dbModule.db.transaction((sessionIds) => {
     for (const id of sessionIds) {
       const row = stmts.getSession.get(id);
       if (!row || isExcludedSession(id)) continue;
       stmts.setSessionSource.run(source.id, id);
-      // Cached legacy rows may never re-enter the parser. Normalize only absent
-      // metadata, preserving object fields and leaving nonempty malformed or
-      // nonobject bytes untouched. CASE guards every JSON operation explicitly.
-      dbModule.db
-        .prepare(
-          `UPDATE sessions SET metadata = json_set(
-            CASE WHEN metadata IS NULL OR trim(metadata) = '' THEN '{}'
-              WHEN json_valid(metadata) THEN
-                CASE WHEN json_type(metadata) = 'object' THEN metadata END
-            END, '$.origin_host', ?)
-          WHERE id = ? AND CASE
-            WHEN metadata IS NULL OR trim(metadata) = '' THEN 1
-            WHEN json_valid(metadata) THEN CASE WHEN json_type(metadata) = 'object'
-              THEN COALESCE(json_extract(metadata, '$.origin_host'), '') != ?
-              ELSE 0 END
-            ELSE 0 END`
-        )
-        .run(originSource.key, id, originSource.key);
+      tagOrigin.run(originSource.key, id, originSource.key);
       ids.push(id);
     }
   });

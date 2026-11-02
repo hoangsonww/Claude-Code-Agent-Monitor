@@ -89,3 +89,32 @@ for (const [name, Database, skip] of drivers) {
     }
   });
 }
+
+it("builtin: a failing rollback keeps the original transaction error", () => {
+  const db = new Compat(":memory:");
+  const exec = db._db.exec.bind(db._db);
+  const warn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => warnings.push(args.join(" "));
+  db._db.exec = (sql) => {
+    if (/^ROLLBACK/.test(sql)) throw new Error("rollback failed: database is locked");
+    return exec(sql);
+  };
+  try {
+    const original = new Error("import failed");
+    assert.throws(
+      () =>
+        db.transaction(() => {
+          throw original;
+        })(),
+      (error) => error === original
+    );
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /rollback failed: database is locked/);
+  } finally {
+    console.warn = warn;
+    db._db.exec = exec;
+    if (db.inTransaction) db.exec("ROLLBACK");
+    db.close();
+  }
+});

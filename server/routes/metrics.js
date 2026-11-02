@@ -24,7 +24,7 @@
  */
 
 const { Router } = require("express");
-const { stmts, db } = require("../db");
+const { stmts, db, readCountQuery } = require("../db");
 const { getConnectionCount } = require("../websocket");
 
 const router = Router();
@@ -72,129 +72,133 @@ function appendMetric(out, name, help, type, samples) {
 }
 
 // GET /api/metrics — Prometheus exposition of the dashboard's live counters.
-router.get("/", (_req, res) => {
-  const out = [];
-
-  appendMetric(out, "ccam_up", "1 when the dashboard API is serving this scrape.", "gauge", [
-    { value: 1 },
-  ]);
-  appendMetric(
-    out,
-    "ccam_build_info",
-    "Dashboard build info; the value is always 1, the version rides on the label.",
-    "gauge",
-    [{ labels: { version: APP_VERSION }, value: 1 }]
-  );
-  appendMetric(
-    out,
-    "ccam_process_uptime_seconds",
-    "Uptime of the dashboard server process in seconds.",
-    "gauge",
-    [{ value: Math.round(process.uptime()) }]
-  );
-  appendMetric(
-    out,
-    "ccam_process_resident_memory_bytes",
-    "Resident set size (RSS) of the dashboard server process in bytes.",
-    "gauge",
-    [{ value: process.memoryUsage().rss }]
-  );
-
-  // Sessions by status.
-  const sessionCounts = new Map(stmts.sessionStatusCounts.all().map((r) => [r.status, r.count]));
-  appendMetric(
-    out,
-    "ccam_sessions",
-    "Number of sessions by lifecycle status.",
-    "gauge",
-    SESSION_STATUSES.map((status) => ({
-      labels: { status },
-      value: sessionCounts.get(status) || 0,
-    }))
-  );
-
-  // Agents by status.
-  const agentCounts = new Map(stmts.agentStatusCounts.all().map((r) => [r.status, r.count]));
-  appendMetric(
-    out,
-    "ccam_agents",
-    "Number of agents (main + subagents) by status.",
-    "gauge",
-    AGENT_STATUSES.map((status) => ({ labels: { status }, value: agentCounts.get(status) || 0 }))
-  );
-
-  // Event throughput (monotonic — a counter).
-  appendMetric(
-    out,
-    "ccam_events_total",
-    "Total hook and synthetic events recorded since the database was created.",
-    "counter",
-    [{ value: stmts.countEvents.get().count }]
-  );
-
-  // Connected realtime (WebSocket) clients.
-  let clients = 0;
+router.get("/", async (_req, res, next) => {
   try {
-    clients = getConnectionCount();
-  } catch {
-    /* websocket not up (e.g. under test without a server) — report 0 */
-  }
-  appendMetric(
-    out,
-    "ccam_websocket_clients",
-    "Currently connected realtime (WebSocket) dashboard clients.",
-    "gauge",
-    [{ value: clients }]
-  );
+    const out = [];
 
-  // Remote Data Sources, split by whether background auto-sync is enabled.
-  let enabledSources = 0;
-  let totalSources = 0;
-  try {
-    const rows = stmts.listRemoteSources.all();
-    totalSources = rows.length;
-    enabledSources = rows.filter((r) => r.enabled).length;
-  } catch {
-    /* remote_sources table absent on a very old DB — report 0 */
-  }
-  appendMetric(
-    out,
-    "ccam_remote_sources",
-    "Configured Remote Data Sources, split by auto-sync enabled state.",
-    "gauge",
-    [
-      { labels: { enabled: "true" }, value: enabledSources },
-      { labels: { enabled: "false" }, value: totalSources - enabledSources },
-    ]
-  );
+    appendMetric(out, "ccam_up", "1 when the dashboard API is serving this scrape.", "gauge", [
+      { value: 1 },
+    ]);
+    appendMetric(
+      out,
+      "ccam_build_info",
+      "Dashboard build info; the value is always 1, the version rides on the label.",
+      "gauge",
+      [{ labels: { version: APP_VERSION }, value: 1 }]
+    );
+    appendMetric(
+      out,
+      "ccam_process_uptime_seconds",
+      "Uptime of the dashboard server process in seconds.",
+      "gauge",
+      [{ value: Math.round(process.uptime()) }]
+    );
+    appendMetric(
+      out,
+      "ccam_process_resident_memory_bytes",
+      "Resident set size (RSS) of the dashboard server process in bytes.",
+      "gauge",
+      [{ value: process.memoryUsage().rss }]
+    );
 
-  // Cumulative token usage by kind (baseline_* preserves pre-compaction totals,
-  // matching how the pricing endpoints total usage).
-  const tokens = db
-    .prepare(
-      `SELECT
+    // Sessions by status.
+    const sessionCounts = new Map(stmts.sessionStatusCounts.all().map((r) => [r.status, r.count]));
+    appendMetric(
+      out,
+      "ccam_sessions",
+      "Number of sessions by lifecycle status.",
+      "gauge",
+      SESSION_STATUSES.map((status) => ({
+        labels: { status },
+        value: sessionCounts.get(status) || 0,
+      }))
+    );
+
+    // Agents by status.
+    const agentCounts = new Map(stmts.agentStatusCounts.all().map((r) => [r.status, r.count]));
+    appendMetric(
+      out,
+      "ccam_agents",
+      "Number of agents (main + subagents) by status.",
+      "gauge",
+      AGENT_STATUSES.map((status) => ({ labels: { status }, value: agentCounts.get(status) || 0 }))
+    );
+
+    // Event throughput (monotonic — a counter).
+    appendMetric(
+      out,
+      "ccam_events_total",
+      "Total hook and synthetic events recorded since the database was created.",
+      "counter",
+      [{ value: (await readCountQuery("SELECT COUNT(*) as count FROM events")).count }]
+    );
+
+    // Connected realtime (WebSocket) clients.
+    let clients = 0;
+    try {
+      clients = getConnectionCount();
+    } catch {
+      /* websocket not up (e.g. under test without a server) — report 0 */
+    }
+    appendMetric(
+      out,
+      "ccam_websocket_clients",
+      "Currently connected realtime (WebSocket) dashboard clients.",
+      "gauge",
+      [{ value: clients }]
+    );
+
+    // Remote Data Sources, split by whether background auto-sync is enabled.
+    let enabledSources = 0;
+    let totalSources = 0;
+    try {
+      const rows = stmts.listRemoteSources.all();
+      totalSources = rows.length;
+      enabledSources = rows.filter((r) => r.enabled).length;
+    } catch {
+      /* remote_sources table absent on a very old DB — report 0 */
+    }
+    appendMetric(
+      out,
+      "ccam_remote_sources",
+      "Configured Remote Data Sources, split by auto-sync enabled state.",
+      "gauge",
+      [
+        { labels: { enabled: "true" }, value: enabledSources },
+        { labels: { enabled: "false" }, value: totalSources - enabledSources },
+      ]
+    );
+
+    // Cumulative token usage by kind (baseline_* preserves pre-compaction totals,
+    // matching how the pricing endpoints total usage).
+    const tokens = db
+      .prepare(
+        `SELECT
          COALESCE(SUM(input_tokens + baseline_input), 0) AS input,
          COALESCE(SUM(output_tokens + baseline_output), 0) AS output,
          COALESCE(SUM(cache_read_tokens + baseline_cache_read), 0) AS cache_read,
          COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) AS cache_write
        FROM token_usage`
-    )
-    .get();
-  appendMetric(
-    out,
-    "ccam_tokens_total",
-    "Cumulative token usage across all sessions, by kind.",
-    "counter",
-    [
-      { labels: { kind: "input" }, value: tokens.input },
-      { labels: { kind: "output" }, value: tokens.output },
-      { labels: { kind: "cache_read" }, value: tokens.cache_read },
-      { labels: { kind: "cache_write" }, value: tokens.cache_write },
-    ]
-  );
+      )
+      .get();
+    appendMetric(
+      out,
+      "ccam_tokens_total",
+      "Cumulative token usage across all sessions, by kind.",
+      "counter",
+      [
+        { labels: { kind: "input" }, value: tokens.input },
+        { labels: { kind: "output" }, value: tokens.output },
+        { labels: { kind: "cache_read" }, value: tokens.cache_read },
+        { labels: { kind: "cache_write" }, value: tokens.cache_write },
+      ]
+    );
 
-  res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-  res.send(out.join("\n") + "\n");
+    res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    res.send(out.join("\n") + "\n");
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

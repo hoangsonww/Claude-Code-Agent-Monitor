@@ -4,11 +4,10 @@
  */
 
 const { Router } = require("express");
-const { stmts, db } = require("../db");
+const { readDashboardStats } = require("../db");
 const { getConnectionCount } = require("../websocket");
 const { parseSources } = require("../lib/source-filter");
 const { parseProviders } = require("../lib/provider-filter");
-const scoped = require("../lib/scoped-stats");
 
 const router = Router();
 
@@ -22,36 +21,26 @@ function localDayStart(dayStart, offsetMin) {
   return new Date(local.getTime() + offsetMin * 60000).toISOString();
 }
 
-router.get("/", (req, res) => {
-  // Client sends tz_offset (minutes from getTimezoneOffset(), e.g. 420 for PDT)
-  const rawOffset = parseInt(req.query.tz_offset, 10);
-  const offsetMin = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 840 ? rawOffset : 0;
-  const todayStart = localDayStart(req.query.day_start, offsetMin);
+router.get("/", async (req, res, next) => {
+  try {
+    // Client sends tz_offset (minutes from getTimezoneOffset(), e.g. 420 for PDT)
+    const rawOffset = parseInt(req.query.tz_offset, 10);
+    const offsetMin = Number.isFinite(rawOffset) && Math.abs(rawOffset) <= 840 ? rawOffset : 0;
+    const todayStart = localDayStart(req.query.day_start, offsetMin);
 
-  // Data-scope: when the user restricts to a subset of source machines, compute
-  // every count against that subset; otherwise use the cached prepared stmts.
-  const sources = parseSources(req);
-  const providers = parseProviders(req);
-  const isScoped = !!sources || !!providers;
-  const overview = isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get();
-  const agentsByStatus = isScoped
-    ? scoped.agentStatusCounts(db, sources, providers)
-    : stmts.agentStatusCounts.all();
-  const sessionsByStatus = isScoped
-    ? scoped.sessionStatusCounts(db, sources, providers)
-    : stmts.sessionStatusCounts.all();
+    // Data-scope: when the user restricts to a subset of source machines, compute
+    // every count against that subset; otherwise use the cached prepared stmts.
+    const sources = parseSources(req);
+    const providers = parseProviders(req);
+    const overview = await readDashboardStats(sources, providers, todayStart);
 
-  const eventsToday = isScoped
-    ? scoped.countEventsToday(db, sources, providers, todayStart)
-    : stmts.countEventsSince.get(todayStart);
-
-  res.json({
-    ...overview,
-    events_today: eventsToday?.count ?? 0,
-    ws_connections: getConnectionCount(),
-    agents_by_status: Object.fromEntries(agentsByStatus.map((r) => [r.status, r.count])),
-    sessions_by_status: Object.fromEntries(sessionsByStatus.map((r) => [r.status, r.count])),
-  });
+    res.json({
+      ...overview,
+      ws_connections: getConnectionCount(),
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

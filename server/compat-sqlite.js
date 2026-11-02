@@ -75,13 +75,19 @@ class Database {
         db.exec(nested ? `RELEASE ${savepoint}` : "COMMIT");
         return result;
       } catch (err) {
-        if (db.isTransaction) {
-          if (nested) {
-            db.exec(`ROLLBACK TO ${savepoint}`);
-            db.exec(`RELEASE ${savepoint}`);
-          } else {
-            db.exec("ROLLBACK");
+        // A failing ROLLBACK (busy or broken connection) must not replace the
+        // error that caused it; the caller needs the original cause.
+        try {
+          if (db.isTransaction) {
+            if (nested) {
+              db.exec(`ROLLBACK TO ${savepoint}`);
+              db.exec(`RELEASE ${savepoint}`);
+            } else {
+              db.exec("ROLLBACK");
+            }
           }
+        } catch (rollbackErr) {
+          console.warn("[compat-sqlite] rollback failed:", rollbackErr?.message || rollbackErr);
         }
         throw err;
       }

@@ -1375,3 +1375,5 @@ Settings coalesces bursts of remote completion notifications into a shared full 
 Interrupted remote sync flags become errors on restart without erasing the preceding import receipt.
 
 Remote retries preserve `last_error` and the status-message `error` field while checking. Settings labels it as the last error during retry; a successful sync clears the diagnostic. Previously imported rows and the last successful receipt remain available when transport fails.
+
+Settings coalesces bursts of remote completion notifications into a shared full reload. If another completion arrives during that reload, it performs one follow-up; changing scope or leaving the page cancels queued work. System-info polling continues independently.
