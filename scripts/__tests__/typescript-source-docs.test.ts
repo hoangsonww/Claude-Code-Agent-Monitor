@@ -55,22 +55,22 @@ test("analyzeSource extracts module facts from the TypeScript AST", () => {
   assert.deepEqual(facts.localImports, ["../lib/api", "../lib/types"]);
   assert.deepEqual(facts.packageImports, ["react", "react-i18next"]);
   assert.deepEqual(facts.exports, [
-    { kind: "interface", name: "WidgetProps" },
     { kind: "function alias", name: "exportedHelper" },
     { kind: "variable", name: "Widget" },
+    { kind: "interface", name: "WidgetProps" },
   ]);
   assert.deepEqual(facts.declarations, [
     { kind: "function", name: "helper" },
-    { kind: "interface", name: "WidgetProps" },
     { kind: "variable", name: "Widget" },
+    { kind: "interface", name: "WidgetProps" },
   ]);
   assert.deepEqual(facts.reactHooks, ["useMemo", "useState", "useTranslation"]);
   assert.deepEqual(facts.translationNamespaces, ["dashboard"]);
   assert.deepEqual(facts.apiPaths, ["/api/health", "/api/sessions/facets"]);
   assert.deepEqual(facts.testCases, [
-    "Widget",
     "keeps scope local",
     "renders the translated label",
+    "Widget",
   ]);
 });
 
@@ -84,7 +84,7 @@ test("renderMaintainerReference renders module-specific sections deterministical
   assert.match(block, /client component/);
   assert.match(block, /\.\.\/lib\/api/);
   assert.match(block, /react-i18next/);
-  assert.match(block, /WidgetProps \(interface\)/);
+  assert.match(block, /`WidgetProps` \(interface\)/);
   assert.match(block, /useMemo/);
   assert.match(block, /dashboard/);
   assert.match(block, /\/api\/sessions\/facets/);
