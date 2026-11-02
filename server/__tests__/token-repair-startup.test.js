@@ -157,9 +157,9 @@ async function runRepairNow() {
   } finally {
     global.setTimeout = realSetTimeout;
   }
-  for (const fn of pending) fn();
-  // Let the async body inside the timer settle.
-  await new Promise((resolve) => realSetTimeout(resolve, 250));
+  // Await the scheduled operation itself; a fixed sleep can race the marker
+  // and the next test on an overloaded host.
+  for (const fn of pending) await fn();
 }
 
 describe("startup token repair", () => {

@@ -228,6 +228,62 @@ function findCodexTranscripts(root = getCodexSessionsDir(), options = {}) {
   return files.sort((a, b) => b.mtimeMs - a.mtimeMs).map((file) => file.path);
 }
 
+/** Discover history without blocking HTTP delivery on filesystem metadata. */
+async function findCodexTranscriptsAsync(root = getCodexSessionsDir(), options = {}) {
+  const files = [];
+  const pending = [root];
+  while (pending.length) {
+    let entries;
+    const current = pending.pop();
+    try {
+      entries = await fs.promises.readdir(current, { withFileTypes: true });
+      if (options.isCurrent && !options.isCurrent()) return [];
+    } catch {
+      if (options.isCurrent && !options.isCurrent()) return [];
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) pending.push(fullPath);
+      else if (
+        entry.isFile() &&
+        entry.name.endsWith(".jsonl") &&
+        (entry.name.startsWith("rollout-") || options.includeAllJsonl)
+      ) {
+        files.push({ path: fullPath, mtimeMs: 0 });
+      }
+    }
+    // Limit pending metadata operations and preserve discovery order for ties.
+    await new Promise((resolve) => setImmediate(resolve));
+    if (options.isCurrent && !options.isCurrent()) return [];
+  }
+  for (let index = 0; index < files.length; index += 16) {
+    await Promise.all(
+      files.slice(index, index + 16).map(async (file) => {
+        try {
+          const stat = await fs.promises.stat(file.path);
+          file.mtimeMs = stat.mtimeMs;
+          options.observations?.set(file.path, stat);
+        } catch {
+          /* Unstattable files keep the same last-place ordering. */
+        }
+      })
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    if (options.isCurrent && !options.isCurrent()) return [];
+  }
+  // A late scan of an old home must not replace the current hook-path cache.
+  if (
+    path.resolve(root) === path.resolve(getCodexSessionsDir()) &&
+    (!options.isCurrent || options.isCurrent())
+  ) {
+    // Match the synchronous cache contract for duplicate session IDs: the
+    // last discovered path wins, independently of the returned mtime order.
+    for (const file of files) rememberTranscriptPath(file.path);
+  }
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).map((file) => file.path);
+}
+
 /**
  * Resolve a hook's session/thread id to its rollout file. A cache hit is O(1);
  * a cache miss safely falls back to the same recursive discovery used by the
@@ -1254,14 +1310,20 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
   };
   const events = [];
   let latestLifecycleRecord = null;
+  // Most live appends contain only tool output or token snapshots. Historical
+  // prompt enumeration is needed for deduplication only when this window
+  // contains a prompt; card aggregation and legacy repair still run below.
+  const hasUserPrompt = records.some((record) => Boolean(codexUserMessage(record)));
   const seenPromptKeys = new Set(
-    db
-      .prepare(
-        `SELECT created_at, summary FROM events
+    hasUserPrompt
+      ? db
+          .prepare(
+            `SELECT created_at, summary FROM events
          WHERE session_id = ? AND event_type = 'codex_user_message'`
-      )
-      .all(session.id)
-      .map((row) => `${row.created_at}\u0000${row.summary}`)
+          )
+          .all(session.id)
+          .map((row) => `${row.created_at}\u0000${row.summary}`)
+      : []
   );
 
   // Whether prompts may still set the session name. Evaluated once per call
@@ -1731,6 +1793,7 @@ module.exports = {
   CODEX_FOREIGN_SESSION,
   CONTEXT_SHORT_LIMIT,
   findCodexTranscripts,
+  findCodexTranscriptsAsync,
   findCodexTranscriptForSession,
   ingestCodexToolEvents,
   ingestCodexTranscript,

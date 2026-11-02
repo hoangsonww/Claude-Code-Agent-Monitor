@@ -1,5 +1,6 @@
 /**
- * @file Bounded, lazy read-only SQLite worker for expensive dashboard counts and event pages.
+ * @file Bounded, lazy read-only SQLite worker for dashboard counts, cost snapshots,
+ * task events and event pages.
  * Active reads share only within one database write generation; identical queued
  * reads share their future snapshot. Idle workers hold no connection or Node ref.
  * A worker that runs out of heap during a started read rejects only that read;
@@ -238,9 +239,9 @@ class ReadonlyQuery extends EventEmitter {
   }
 }
 
-/** Own and external commits both invalidate in-flight sharing; no TTL result cache. */
+/** Own/external commits and own schema changes invalidate snapshot sharing. */
 function databaseGeneration(db) {
-  return `${db.prepare("SELECT total_changes() AS n").get().n}:${db.pragma("data_version", { simple: true })}`;
+  return `${db.prepare("SELECT total_changes() AS n").get().n}:${db.pragma("data_version", { simple: true })}:${db.pragma("schema_version", { simple: true })}`;
 }
 
 module.exports = { ReadonlyQuery, databaseGeneration, EVENT_PAGE_BUDGET_BYTES };

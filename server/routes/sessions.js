@@ -11,7 +11,7 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const { setImmediate: yieldToEventLoop } = require("node:timers/promises");
-const { stmts, db } = require("../db");
+const { stmts, db, readRowsQuery, TASK_EVENTS_SQL } = require("../db");
 const { broadcast } = require("../websocket");
 const { calculateProviderCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
@@ -113,7 +113,7 @@ function sessionIsInScope(session, req) {
 }
 
 function taskEventsForSession(sessionId) {
-  return stmts.listTaskEventsBySession.all(sessionId);
+  return readRowsQuery(TASK_EVENTS_SQL, [sessionId]);
 }
 
 function taskProgressForSession(session, agents, events) {
@@ -147,8 +147,9 @@ async function attachTaskSummaries(sessions, res) {
       session.todo_summary = null;
       continue;
     }
+    const events = await taskEventsForSession(session.id);
+    if (res.destroyed) break;
     const agents = stmts.listAgentsBySession.all(session.id);
-    const events = taskEventsForSession(session.id);
     session.todo_summary = taskProgressForSession(session, agents, events).summary;
     // A list can contain 100 summaries. Let completed worker reads and light
     // HTTP requests run between sessions instead of blocking for the whole batch.

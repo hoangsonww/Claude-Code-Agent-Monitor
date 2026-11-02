@@ -31,6 +31,73 @@ for (const [driver, Constructor] of [
   ["compat", Compat],
 ]) {
   it(
+    `${driver}: cost usage and all rate cards stay on the pinned snapshot during writes`,
+    { skip: !Constructor, timeout: 30000 },
+    async () => {
+      const { file, db } = fixture(Constructor);
+      db.exec(`CREATE TABLE token_usage(model TEXT, output_tokens INTEGER);
+        INSERT INTO token_usage VALUES('fixture',10);
+        CREATE TABLE model_pricing(display_name TEXT, output_per_mtok REAL);
+        CREATE TABLE gpt_model_pricing(display_name TEXT, output_per_mtok REAL);
+        CREATE TABLE cursor_model_pricing(display_name TEXT, output_per_mtok REAL);
+        INSERT INTO model_pricing VALUES('fixture',1);
+        INSERT INTO gpt_model_pricing VALUES('fixture',2);
+        INSERT INTO cursor_model_pricing VALUES('fixture',3);`);
+      const reader = new ReadonlyQuery(file, { driver });
+      try {
+        const started = once(reader, "started");
+        const read = reader.read({
+          op: "cost",
+          sql: `SELECT * FROM (WITH RECURSIVE n(x) AS
+          (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<500000),
+          pause AS MATERIALIZED (SELECT MAX(x) AS done FROM n)
+          SELECT t.* FROM token_usage t CROSS JOIN pause WHERE pause.done=500000)`,
+        });
+        await started;
+        db.exec(`BEGIN;
+          UPDATE token_usage SET output_tokens=20;
+          UPDATE model_pricing SET output_per_mtok=11;
+          UPDATE gpt_model_pricing SET output_per_mtok=12;
+          UPDATE cursor_model_pricing SET output_per_mtok=13;
+          COMMIT;`);
+        const old = await read;
+        assert.equal(old.dailyTokens[0].output_tokens, 10);
+        assert.deepEqual(
+          [
+            old.rules[0].output_per_mtok,
+            old.gptRules[0].output_per_mtok,
+            old.cursorRules[0].output_per_mtok,
+          ],
+          [1, 2, 3]
+        );
+        const fresh = await reader.read({ op: "cost", sql: "SELECT * FROM token_usage" });
+        assert.equal(fresh.dailyTokens[0].output_tokens, 20);
+        assert.deepEqual(
+          [
+            fresh.rules[0].output_per_mtok,
+            fresh.gptRules[0].output_per_mtok,
+            fresh.cursorRules[0].output_per_mtok,
+          ],
+          [11, 12, 13]
+        );
+        await assert.rejects(
+          reader.read({ op: "cost", sql: "DELETE FROM token_usage" }),
+          /Only SELECT/
+        );
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM token_usage").get().n, 1);
+      } finally {
+        await reader.close();
+        db.close();
+      }
+    }
+  );
+}
+
+for (const [driver, Constructor] of [
+  ["native", Native],
+  ["compat", Compat],
+]) {
+  it(
     `${driver}: a read that exhausts the worker heap fails alone and queued reads continue`,
     { timeout: 30000, skip: !Constructor },
     async () => {
@@ -121,6 +188,75 @@ for (const [driver, Constructor] of [
   ["native", Native],
   ["compat", Compat],
 ]) {
+  it(
+    `${driver}: event page, sparse probe fallback and raw count retain one snapshot during writes`,
+    { skip: !Constructor, timeout: 30000 },
+    async () => {
+      const { file, db } = fixture(Constructor);
+      const reader = new ReadonlyQuery(file, { driver });
+      try {
+        const started = once(reader, "started");
+        const reading = reader.read({
+          op: "eventPage",
+          page: {
+            sql: "SELECT * FROM events ORDER BY id DESC LIMIT 2",
+            probe: {
+              sql: `SELECT * FROM (WITH RECURSIVE n(x) AS
+              (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<500000)
+              SELECT id,session_id,created_at FROM events WHERE id=(SELECT max(x) FROM n))`,
+              params: [],
+              limit: 2,
+            },
+          },
+          count: { sql: "SELECT COUNT(*) AS count FROM events" },
+        });
+        await started;
+        db.exec("INSERT INTO events VALUES(99,'local',datetime('now'))");
+        const old = await reading;
+        assert.deepEqual(
+          old.events.map((r) => r.id),
+          [3, 2]
+        );
+        assert.equal(old.total, 3, "raw total must use the page/probe snapshot");
+        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events").get().count, 4);
+        const fresh = await reader.read({
+          op: "eventPage",
+          page: { sql: "SELECT * FROM events ORDER BY id DESC LIMIT 2" },
+          count: { sql: "SELECT COUNT(*) AS count FROM events" },
+        });
+        assert.deepEqual(
+          fresh.events.map((r) => r.id),
+          [99, 3]
+        );
+        assert.equal(fresh.total, 4);
+        const scopedPage = {
+          op: "eventPage",
+          page: {
+            sql: "SELECT * FROM events WHERE session_id=? ORDER BY id DESC",
+            params: ["box"],
+          },
+          count: {
+            sql: "SELECT COUNT(*) AS count FROM events WHERE session_id=?",
+            params: ["box"],
+          },
+        };
+        assert.equal((await reader.read(scopedPage)).total, 2);
+        for (const invalid of [
+          { ...scopedPage, page: { sql: "DELETE FROM events" } },
+          { ...scopedPage, count: { sql: "DELETE FROM events" } },
+        ])
+          await assert.rejects(reader.read(invalid), /Only SELECT/);
+        assert.equal(
+          (await reader.read(scopedPage)).total,
+          2,
+          "query errors must release the worker"
+        );
+      } finally {
+        await reader.close();
+        db.close();
+      }
+    }
+  );
   it(
     `${driver}: row reads preserve payloads, freshness and SELECT-only errors`,
     { skip: !Constructor },
@@ -391,65 +527,6 @@ for (const [driver, Constructor] of [
         assert.equal((await old).count, 5000000);
         assert.ok((await Promise.all(requests)).every((row) => row.count === 40));
         assert.equal(starts, 2, "write generation churn must not enqueue 40 SQLite scans");
-      } finally {
-        await reader.close();
-        db.close();
-      }
-    }
-  );
-}
-
-for (const [driver, Constructor] of [
-  ["native", Native],
-  ["compat", Compat],
-]) {
-  it(
-    `${driver}: event page and raw total share the pinned snapshot during writes`,
-    { skip: !Constructor, timeout: 30000 },
-    async () => {
-      const { file, db } = fixture(Constructor);
-      const reader = new ReadonlyQuery(file, { driver });
-      try {
-        const started = once(reader, "started");
-        const oldReading = reader.read({
-          op: "eventPage",
-          page: {
-            sql: `SELECT e.* FROM (WITH RECURSIVE n(x) AS
-              (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<500000)
-              SELECT MAX(x) AS done FROM n) pause CROSS JOIN events e
-              WHERE pause.done=500000 ORDER BY e.id DESC LIMIT 2`,
-          },
-          count: { sql: "SELECT COUNT(*) AS count FROM events" },
-        });
-        await started;
-        db.exec("INSERT INTO events VALUES(99,'local',datetime('now'))");
-        const old = await oldReading;
-        assert.deepEqual(
-          old.events.map((row) => row.id),
-          [3, 2]
-        );
-        assert.equal(old.total, 3);
-        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events").get().count, 4);
-        const query = {
-          op: "eventPage",
-          page: { sql: "SELECT * FROM events ORDER BY id DESC LIMIT 2" },
-          count: { sql: "SELECT COUNT(*) AS count FROM events" },
-        };
-        const fresh = await reader.read(query);
-        assert.deepEqual(
-          fresh.events.map((row) => row.id),
-          [99, 3]
-        );
-        assert.equal(fresh.total, 4);
-        await assert.rejects(
-          reader.read({ ...query, page: { sql: "DELETE FROM events" } }),
-          /Only SELECT/
-        );
-        await assert.rejects(
-          reader.read({ ...query, count: { sql: "DELETE FROM events" } }),
-          /Only SELECT/
-        );
-        assert.equal((await reader.read(query)).total, 4);
       } finally {
         await reader.close();
         db.close();

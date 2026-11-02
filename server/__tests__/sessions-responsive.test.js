@@ -1,7 +1,8 @@
 /**
  * @file Verifies real HTTP responsiveness during a batch of session task reads,
  * preserves all task summaries and forwards failures after yielding to Express.
- * The child uses real synchronous SQLite work so the client can observe stalls.
+ * The child uses real slow SQLite in the production reader; no fake delay can
+ * hide a synchronous task read on the HTTP thread.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 const { it, after } = require("node:test");
@@ -15,22 +16,25 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-session-responsive-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 const childCode = `
   const { createApp, startServer } = require('./server/index');
-  const { db, stmts } = require('./server/db');
+  const { db, TASK_EVENTS_SQL } = require('./server/db');
+  const { ReadonlyQuery } = require('./server/lib/readonly-query');
   for (let n = 0; n < 8; n++) {
     const id = 'responsive-' + n;
     db.prepare('INSERT INTO sessions(id,name,cwd,provider) VALUES(?,?,?,?)').run(id,id,process.env.CLAUDE_HOME,'claude');
     db.prepare('INSERT INTO agents(id,session_id,name,type) VALUES(?,?,?,?)').run(id,id,id,'main');
     db.prepare('INSERT INTO events(session_id,agent_id,event_type,summary,data) VALUES(?,?,?,?,?)').run(id,id,'TaskCreated','One task',JSON.stringify({task_id:'one',status:'pending'}));
   }
-  const slow = db.prepare('WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<400000) SELECT MAX(x) FROM n');
-  const original = stmts.listTaskEventsBySession.all;
+  const original = ReadonlyQuery.prototype.read;
   let calls = 0, failAt = 0;
-  stmts.listTaskEventsBySession.all = function(...args) {
+  ReadonlyQuery.prototype.read = function(query, generation) {
+    if (query.sql !== TASK_EVENTS_SQL) return original.call(this,query,generation);
     calls++;
-    if (calls === 1) process.send({type:'summary-started'});
-    slow.get();
-    if (calls === failAt) throw new Error('task read failed');
-    return original.apply(this,args);
+    if (calls === 1) this.once('started',()=>process.send({type:'summary-started'}));
+    const sql = calls === failAt ? 'SELECT "task read failed" FROM missing_task_table' :
+      'SELECT * FROM (WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<400000), '+
+      'pause AS MATERIALIZED (SELECT MAX(x) AS done FROM n) '+
+      'SELECT e.* FROM ('+query.sql+') e CROSS JOIN pause WHERE pause.done=400000)';
+    return original.call(this,{...query,sql},generation);
   };
   process.on('message', message => {
     if (message.type === 'reset') { calls=0;failAt=message.failAt||0;process.send({type:'reset'}); }

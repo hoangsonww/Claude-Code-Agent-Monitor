@@ -11,7 +11,7 @@ const { stmts } = require("../db");
 const { isLocalHistoryOwner } = require("./session-origin");
 const { getDataDir } = require("./claude-home");
 const { getCodexSessionsDir } = require("./codex-home");
-const { findCodexTranscripts, ingestCodexTranscript } = require("./codex-ingest");
+const { findCodexTranscriptsAsync, ingestCodexTranscript } = require("./codex-ingest");
 const { writeSnapshot } = require("./snapshot-store");
 
 const SNAPSHOT_DIR = () => path.join(getDataDir(), "codex-transcripts");
@@ -136,7 +136,7 @@ async function importCodexFromDirectory(root, options = {}) {
     if (typeof options.isExcludedSession !== "function") return false;
     return !!options.isExcludedSession(id);
   };
-  const transcripts = findCodexTranscripts(resolvedRoot, { includeAllJsonl: true });
+  const transcripts = await findCodexTranscriptsAsync(resolvedRoot, { includeAllJsonl: true });
   const titles = readNativeTitles(resolvedRoot);
   const counters = {
     imported: 0,

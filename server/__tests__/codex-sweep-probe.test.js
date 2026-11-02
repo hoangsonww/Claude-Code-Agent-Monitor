@@ -132,3 +132,22 @@ it("unobserved paths and unavailable census remain unknown, positive evidence st
   const positive = { available: true, paths: new Set([file]) };
   assert.equal(select(positive, file, stat), positive.paths);
 });
+
+it("async discovery observations preserve the negative fence without another synchronous stat pass", async (t) => {
+  const { file } = fixture();
+  const { findCodexTranscriptsAsync } = require("../lib/codex-ingest");
+  const observations = new Map();
+  const transcripts = await findCodexTranscriptsAsync(path.dirname(file), { observations });
+  const statSync = fs.statSync;
+  t.after(() => {
+    fs.statSync = statSync;
+  });
+  fs.statSync = () => {
+    throw new Error("synchronous fence metadata pass");
+  };
+  const select = createCodexProbeFence(transcripts, db, observations);
+  const fresh = await fs.promises.stat(file);
+  assert.equal(select(absent, file, fresh), absent.paths);
+  fs.appendFileSync(file, "{}\n");
+  assert.equal(select(absent, file, await fs.promises.stat(file)), null);
+});

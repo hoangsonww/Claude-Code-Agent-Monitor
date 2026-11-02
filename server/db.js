@@ -1705,6 +1705,13 @@ function optimizeQueryPlanner(connection = db) {
 // be planned using the actual distribution of a populated history database.
 optimizeQueryPlanner();
 
+const TASK_EVENTS_SQL = `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+  CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+  FROM events WHERE session_id = ? AND event_type IN (
+    'TaskCreated', 'TaskCompleted', 'UserPromptSubmit', 'cursor_user_message',
+    'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
+  ) ORDER BY created_at ASC, id ASC`;
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -1961,16 +1968,7 @@ const stmts = {
   // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
   // (background_tasks, last_assistant_message), so return them as NULL
   // instead of shipping and parsing them on every list call.
-  listTaskEventsBySession: db.prepare(
-    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
-       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
-     FROM events
-     WHERE session_id = ? AND event_type IN (
-       'TaskCreated', 'TaskCompleted',
-       'UserPromptSubmit', 'cursor_user_message', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
-     )
-     ORDER BY created_at ASC, id ASC`
-  ),
+  listTaskEventsBySession: db.prepare(TASK_EVENTS_SQL),
   // Codex rollout lifecycle reconciliation reads only the terminal/current
   // turn markers, never the high-volume tool/result records.
   getLatestCodexLifecycleEvent: db.prepare(
@@ -2488,21 +2486,107 @@ db.close = () => {
   return closeDatabase();
 };
 
+// Cache only compact counts whose committed generation is verified on both
+// sides of the worker read. Payload reads and rolling time windows bypass it.
+const readCache = { generation: "", results: new Map(), hits: 0, misses: 0 };
+const readCacheFile = (() => {
+  try {
+    const stat = fs.statSync(DB_PATH, { bigint: true });
+    return `${stat.dev}:${stat.ino}`;
+  } catch {
+    return null;
+  }
+})();
+function sameReadCacheFile() {
+  if (readCacheFile === null) return false;
+  try {
+    fs.accessSync(DB_PATH, fs.constants.R_OK);
+    const stat = fs.statSync(DB_PATH, { bigint: true });
+    return `${stat.dev}:${stat.ino}` === readCacheFile;
+  } catch {
+    return false;
+  }
+}
+
+const STATIC_COUNT_SQL = new Set(
+  ["events", "sessions", "agents"].map((table) => `select count(*) as count from ${table}`)
+);
+function compactRead(query, cacheKey, stillCurrent = () => true) {
+  const generation = databaseGeneration(db);
+  const eligible =
+    db.inTransaction === false &&
+    sameReadCacheFile() &&
+    typeof cacheKey === "string" &&
+    cacheKey.length <= 4096;
+  if (eligible) {
+    if (readCache.generation !== generation) {
+      readCache.generation = generation;
+      readCache.results.clear();
+    }
+    if (stillCurrent() && readCache.results.has(cacheKey)) {
+      readCache.hits++;
+      return Promise.resolve(structuredClone(readCache.results.get(cacheKey)));
+    }
+    readCache.misses++;
+  }
+  return queryReader.read(query, generation).then((result) => {
+    // A flight from an older generation must never replace a newer cache.
+    if (
+      eligible &&
+      db.inTransaction === false &&
+      sameReadCacheFile() &&
+      stillCurrent() &&
+      readCache.generation === generation &&
+      databaseGeneration(db) === generation
+    ) {
+      try {
+        if (Buffer.byteLength(JSON.stringify(result)) <= 64 * 1024) {
+          const copy = structuredClone(result);
+          if (readCache.results.size >= 32 && !readCache.results.has(cacheKey))
+            readCache.results.delete(readCache.results.keys().next().value);
+          readCache.results.set(cacheKey, copy);
+          return structuredClone(copy);
+        }
+      } catch {
+        /* Non-compact/non-cloneable results remain uncached. */
+      }
+    }
+    return result;
+  });
+}
 function readCountQuery(sql, params = []) {
   sql = sql.trim();
   if (!queryReader) return Promise.resolve(db.prepare(sql).get(...params));
-  return queryReader.read({ op: "get", sql, params }, databaseGeneration(db));
+  const query = { op: "get", sql, params };
+  const normalized = sql.replace(/\s+/g, " ").toLowerCase();
+  const cacheKey =
+    STATIC_COUNT_SQL.has(normalized) && params.length === 0 ? JSON.stringify(query) : null;
+  return compactRead(query, cacheKey);
 }
 
-function readRowsQuery(sql, params = []) {
+function readRowsQuery(sql, params = [], probe = null) {
   sql = sql.trim();
-  if (!queryReader) return Promise.resolve(db.prepare(sql).all(...params));
-  return queryReader.read({ op: "all", sql, params }, databaseGeneration(db));
+  if (!queryReader) {
+    if (probe) {
+      const rows = db.prepare(probe.sql).all(...probe.params);
+      if (rows.length === probe.limit) return Promise.resolve(rows);
+    }
+    return Promise.resolve(db.prepare(sql).all(...params));
+  }
+  return queryReader.read(
+    { op: probe ? "page" : "all", sql, params, ...(probe ? { probe } : {}) },
+    databaseGeneration(db)
+  );
 }
 
 function readEventPageSync(page, count) {
   return db.transaction(() => {
-    const events = db.prepare(page.sql).all(...(page.params || []));
+    let events;
+    if (page.probe) {
+      const rows = db.prepare(page.probe.sql).all(...page.probe.params);
+      if (rows.length === page.probe.limit) events = rows;
+    }
+    if (!events) events = db.prepare(page.sql).all(...(page.params || []));
     const { count: total } = db.prepare(count.sql).get(...(count.params || []));
     return { events, total };
   })();
@@ -2516,10 +2600,13 @@ function readEventPageQuery(page, count) {
   page = { ...page, sql: page.sql.trim() };
   count = { ...count, sql: count.sql.trim() };
   if (!queryReader) return Promise.resolve(readEventPageSync(page, count));
+  const sizeSql = (sql) =>
+    `SELECT id, IFNULL(length(CAST(summary AS BLOB)), 0) + IFNULL(length(CAST(data AS BLOB)), 0) AS bytes FROM (${sql})`;
   const measured = {
     ...page,
-    sizeSql: `SELECT id, IFNULL(length(CAST(summary AS BLOB)), 0) + IFNULL(length(CAST(data AS BLOB)), 0) AS bytes FROM (${page.sql})`,
+    sizeSql: sizeSql(page.sql),
     fetchSql: "SELECT * FROM events WHERE id IN (SELECT value FROM json_each(?))",
+    ...(page.probe ? { probe: { ...page.probe, sizeSql: sizeSql(page.probe.sql) } } : {}),
   };
   return queryReader.read({ op: "eventPage", page: measured, count }, databaseGeneration(db)).then(
     (result) => (result.overflow ? readEventPageSync(page, count) : result),
@@ -2528,6 +2615,20 @@ function readEventPageQuery(page, count) {
       throw error;
     }
   );
+}
+
+// Keep usage and all provider rate cards on one worker snapshot. Otherwise a
+// pricing edit during the await could price old usage using a newer rate card.
+function readCostQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader)
+    return Promise.resolve({
+      dailyTokens: db.prepare(sql).all(...params),
+      rules: stmts.listPricing.all(),
+      gptRules: stmts.listGptPricing.all(),
+      cursorRules: stmts.listCursorPricing.all(),
+    });
+  return queryReader.read({ op: "cost", sql, params }, databaseGeneration(db));
 }
 
 function readDashboardStats(sources, providers, todayStart) {
@@ -2554,7 +2655,12 @@ function readDashboardStats(sources, providers, todayStart) {
       ),
     });
   }
-  return queryReader.read({ op: "stats", sources, providers, todayStart }, databaseGeneration(db));
+  const query = { op: "stats", sources, providers, todayStart };
+  const cacheKey =
+    typeof todayStart === "string" && Number.isFinite(Date.parse(todayStart))
+      ? JSON.stringify(query)
+      : null;
+  return compactRead(query, cacheKey);
 }
 
 module.exports = {
@@ -2562,7 +2668,9 @@ module.exports = {
   readCountQuery,
   readRowsQuery,
   readEventPageQuery,
+  readCostQuery,
   readDashboardStats,
+  TASK_EVENTS_SQL,
   db,
   stmts,
   DB_PATH,

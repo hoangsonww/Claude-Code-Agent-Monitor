@@ -4,7 +4,8 @@
  * search, date range) plus pagination. Also exposes a `/facets` endpoint that
  * returns the distinct event_type and tool_name values currently in the DB,
  * so the UI can populate filter dropdowns without hardcoding them. Page reads
- * select ordered IDs before fetching payloads and run in the bounded read-only worker.
+ * select ordered IDs before fetching payloads; page and count share one snapshot
+ * in the bounded read-only worker.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -108,11 +109,35 @@ router.get("/", async (req, res, next) => {
 
     const { sql: whereSql, params: whereParams } = buildWhere(filters);
 
-    const listSql = `SELECT * FROM events ${whereSql} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
+    // Keep full payloads out of the scope-filtered sort. The inner LIMIT also
+    // prevents flattening, so only the requested page is fetched by primary key.
+    const listSql = `SELECT e.* FROM events e
+      JOIN (SELECT id FROM events ${whereSql}
+            ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?) page ON page.id = e.id
+      ORDER BY e.created_at DESC, e.id DESC`;
     const countSql = `SELECT COUNT(*) as count FROM events ${whereSql}`;
 
+    // Scope-first plans can sort millions of matching historical IDs to serve
+    // the first page. Try a bounded newest global prefix first. LIMIT prevents
+    // flattening: predicates examine only these candidates by primary key.
+    // A full result proves the page complete; otherwise the reader falls back
+    // to listSql on the same snapshot, preserving sparse/old scope semantics.
+    const probe =
+      whereSql && limit + offset <= 500
+        ? {
+            sql: `SELECT e.* FROM events e JOIN (
+              SELECT candidate.id FROM (
+                SELECT id FROM events ORDER BY created_at DESC, id DESC LIMIT ?
+              ) recent CROSS JOIN events candidate ON candidate.id = recent.id
+              ${whereSql}
+              ORDER BY candidate.created_at DESC, candidate.id DESC LIMIT ? OFFSET ?
+            ) page ON page.id = e.id ORDER BY e.created_at DESC, e.id DESC`,
+            params: [Math.max(128, 4 * (limit + offset)), ...whereParams, limit, offset],
+            limit,
+          }
+        : null;
     const { events, total } = await readEventPageQuery(
-      { sql: listSql, params: [...whereParams, limit, offset] },
+      { sql: listSql, params: [...whereParams, limit, offset], ...(probe ? { probe } : {}) },
       { sql: countSql, params: whereParams }
     );
 

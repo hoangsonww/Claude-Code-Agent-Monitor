@@ -30,7 +30,7 @@ for (const status of [500, 503]) {
       );
     const server = await startServer(createApp(), 0);
     try {
-      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/stats`);
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/pricing/cost`);
       assert.equal(response.status, status);
       assert.match(response.headers.get("content-type"), /application\/json/);
       const body = await response.json();
