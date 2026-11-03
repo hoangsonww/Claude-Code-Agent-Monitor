@@ -372,11 +372,14 @@ responses include human turns, legacy `function_call` records, and the primary
 can render the actual command flow rather than only `wait` calls. Both providers
 also expose persisted PNG/JPEG/GIF/WebP user attachments as `image` content blocks;
 missing or expired files are simply omitted, and Codex's duplicated response/event
-user records are returned as one human turn. Cursor main sessions can return
-`prompt_history.json` turns before JSONL exists. Their messages carry stable `id`
-values; an incremental result with `refresh: true` is a latest window that clients
-merge by `id`, allowing the canonical transcript to replace the pending prompt
-without duplication.
+user records are returned as one human turn. Cursor main sessions prefer the
+ordered native `store.db` conversation, including tool calls/results and the
+concrete response model, when it is at least as complete as the JSONL; otherwise
+the richer JSONL wins. `prompt_history.json` remains the pre-transcript fallback.
+All sources are snapshotted, their messages carry stable `id` values, and an
+incremental result with `refresh: true` is a latest window that clients merge by
+`id`. A Cursor `/resume` shell ID is also accepted here and resolves to the
+canonical conversation ID returned in the response.
 
 #### Read Persisted Transcript Image
 

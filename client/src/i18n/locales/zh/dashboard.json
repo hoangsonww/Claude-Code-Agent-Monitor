@@ -7,6 +7,7 @@
   "eventsToday": "今日事件",
   "totalEvents": "总事件数",
   "totalCost": "API 费用估算",
+  "costInfoLabel": "关于 API 费用估算",
   "viewBoard": "查看看板",
   "viewAll": "查看全部",
   "activeAgentsSection": "活跃Agent",

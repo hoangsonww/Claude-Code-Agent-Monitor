@@ -467,6 +467,15 @@ export function SessionDetail() {
         api.sessions.get(id),
         api.pricing.sessionCost(id).catch(() => null),
       ]);
+      if (data.session.id !== id) {
+        navigate(
+          {
+            pathname: `/sessions/${encodeURIComponent(data.session.id)}`,
+            search: typeof window !== "undefined" ? window.location.search : "",
+          },
+          { replace: true }
+        );
+      }
       setSession(data.session);
       setAgents(data.agents);
       setWorkflows(data.workflows || []);
@@ -477,7 +486,7 @@ export function SessionDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, scope, t]);
+  }, [id, navigate, scope, t]);
 
   usePaletteAction("page.refresh", () => {
     void load();

@@ -5,7 +5,7 @@
   "totalSessions": "전체 세션",
   "totalAgents": "전체 Agent",
   "totalTokens": "전체 토큰",
-  "totalCost": "총 비용",
+  "totalCost": "API 예상 비용",
   "totalEvents": "전체 이벤트",
   "cacheHitRate": "% 캐시 적중률",
   "perSession": " 세션당",

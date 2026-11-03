@@ -44,6 +44,8 @@
  * ## Package dependency edges
  * - `lucide-react` — external package boundary; keep usage within the installed version and the
  *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
  *
  * ## Public surface
  * - `StatCard` (function) — exported contract; search downstream imports and tests before changing
@@ -166,6 +168,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "./Tip";
 import { StatValueSkeleton } from "./Skeleton";
@@ -174,6 +177,8 @@ import { StatValueSkeleton } from "./Skeleton";
 interface StatCardProps {
   /** Uppercase label above the value (usually a translated metric name). */
   label: string;
+  /** Optional control rendered immediately after the label. */
+  labelAccessory?: ReactNode;
   /** Primary metric — pre-formatted by the caller. */
   value: string | number;
   /** Decorative icon in the card header. */
@@ -194,6 +199,7 @@ interface StatCardProps {
  */
 export function StatCard({
   label,
+  labelAccessory,
   value,
   icon: Icon,
   trend,
@@ -204,9 +210,18 @@ export function StatCard({
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
-          {label}
-        </span>
+        {labelAccessory ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+              {label}
+            </span>
+            {labelAccessory}
+          </div>
+        ) : (
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+            {label}
+          </span>
+        )}
         <Icon className={`w-5 h-5 flex-shrink-0 ${accentColor}`} />
       </div>
       <div className="flex items-end gap-2 min-w-0">

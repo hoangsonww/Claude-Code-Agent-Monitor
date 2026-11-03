@@ -30,8 +30,12 @@
  *   before changing assumptions here.
  * - `../lib/types` — repository-local contract consumed by this module; review its exports before
  *   changing assumptions here.
+ * - `./Tip` — repository-local contract consumed by this module; review its exports before changing
+ *   assumptions here.
  *
  * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
  * - `react-i18next` — external package boundary; keep usage within the installed version and the
  *   repository's existing adapter patterns.
  * - `react-router` — external package boundary; keep usage within the installed version and the
@@ -40,12 +44,22 @@
  * ## Public surface
  * - `CostCoverage` (function) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
+ * - `CostEstimateInfo` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `useCostCoverageText` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
  *
  * ## Top-level implementation landmarks
  * - `CostCoverage` (function) — top-level declaration that helps orient code review and focused
  *   test selection.
+ * - `CostEstimateInfo` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `useCostCoverageText` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
  *
  * ## React and framework hooks
+ * - `useCostCoverageText` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
  *
@@ -116,21 +130,14 @@
 
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Info } from "lucide-react";
 import type { DataScope } from "../lib/dataScope";
 import type { UnpricedModel } from "../lib/types";
+import { Tip } from "./Tip";
 
 export function CostCoverage({ scope, unpriced }: { scope: DataScope; unpriced: UnpricedModel[] }) {
+  const { pricingAnchor, scopeKey, provider, models } = useCostCoverageText(scope, unpriced);
   const { t } = useTranslation("dashboard");
-  const scopeKey =
-    scope.mode === "local"
-      ? "scopeLocal"
-      : scope.mode === "selected"
-        ? "scopeSelected"
-        : "scopeAll";
-  const models = [...new Set(unpriced.map((row) => row.model))].join(", ");
-  // An unset product scope reads Claude data, so label and rate links follow it.
-  const provider = scope.provider || "claude";
-  const pricingAnchor = provider === "codex" ? "gpt-pricing" : "claude-pricing";
   return (
     <div className="text-xs text-gray-400 mb-4 space-y-1">
       <p>{t("costEstimate")}</p>
@@ -152,4 +159,55 @@ export function CostCoverage({ scope, unpriced }: { scope: DataScope; unpriced: 
       )}
     </div>
   );
+}
+
+/** Compact info trigger for the explanatory copy attached to cost-card labels. */
+export function CostEstimateInfo({
+  scope,
+  unpriced,
+}: {
+  scope: DataScope;
+  unpriced: UnpricedModel[];
+}) {
+  const { t } = useTranslation("dashboard");
+  const { text } = useCostCoverageText(scope, unpriced);
+  return (
+    <Tip
+      raw={text}
+      maxWidth={360}
+      ariaLabel={t("costInfoLabel")}
+      variant="info"
+      triggerClassName="flex-shrink-0 rounded-full leading-none text-gray-500 transition-colors hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+    >
+      <Info aria-hidden="true" className="h-3.5 w-3.5" />
+    </Tip>
+  );
+}
+
+/** Localized multiline body shared by Dashboard and Analytics cost tooltips. */
+export function useCostCoverageText(scope: DataScope, unpriced: UnpricedModel[]) {
+  const { t } = useTranslation("dashboard");
+  const scopeKey =
+    scope.mode === "local"
+      ? "scopeLocal"
+      : scope.mode === "selected"
+        ? "scopeSelected"
+        : "scopeAll";
+  const models = [...new Set(unpriced.map((row) => row.model))].join(", ");
+  const provider = scope.provider || "claude";
+  const pricingAnchor = provider === "codex" ? "gpt-pricing" : "claude-pricing";
+  const scopeText = t("costScope", {
+    sources: t(`settings:remoteSources.${scopeKey}`),
+    providers: t(`settings:display.${provider}`),
+  });
+  const incomplete = unpriced.length
+    ? `${t("costIncomplete", { models })} ${t("reviewRates")}`
+    : "";
+  return {
+    text: [t("costEstimate"), scopeText, incomplete].filter(Boolean).join("\n"),
+    pricingAnchor,
+    scopeKey,
+    provider,
+    models,
+  };
 }

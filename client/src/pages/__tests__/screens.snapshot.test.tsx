@@ -101,6 +101,8 @@
  *   rationale.
  * - `Analytics` — executable behavior named by this suite; preserve the observable contract or
  *   update the test with rationale.
+ * - `Analytics cost info icon explains API scope and missing rates` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
  * - `Claude Config` — executable behavior named by this suite; preserve the observable contract or
  *   update the test with rationale.
  * - `Dashboard` — executable behavior named by this suite; preserve the observable contract or
@@ -858,6 +860,49 @@ describe("screen snapshots", () => {
   });
   it("Analytics", async () => {
     await snapshot(<Analytics />, "/analytics");
+  });
+  it("Analytics cost info icon explains API scope and missing rates", async () => {
+    vi.mocked(api.pricing.totalCost).mockResolvedValueOnce({
+      total_cost: 22495.33,
+      breakdown: [],
+      daily_costs: [],
+      feature_costs: {
+        web_search_cost: 0,
+        web_fetch_cost: 0,
+        code_execution_cost: 0,
+        code_execution_hours_estimated: 0,
+        code_execution_free_hours: 0,
+      },
+      unpriced_models: [
+        {
+          model: "gpt-5-codex",
+          input_tokens: 1,
+          output_tokens: 0,
+          cache_read_tokens: 0,
+          cache_write_tokens: 0,
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/analytics"]}>
+        <Analytics />
+      </MemoryRouter>
+    );
+    await settle();
+
+    const card = screen.getByText("API Cost Estimate").closest(".card");
+    expect(card).not.toBeNull();
+    fireEvent.focus(within(card as HTMLElement).getByText("$22.50K"));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("$22,495.33");
+    expect(screen.getByRole("tooltip")).not.toHaveTextContent("API-equivalent estimate");
+    fireEvent.blur(within(card as HTMLElement).getByText("$22.50K"));
+    fireEvent.focus(within(card as HTMLElement).getByLabelText("About API cost estimate"));
+    const infoTooltip = screen.getByRole("tooltip");
+    expect(infoTooltip).toHaveTextContent("API-equivalent estimate, not subscription charges.");
+    expect(infoTooltip).toHaveTextContent("Sources: All sources · Products: Claude Code");
+    expect(infoTooltip).toHaveTextContent(
+      "Incomplete estimate: some usage has no applicable rate (gpt-5-codex). Review pricing"
+    );
   });
   it("Workflows", async () => {
     await snapshot(<Workflows />, "/workflows");

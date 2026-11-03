@@ -315,7 +315,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **任务进度** | 汇总 Claude 任务工具、旧版 `TodoWrite` 与 Codex `update_plan` 的按归属进度。卡片和表格行显示紧凑预览；会话详情增加状态分段、当前工作、归属信息和每页 10 行的分页。新的顶层工作会清除陈旧的未完成状态，已完成历史仍保留。 |
 | **Dashboard** | 持久化的 **Monitor** 和 **Health** 标签页汇总 Agent 总量、活跃层级、最近活动、加权的成功率/缓存/错误/堆内存健康度，以及存储、工具、模型、Subagent 效能和压缩指标。Health 每 5 秒从 `/api/settings/info` 和 `/api/workflows` 刷新。 |
 | **Kanban 看板** | Agent 列覆盖 Working、Waiting、Completed 和 Error，会话列另含 Active 和 Abandoned。卡片每次显示 10 张，仅订阅当前 WebSocket 视图，保留完整标题，并说明权限输入、回合完成、提示符空闲或中断等等待原因。 |
-| **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。 |
+| **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。Cursor 的原生生成标题一旦出现在元数据中，就会替换临时的首条提示回退名。 |
 | **会话详情** | 实时统计、当前工作、工具用量、Subagent、Token、层级、筛选后的事件时间线、`tool_use_id` 分组和工具专用渲染器。对话视图渲染排队回合、系统通知、Markdown、高亮代码和样式化工具；等待横幅显示原因和已等待时长。 |
 | **活动流** | 可暂停的实时事件流，带共享筛选器、服务端分页、分组、项目/会话/Subagent 来源、会话链接，以及一致的 Claude/Codex 状态徽标。 |
 | **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。 |
@@ -327,7 +327,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **Subagent 层级** | Dashboard 和会话详情中的可折叠父子树会在子项活跃时自动展开。 |
 | **后台 Agent** | 后台 Subagent 会持续受跟踪，不会过早完成。 |
 | **Subagent 工具归属** | `SubagentStop` 和启动扫描导入每个 Subagent 的 JSONL 工具，按 `tool_use_id` 配对结果并去重，在 30 秒内合并匹配的实时行，再根据已生成的子项 ID 重建真实嵌套父级。重新归属只追加变更，即使未插入行也会触发 UI 刷新。 |
-| **成本跟踪** | 可配置的按模型和按会话定价支持带日期的介绍价、可编辑促销类别、每个 Subagent 自身的成本，以及跨压缩安全的总计。Transcript 读取使用缓存的增量字节偏移。 |
+| **成本跟踪** | API 等价估算（并非订阅扣费）使用可配置的按模型费率，包括 Cursor 的具体原生模型，并且每个 generation 只记录一次用量。Dashboard 与 Analytics 的成本标签旁提供无障碍信息图标，用于显示所选范围及所有缺失费率；Analytics 数值的 Tooltip 仅显示完整金额，Settings 在页面内显示相同的覆盖信息。 |
 | **Transcript 缓存** | 增量 JSONL 解析提取 Token、压缩、API 错误、回合时长、思考和用量元数据；完整解析修复旧版重复，尾部解析保持只追加。数组上限为 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`，默认 `1000`，条目仅存文件元数据和解析结果。 |
 | **Transcript 快照保留** | 持久的 Claude、Codex 和 Cursor 快照保存最完整的对话。源文件已消失的 Claude 和 Cursor 副本会在往返验证后 gzip 压缩；清除会删除快照；可选年龄/大小上限可在 Settings 试运行预览后清理唯一的旧副本。 |
 | **通知** | VAPID Web Push 在后台或浏览器关闭时发送配置的事件，并支持 macOS 音频和订阅控制。 |
@@ -339,7 +339,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **MCP Server（本地）** | stdio、HTTP+SSE 和 REPL 三种传输在 16 个模块中暴露 103 个类型化工具。统一的已验证目录强制 localhost 或 HTTPS 目标、Bearer Token 规则、拒绝重定向、变更门禁、每文件 50 MiB 和每调用 100 MiB 上传、10 MiB 二进制响应，以及 25 MiB 恢复。 |
 | **工作流** | 11 个 D3 区域覆盖编排、工具流、协作、效能、模式、委派、错误、并发、复杂度、压缩和会话下钻。本地化说明 Tooltip、交叉筛选、JSON 导出、3 秒防抖的实时刷新，以及从日志重建的动态运行，会保留每个 Agent 的阶段、Token、工具、时长、提示和结果详情。 |
 | **压缩跟踪** | Transcript 扫描创建零时长的压缩 Agent/事件、修复旧版负时长、回填旧会话，并通过缓存的 `sessions.transcript_path` 值定期只检查活跃会话。 |
-| **子会话/恢复会话** | 新事件会重新激活恢复或孤立会话；每隔 `DASHBOARD_STALE_MINUTES` 的四分之一执行一次扫描，间隔限制在 60 秒至 5 分钟，用于发现已废弃会话。 |
+| **子会话/恢复会话** | Cursor 通过 `generation_id` 将 `/resume` 启动的临时会话合并到规范会话，重定向旧链接，并对重复完成 Hook 去重。其他新事件仍会重新激活恢复或孤立会话，受限的过期扫描继续发现已废弃会话。 |
 | **既有会话检测** | 启动导入会将最近修改的 Transcript 标记为活跃；之后到达的 Stop 事件会先重新激活已导入的 completed 或 abandoned 会话，再更新状态。 |
 | **连续项目同步** | 立即启动扫描、防抖文件系统监听器与 `DASHBOARD_SESSION_SYNC_MS` 轮询共用 mtime 缓存和合并扫描，默认 30 秒。只重新解析新增或有进展的文件，监听范围适配 Linux，并实时广播会话。 |
 | **远程数据源** | SSH 数据源通过 `scp` 或 WSL `tar` 分别镜像 Claude 和 Codex 主目录，标记 `sessions.source`，协调生命周期，并在任一 Provider 正常时保持健康。默认每 15 秒轮询；陈旧回退仅影响失败的 Provider。凭据保留在宿主 SSH 中。 |
@@ -391,7 +391,7 @@ npm run install-hooks
 
 设置完成后，Provider 发现会持续运行：
 
-- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。Cursor 无需 Hook；选择 Claude Code 后也会监视 `~/.cursor/chats` 和 `~/.cursor/projects/*/agent-transcripts`，在 Cursor 清理前保存对话快照，并遵循 `DASHBOARD_CURSOR_HOME`。
+- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。CCAM 会自动将自己的 `stop` 与 `afterAgentResponse` 命令安全合并进 `~/.cursor/hooks.json`，不会替换无关命令；也可运行 `npm run install-cursor-hooks` 手动修复。Cursor 原生聊天存储与 Transcript 监听仍作为离线回退，将 `/resume` 临时 ID 关联到规范会话，在清理前快照两种来源，在可用时把 `default` 解析为具体模型，并遵循 `DASHBOARD_CURSOR_HOME`。
 - **Codex：** Hook 与 `~/.codex/sessions` rollout 增量监听共同保持生命周期、提示、标题、工具、Token、成本、压缩、对话和 WebSocket 状态最新。坏文件会独立重试；精确的 rollout/进程匹配可防止幽灵活跃卡片；原生 `/rename` 标题和基于游标分页的对话历史会实时更新。
 - **Both：** 卡片保留最近两条不同的人类提示，渲染持久化图片附件，并对重复的 Codex 响应去重。仅 Codex 的范围会隐藏只适用于 Claude 的 Dynamic Workflow 日志。
 ### 3. 启动
@@ -781,7 +781,7 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
-费用估算采用已配置的 API 费率，并非订阅扣费。Dashboard 和 Settings 显示精确到美分的金额、所选机器和产品范围，以及没有适用费率的用量警告。GPT-6.1 Sol 的 Standard/Fast Short/Long 默认值依据 OpenAI 公布的费率，且不会覆盖已有的匹配自定义规则。
+费用估算采用已配置的 API 费率，并非订阅扣费。Dashboard 与 Analytics 将所选机器/产品范围和完整的缺失费率列表放在成本标签旁支持键盘操作的信息图标中；Analytics 数值的 Tooltip 仅显示未缩写金额，Settings 则在页面内显示相同的覆盖信息。GPT-6.1 Sol 的 Standard/Fast Short/Long 默认值依据 OpenAI 公布的费率，且不会覆盖已有的匹配自定义规则。
 
 ### 升级前的成本快照
 

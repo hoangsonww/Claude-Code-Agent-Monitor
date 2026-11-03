@@ -88,6 +88,7 @@
     "desktop:win:portable": "npm run build && cd desktop && npm run win:portable",
     "desktop:test": "cd desktop && npm test",
     "install-hooks": "node scripts/install-hooks.js",
+    "install-cursor-hooks": "node scripts/install-cursor-hooks.js",
     "seed": "node scripts/seed.js",
     "import-history": "node scripts/import-history.js",
     "reconcile-tokens": "node scripts/import-history.js --reconcile-tokens",

@@ -7,6 +7,7 @@
   "eventsToday": "Eventos Hoy",
   "totalEvents": "Total de Eventos",
   "totalCost": "Coste estimado de API",
+  "costInfoLabel": "Acerca del coste estimado de API",
   "viewBoard": "Ver Tablero",
   "viewAll": "Ver Todo",
   "activeAgentsSection": "Agentes Activos",

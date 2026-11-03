@@ -7,6 +7,7 @@
   "eventsToday": "오늘의 이벤트",
   "totalEvents": "전체 이벤트",
   "totalCost": "API 예상 비용",
+  "costInfoLabel": "API 예상 비용 정보",
   "viewBoard": "보드 보기",
   "viewAll": "전체 보기",
   "activeAgentsSection": "활성 Agent",

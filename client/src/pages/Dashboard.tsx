@@ -273,7 +273,7 @@ import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { mergeFreshestById } from "../lib/merge-by-id";
 import { useDataScope } from "../lib/dataScope";
 import { StatCard } from "../components/StatCard";
-import { CostCoverage } from "../components/CostCoverage";
+import { CostEstimateInfo } from "../components/CostCoverage";
 import { AgentCard } from "../components/AgentCard";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
@@ -1615,19 +1615,14 @@ export function Dashboard() {
             />
             <StatCard
               label={t("totalCost")}
+              labelAccessory={<CostEstimateInfo scope={scope} unpriced={unpriced} />}
               value={totalCost !== null ? fmtCostFull(totalCost) : ""}
-              raw={
-                totalCost !== null
-                  ? `$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : undefined
-              }
               icon={DollarSign}
               accentColor="text-emerald-400"
               loading={totalCost === null}
             />
           </div>
 
-          <CostCoverage scope={scope} unpriced={unpriced} />
           {error && (
             <div
               role="alert"

@@ -176,7 +176,7 @@ Tracks Claude Code, Cursor, and Codex sessions (one per CLI invocation or backgr
 
 Session rows also retain optional `repo_remote_url` metadata: the first sanitized remote supplied by a collector wins. URL userinfo, query strings, and fragments are removed; malformed URLs are discarded before session or event persistence.
 
-> **Cursor:** Native rows are first discovered from `~/.cursor/chats/*/<session>/meta.json` and stored with `provider = 'cursor'` even while `transcript_path` is null. Prompt history updates that row immediately; the later `~/.cursor/projects/*/agent-transcripts` path and dashboard-owned snapshot remain separately resolvable, so conversation history survives source cleanup and pricing uses only the Cursor rate card.
+> **Cursor:** Native rows are first discovered from `~/.cursor/chats/*/<session>/meta.json` and stored with `provider = 'cursor'` even while `transcript_path` is null. Prompt history updates that row immediately; later JSONL and `store.db` snapshots remain separately resolvable. A `/resume` shell ID may become an alias of the transcript-bearing canonical row, so old links work while conversation, lifecycle, and cost stay unified.
 
 ```sql
 CREATE TABLE sessions (
@@ -453,6 +453,20 @@ Standard rates and intro rates are edited independently: the pricing update path
 
 ---
 
+### cursor_session_aliases, cursor_generations, cursor_hook_receipts, cursor_turn_usage, cursor_repair_state
+
+These internal Cursor tables make resumed turns and completion usage durable:
+
+- `cursor_generations(generation_id PRIMARY KEY, session_id, has_transcript, updated_at)` binds Cursor's stable turn identity to the canonical session. The transcript-bearing row wins when `/resume` emits different shell and conversation IDs.
+- `cursor_session_aliases(alias_session_id PRIMARY KEY, canonical_session_id, generation_id, created_at)` preserves stale URLs after dependent rows have been moved transactionally.
+- `cursor_hook_receipts(receipt_key PRIMARY KEY, session_id, hook_type, generation_id, created_at)` suppresses exact repeated completion deliveries while retaining different status, text, or token payloads.
+- `cursor_turn_usage(generation_id PRIMARY KEY, session_id, model, speed, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, updated_at)` stores one authoritative token snapshot per generation. Session `token_usage` buckets are rebuilt from these rows, preventing a resumed shell and canonical conversation from charging the same turn twice.
+- `cursor_repair_state(repair_key PRIMARY KEY, completed_at)` records one-time historical repairs, including alias correlation, usage backfill, response-event cleanup, and exact Stop deduplication.
+
+All session references cascade on delete. Alias resolution is applied by the session and pricing routes rather than exposing duplicate session rows.
+
+---
+
 ### cursor_model_pricing
 
 Dedicated Cursor rate card for sessions stored with `provider = 'cursor'`. Keeping it separate prevents Cursor-native and routed third-party models from accidentally matching Anthropic or OpenAI/Codex rules.
@@ -469,7 +483,7 @@ CREATE TABLE cursor_model_pricing (
 );
 ```
 
-Defaults mirror Cursor's published four-column USD-per-million-token card for Cursor Grok 4.6/4.5, Composer 2.5, and the supported Anthropic, Google, Z.ai, OpenAI, Moonshot, and Meta models. Fast Cursor models have more-specific patterns; `speed = 'fast'` also tries the corresponding `-fast` pattern. Rows are editable through Settings and `/api/pricing/cursor`, and are included in export/restore bundles beginning with bundle version 3.
+Defaults mirror Cursor's published four-column USD-per-million-token card for Cursor Grok 4.7/4.6/4.5, Composer 2.5, and the supported Anthropic, Google, Z.ai, OpenAI, Moonshot, and Meta models. Fast Cursor models have more-specific patterns; `speed = 'fast'` also tries the corresponding `-fast` pattern. Rows are editable through Settings and `/api/pricing/cursor`, and are included in export/restore bundles beginning with bundle version 3. Cost figures are API-equivalent estimates, not Cursor subscription charges.
 
 ---
 

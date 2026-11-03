@@ -9,6 +9,7 @@ const { Router } = require("express");
 const { stmts, db, readCostQuery, GPT_FAST_LONG_FIELDS } = require("../db");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
+const { resolveCursorSessionId } = require("../lib/cursor-session-identity");
 const {
   WEB_SEARCH_PER_1K_SEARCHES,
   CODE_EXEC_PER_HOUR,
@@ -755,10 +756,11 @@ router.get("/cost", async (req, res, next) => {
 router.get("/cost/:sessionId", (req, res) => {
   const rawOffset = parseInt(req.query.tz_offset, 10);
   const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
+  const sessionId = resolveCursorSessionId(db, req.params.sessionId);
 
   const session = db
     .prepare("SELECT provider, source, DATE(started_at, ?) as date FROM sessions WHERE id = ?")
-    .get(tzModifier, req.params.sessionId);
+    .get(tzModifier, sessionId);
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
@@ -771,7 +773,7 @@ router.get("/cost/:sessionId", (req, res) => {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
   const tokenRows = stmts.getTokensBySession
-    .all(req.params.sessionId)
+    .all(sessionId)
     .map((row) => ({ ...row, provider: session.provider || "claude" }));
   const rules = stmts.listPricing.all();
   const gptRules = stmts.listGptPricing.all();

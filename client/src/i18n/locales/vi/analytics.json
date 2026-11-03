@@ -5,7 +5,7 @@
   "totalSessions": "Tổng số phiên",
   "totalAgents": "Tổng số Agent",
   "totalTokens": "Tổng token",
-  "totalCost": "Tổng chi phí",
+  "totalCost": "Ước tính chi phí API",
   "totalEvents": "Tổng sự kiện",
   "cacheHitRate": "% tỷ lệ trúng bộ nhớ đệm",
   "perSession": " mỗi phiên",

@@ -59,6 +59,8 @@
  * ## React and framework hooks
  * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
+ * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
+ *   cleanup semantics.
  * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
@@ -171,7 +173,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 
 /** Props for {@link Tip}. */
@@ -184,16 +186,32 @@ interface TipProps {
   maxWidth?: number;
   /** Use a block-level wrapper instead of inline `span` for full-width targets. */
   block?: boolean;
+  /** Accessible name for compact non-text triggers such as an info icon. */
+  ariaLabel?: string;
+  /** Additional classes applied to the focusable trigger wrapper. */
+  triggerClassName?: string;
+  /** Visual treatment for compact values or explanatory information. */
+  variant?: "value" | "info";
 }
 
 /**
  * Hover tooltip anchored to the mouse cursor.
  * @param props See {@link TipProps}.
  */
-export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) {
+export function Tip({
+  raw,
+  children,
+  maxWidth = 320,
+  block = false,
+  ariaLabel,
+  triggerClassName = "",
+  variant = "value",
+}: TipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const tipRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLSpanElement & HTMLDivElement>(null);
+  const tipId = useId();
 
   /** Follow the pointer with the tooltip. */
   const updatePos = useCallback((e: React.MouseEvent) => {
@@ -203,7 +221,11 @@ export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) 
   if (!raw) return <>{children}</>;
 
   const Wrapper = block ? "div" : "span";
-  const wrapperClass = block ? "cursor-default" : "relative inline-block cursor-default";
+  const baseWrapperClass = block ? "cursor-default" : "relative inline-block cursor-default";
+  const wrapperClass = triggerClassName
+    ? `${baseWrapperClass} ${triggerClassName}`
+    : baseWrapperClass;
+  const infoLines = variant === "info" ? raw.split("\n").filter(Boolean) : [];
 
   // Compute tooltip placement avoiding screen edges
   let tipStyle: React.CSSProperties = {
@@ -242,23 +264,61 @@ export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) 
 
   return (
     <Wrapper
+      ref={triggerRef}
       className={wrapperClass}
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-describedby={show ? tipId : undefined}
       onMouseEnter={(e: React.MouseEvent) => {
         setShow(true);
         updatePos(e);
       }}
       onMouseMove={updatePos}
       onMouseLeave={() => setShow(false)}
+      onFocus={() => {
+        const bounds = triggerRef.current?.getBoundingClientRect();
+        if (bounds) setPos({ x: bounds.left + bounds.width / 2, y: bounds.bottom });
+        setShow(true);
+      }}
+      onBlur={() => setShow(false)}
+      onKeyDown={(event: React.KeyboardEvent) => {
+        if (event.key === "Escape") setShow(false);
+      }}
     >
       {children}
       {show &&
         createPortal(
           <div
+            id={tipId}
+            role="tooltip"
             ref={tipRef}
             style={tipStyle}
-            className="px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
+            className={
+              variant === "info"
+                ? "min-w-[260px] px-3.5 py-3 text-xs leading-5 font-sans text-gray-300 bg-[#12121f] border border-[#30304d] rounded-xl shadow-2xl pointer-events-none break-words"
+                : "px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
+            }
           >
-            {raw}
+            {variant === "info" ? (
+              <div className="space-y-1.5">
+                {infoLines.map((line, index) => (
+                  <p
+                    key={`${index}-${line}`}
+                    className={
+                      index === 0
+                        ? "font-semibold text-gray-100"
+                        : index === infoLines.length - 1 && infoLines.length > 2
+                          ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
+                          : "text-gray-400"
+                    }
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              raw
+            )}
           </div>,
           document.body
         )}
