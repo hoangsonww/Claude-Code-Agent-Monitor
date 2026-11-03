@@ -1,0 +1,30 @@
+{
+  "title": "Tableau de bord",
+  "subtitle": "Vue d'ensemble en temps réel de l'activité des agents",
+  "totalSessions": "Sessions au total",
+  "activeAgents": "Agents actifs",
+  "activeSubagents": "Sous-agents actifs",
+  "eventsToday": "Événements aujourd'hui",
+  "totalEvents": "Événements au total",
+  "totalCost": "Coût estimé de l'API",
+  "viewBoard": "Voir le tableau",
+  "viewAll": "Tout voir",
+  "activeAgentsSection": "Agents actifs",
+  "recentActivity": "Activité récente",
+  "noAgents": "Aucun agent actif",
+  "noAgentsDesc": "Les agents apparaîtront ici lorsqu'une session surveillée est en cours.",
+  "noActivity": "Aucune activité pour l'instant",
+  "noActivityDesc": "Les événements des sessions surveillées s'afficheront ici en temps réel.",
+  "failedConnect": "Impossible de se connecter au serveur",
+  "failedLoad": "Impossible de charger les données",
+  "activeTrend": " actifs",
+  "totalTrend": " dans les sessions actives",
+  "tabs": {
+    "monitor": "Surveillance",
+    "health": "Santé"
+  },
+  "costEstimate": "Estimation équivalente au tarif de l'API, pas des frais d'abonnement.",
+  "costScope": "Sources : {{sources}} · Produits : {{providers}}",
+  "costIncomplete": "Estimation incomplète : une partie de l'usage n'a pas de tarif applicable ({{models}}).",
+  "reviewRates": "Vérifier la tarification"
+}

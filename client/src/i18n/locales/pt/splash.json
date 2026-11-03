@@ -1,0 +1,116 @@
+{
+  "greeting": {
+    "morning": "Bom dia",
+    "afternoon": "Boa tarde",
+    "evening": "Boa noite",
+    "night": "Trabalhando até tarde"
+  },
+  "tagline": "Nada do que seus agentes fazem fica no escuro.",
+  "sub1": "Observabilidade em tempo real para sessões do Claude Code, Cursor e Codex.",
+  "sub2": "Tokens, ferramentas, custos e fluxos, tudo ao vivo.",
+  "brand": "Claude Code Monitor",
+  "provider": {
+    "title": "O que você gostaria de monitorar?",
+    "description": "Escolha a fonte de dados exibida em todo o painel. Você pode mudar isso depois em Configurações.",
+    "claude": {
+      "description": "Sessões, agentes, históricos e custos do Claude Code e do Cursor, incluídos de fábrica."
+    },
+    "codex": {
+      "description": "Sessões do Codex, uso de tokens GPT e custos."
+    },
+    "both": {
+      "label": "Ambos",
+      "description": "Todas as sessões, uso e custos do Claude Code, Cursor e Codex."
+    },
+    "beta": "Beta",
+    "continue": "Continuar para o painel"
+  },
+  "hookGate": {
+    "kicker": "Rastreamento ao vivo",
+    "title": "Configurar o monitoramento ao vivo",
+    "description": "Instale hooks locais leves apenas para os provedores selecionados que ainda precisam deles.",
+    "selectedProviders": "Hooks ainda necessários para",
+    "realTime": "Os hooks enviam eventos de ciclo de vida para este painel local em tempo real. Seus dados ficam nesta máquina.",
+    "checking": "Verificando a configuração de hooks existente...",
+    "installed": "Hooks instalados e prontos para o monitoramento ao vivo",
+    "existing": "Hooks do painel existentes detectados",
+    "ready": "Pronto para instalar os hooks selecionados",
+    "overrideWarning": "Já existem hooks do painel para um provedor selecionado. A instalação atualiza apenas as entradas do painel. Seus outros hooks são preservados.",
+    "output": "Saída da instalação",
+    "failure": "Não foi possível instalar todos os hooks selecionados. Revise a saída e tente novamente, ou continue se você concluiu a configuração de outra forma.",
+    "checkFailed": "Não foi possível verificar sua configuração atual de hooks. Você ainda pode instalar os hooks selecionados.",
+    "preserveNote": "Isto gerencia apenas os hooks do painel. Seus outros hooks permanecem inalterados.",
+    "alreadyInstalled": "Já instalei os hooks",
+    "install": "Instalar hooks",
+    "installing": "Instalando hooks...",
+    "continue": "Continuar para o painel"
+  },
+  "taglines": [
+    "Nada do que seus agentes fazem fica no escuro.",
+    "Veja cada movimento dos seus agentes.",
+    "Seus agentes, totalmente observáveis.",
+    "Cada token, ferramenta e turno, à vista.",
+    "Veja sua frota pensar.",
+    "Onde as sessões do Claude Code entram em foco.",
+    "Olhos em tempo real em cada agente.",
+    "Do prompt ao resultado, tudo registrado.",
+    "A sala de controle dos seus agentes de IA.",
+    "Cada subagente contabilizado.",
+    "Saiba exatamente quanto custam seus agentes.",
+    "Seus fluxos agênticos, legíveis.",
+    "Observe. Meça. Otimize.",
+    "O centro de controle do Claude Code.",
+    "Transforme o caos dos agentes em um quadro claro.",
+    "Os comprovantes de cada execução."
+  ],
+  "subs": [
+    [
+      "Observabilidade em tempo real para cada sessão do Claude Code.",
+      "Tokens, ferramentas, custos e fluxos, tudo ao vivo."
+    ],
+    [
+      "Sessões, agentes e eventos ao vivo, à medida que acontecem.",
+      "Detalhamento de tokens e custos por modelo, sem adivinhação."
+    ],
+    [
+      "Rastreie cada chamada de ferramenta na sua árvore de agentes.",
+      "Encontre o turno lento, o modelo caro, a falha silenciosa."
+    ],
+    ["Os hooks transmitem direto para um painel local.", "Seus dados nunca saem da sua máquina."],
+    [
+      "Veja orquestradores delegarem a subagentes.",
+      "DAGs, concorrência e propagação de erros, visualizados."
+    ],
+    [
+      "Rastreamento de custos até o token de cache.",
+      "Preços por modelo com bases que consideram compactações."
+    ],
+    [
+      "Cada sessão, agente e evento em um só lugar.",
+      "Pesquise, reproduza e inspecione sem sair da sala."
+    ],
+    [
+      "De SessionStart a SessionEnd, tudo capturado.",
+      "Compactações, erros de API e durações de turno incluídos."
+    ],
+    [
+      "Saiba qual modelo fez o quê e quanto custou.",
+      "Subagentes cobrados pela própria tarifa, não pela do orquestrador."
+    ],
+    [
+      "Frotas de fluxos e agentes internos, revelados.",
+      "Até as execuções que nunca disparam um hook."
+    ],
+    ["Uma janela local-first para os seus agentes.", "Sem nuvem, sem conta, sem telemetria."],
+    [
+      "Meça produtividade, não impressões.",
+      "Velocidade, eficiência de cache e eficácia das ferramentas, avaliadas."
+    ],
+    ["Pegue a anomalia antes da fatura.", "Custos atípicos e picos de tokens sinalizados cedo."],
+    [
+      "Sua configuração do Claude Code, totalmente mapeada.",
+      "Skills, agentes, hooks, MCP e memória num relance."
+    ]
+  ],
+  "paletteHint": "Dica: pressione {{chord}} a qualquer momento para ir a qualquer página, sessão ou configuração."
+}

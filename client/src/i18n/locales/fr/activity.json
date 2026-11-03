@@ -1,0 +1,10 @@
+{
+  "title": "Flux d'activité",
+  "subtitle": "Flux en temps réel de tous les événements des agents",
+  "paused": "(en pause - {{count}} en mémoire tampon)",
+  "resume": "Reprendre",
+  "pause": "Pause",
+  "noActivity": "Aucune activité pour l'instant",
+  "noActivityDesc": "Les événements s'afficheront ici en temps réel pendant que les sessions d'agents travaillent.",
+  "viewSession": "Session"
+}

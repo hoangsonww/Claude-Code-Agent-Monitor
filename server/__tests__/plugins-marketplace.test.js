@@ -51,6 +51,30 @@ const COUNTED_DOCS = [
     repositorySkills: /77 skill/,
   },
   {
+    file: path.join(REPO_ROOT, "README-FR.md"),
+    plugin: /\b14 plugins\b/,
+    pluginSkills: /\b66 skills de plugins\b/,
+    repositorySkills: /\b77 skills au total\b/,
+  },
+  {
+    file: path.join(REPO_ROOT, "README-DE.md"),
+    plugin: /\b14 Plugins\b/,
+    pluginSkills: /\b66 Plugin-Skills\b/,
+    repositorySkills: /\b77 Repository-Skills\b/,
+  },
+  {
+    file: path.join(REPO_ROOT, "README-PT.md"),
+    plugin: /\b14 plugins\b/,
+    pluginSkills: /\b66 skills de plugins\b/,
+    repositorySkills: /\b77 skills no total\b/,
+  },
+  {
+    file: path.join(REPO_ROOT, "README-IT.md"),
+    plugin: /\b14 plugin\b/,
+    pluginSkills: /\b66 skill di plugin\b/,
+    repositorySkills: /\b77 skill del repository\b/,
+  },
+  {
     file: path.join(REPO_ROOT, "docs", "PLUGINS.md"),
     plugin: /\b14 plugins\b/,
     pluginSkills: /\b66 bundled plugin skills\b/,

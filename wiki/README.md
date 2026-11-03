@@ -31,7 +31,7 @@ The service worker caches aggressively; use a private window or "Update on reloa
 
 ## Editing rules
 
-The wiki ships in English, Simplified Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). Any new or changed visible text must include all four translations in the same change, and changed assets need their cache versions bumped: the asset's query string in `index.html` (`style.css?v=N`, `script.js?v=N`, `i18n-content.js?v=N`), the **same** versioned URL in the `PRECACHE` list in `sw.js`, and `CACHE_NAME` in `sw.js`. If the `PRECACHE` URL doesn't match `index.html`, the edited asset isn't served from cache and won't load offline.
+The wiki ships in English, Simplified Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), French (`fr`), German (`de`), Portuguese (`pt`), and Italian (`it`). Any new or changed visible text must include all eight translations in the same change, and changed assets need their cache versions bumped: the asset's query string in `index.html` (`style.css?v=N`, `script.js?v=N`, `i18n-content.js?v=N`), the **same** versioned URL in the `PRECACHE` list in `sw.js`, and `CACHE_NAME` in `sw.js`. If the `PRECACHE` URL doesn't match `index.html`, the edited asset isn't served from cache and won't load offline.
 
 The full procedure is in [`.claude/rules/wiki-i18n.md`](../.claude/rules/wiki-i18n.md). Verify with:
 
