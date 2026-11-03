@@ -3,6 +3,258 @@
  * @description Provides utility functions for applying ANSI color codes to text in the terminal. This module defines a set of functions for styling text with various colors and modifiers such as bold, italic, underline, and strikethrough. It also includes support for 256-color mode and a function to strip ANSI codes from text. The color functions are designed to be composable, allowing for easy combination of styles. The module checks for color support in the terminal environment and gracefully degrades if colors are not supported.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/ui/colors.ts
+ * **Area:** MCP server
+ * **Responsibility:**
+ * Provides utility functions for applying ANSI color codes to text in the terminal. This module
+ * defines a set of functions for styling text with various colors and modifiers such as bold,
+ * italic, underline, and strikethrough. It also includes support for 256-color mode and a function
+ * to strip ANSI codes from text. The color functions are designed to be composable, allowing for
+ * easy combination of styles. The module checks for color support in the terminal environment and
+ * gracefully degrades if colors are not supported.
+ *
+ * ## Architectural boundary
+ * - Composes MCP configuration, API access, logging, registry, lifecycle, and transport-independent
+ *   server behavior.
+ * - Domain modules own individual tools; this layer owns consistent registration and process-level
+ *   coordination.
+ * - Host disappearance and signals must converge on bounded, idempotent cleanup.
+ *
+ * ## Public surface
+ * - `accent` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bg256` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `bgBlue` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgCyan` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgGray` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgGreen` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgMagenta` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgRed` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `bgWhite` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `bgYellow` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `black` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `blue` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `bold` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `brightBlue` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `brightCyan` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `brightGreen` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `brightMagenta` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `brightRed` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `brightWhite` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `brightYellow` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `cyan` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `dim` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `error` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `fg256` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `gray` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `green` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `highlight` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `info` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `italic` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `label` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `magenta` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `muted` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `red` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `reset` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `strikethrough` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `stripAnsi` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `success` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `underline` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `warn` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `white` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `yellow` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `accent` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bg256` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgBlue` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgCyan` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgGray` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgGreen` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgMagenta` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgRed` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgWhite` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bgYellow` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `black` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `blue` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `bold` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightBlue` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightCyan` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightGreen` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightMagenta` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `brightRed` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightWhite` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `brightYellow` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `cyan` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `dim` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `error` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `fg256` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `gray` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `green` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `highlight` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `info` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `isColorSupported` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `italic` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `label` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `magenta` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `muted` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `red` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `reset` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `strikethrough` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `stripAnsi` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `success` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `underline` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `warn` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `white` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `wrap` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `yellow` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Keep server metadata and advertised capabilities synchronized with the actual registered
+ *   implementation.
+ * - Do not let one tool-registration failure leave a partially initialized server accepting
+ *   requests.
+ * - Preserve transport neutrality for tool behavior and result formatting.
+ * - Route logs away from protocol stdout and redact secret-bearing fields.
+ * - Make startup failures explicit and nonzero while allowing graceful close to finish in-flight
+ *   cleanup.
+ * - Keep orphan detection bounded and compare against the correct startup parent semantics.
+ * - Avoid module-evaluation side effects that complicate tests or create resources before
+ *   configuration validates.
+ * - Keep tool collection deterministic so schemas and help output do not reorder between runs.
+ * - Treat unhandled rejection and exception paths as process health failures without double-running
+ *   shutdown.
+ * - Test server construction independently from real network transports where the SDK permits it.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/ui/colors.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

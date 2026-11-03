@@ -3,6 +3,99 @@
  * @description Guard functions to check if mutating and destructive tools are enabled based on the application configuration. These functions throw errors with informative messages if the required permissions are not granted, guiding developers to enable the necessary environment variables to use these tools. The assertMutationsEnabled function checks for general mutation permissions, while the assertDestructiveEnabled function checks for both mutation and destructive permissions, as well as validating a confirmation token to prevent accidental use of destructive tools.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/policy/tool-guards.ts
+ * **Area:** MCP policy
+ * **Responsibility:**
+ * Guard functions to check if mutating and destructive tools are enabled based on the application
+ * configuration. These functions throw errors with informative messages if the required permissions
+ * are not granted, guiding developers to enable the necessary environment variables to use these
+ * tools. The assertMutationsEnabled function checks for general mutation permissions, while the
+ * assertDestructiveEnabled function checks for both mutation and destructive permissions, as well
+ * as validating a confirmation token to prevent accidental use of destructive tools.
+ *
+ * ## Architectural boundary
+ * - Centralizes capability gates so every transport and tool domain applies the same
+ *   mutation/destruction rules.
+ * - A policy denial is a safe terminal result and must occur before any external state changes.
+ * - Configuration enables capability; individual tools still validate their exact target and
+ *   confirmation contract.
+ *
+ * ## Local dependency edges
+ * - `../config/app-config.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ *
+ * ## Public surface
+ * - `assertDestructiveEnabled` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `assertMutationsEnabled` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `assertDestructiveEnabled` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `assertMutationsEnabled` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## Area invariants
+ * - Default to read-only behavior when capability configuration is absent, malformed, or ambiguous.
+ * - Keep destructive permission strictly stronger than ordinary mutation permission.
+ * - Do not infer authorization from transport mode, localhost origin, caller wording, or model
+ *   identity.
+ * - Return actionable denial messages without exposing secret configuration values.
+ * - Apply checks before API calls, filesystem writes, process signals, or other irreversible
+ *   effects.
+ * - Keep policy functions deterministic and free of hidden global mutation.
+ * - Use exact tool metadata rather than name-prefix guesses when classifying risk.
+ * - Preserve auditability by keeping exceptional bypasses explicit and narrowly tested.
+ * - Treat new tool domains as unclassified until tests prove their policy category.
+ * - Test every combination of read, mutation, destructive, enabled, and disabled capability states.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/policy/tool-guards.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

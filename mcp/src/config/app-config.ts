@@ -3,6 +3,130 @@
  * @description Module for loading and validating application configuration from environment variables. This module defines the AppConfig interface representing the configuration structure, along with functions to parse and validate individual configuration values such as booleans, integers, log levels, dashboard URLs, and transport modes. The loadConfig function aggregates all configuration values into a single AppConfig object, applying defaults and validation as needed. The module ensures that the application is configured correctly before it starts, providing clear error messages for invalid configurations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/config/app-config.ts
+ * **Area:** MCP configuration
+ * **Responsibility:**
+ * Module for loading and validating application configuration from environment variables. This
+ * module defines the AppConfig interface representing the configuration structure, along with
+ * functions to parse and validate individual configuration values such as booleans, integers, log
+ * levels, dashboard URLs, and transport modes. The loadConfig function aggregates all configuration
+ * values into a single AppConfig object, applying defaults and validation as needed. The module
+ * ensures that the application is configured correctly before it starts, providing clear error
+ * messages for invalid configurations.
+ *
+ * ## Architectural boundary
+ * - Parses environment and command-line configuration into validated values consumed by every MCP
+ *   mode.
+ * - Defaults define the secure local-first posture and malformed input must not silently broaden
+ *   access.
+ * - Secret-bearing inputs stay in memory and out of logs, banners, tool results, and thrown
+ *   diagnostics.
+ *
+ * ## Package dependency edges
+ * - `node:fs` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `AppConfig` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `loadConfig` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `LogLevel` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `TransportMode` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `AppConfig` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `loadConfig` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LOCAL_DASHBOARD_HOSTS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `LogLevel` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `parseBoolean` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `parseDashboardToken` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `parseDashboardUrl` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `parseInteger` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `parseLogLevel` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `parseTransport` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `readDashboardToken` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `readSecret` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TransportMode` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `VALID_LOG_LEVELS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Parse URLs, booleans, ports, durations, limits, and enums explicitly rather than relying on
+ *   truthy strings.
+ * - Keep localhost/read-only defaults when optional settings are absent.
+ * - Reject or safely fall back from invalid values with a message that names the setting, not its
+ *   secret value.
+ * - Preserve precedence between CLI flags, environment variables, and defaults.
+ * - Normalize trailing slashes and path forms once so downstream clients do not repeat URL logic.
+ * - Keep destructive capability opt-in and independent from ordinary mutation capability.
+ * - Do not include tokens or credentials when serializing config for diagnostics.
+ * - Bound numeric values to prevent disabled timeouts, unbounded pages, or invalid network
+ *   listeners.
+ * - Document new settings on every required project surface before treating them as supported.
+ * - Test absent, valid, invalid, boundary, precedence, and redaction cases.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/config/app-config.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

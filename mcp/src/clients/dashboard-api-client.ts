@@ -3,6 +3,132 @@
  * @description Client for making API requests to the MCP dashboard. This client provides methods for sending HTTP requests (GET, POST, PUT, PATCH, DELETE) to the dashboard's API endpoints, with built-in support for retries on transient errors, request timeouts, and error handling. The client constructs URLs based on a base URL from the configuration and allows for query parameters and request bodies. It also defines a custom ApiError class for consistent error representation across the application.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/clients/dashboard-api-client.ts
+ * **Area:** MCP server
+ * **Responsibility:**
+ * Client for making API requests to the MCP dashboard. This client provides methods for sending
+ * HTTP requests (GET, POST, PUT, PATCH, DELETE) to the dashboard's API endpoints, with built-in
+ * support for retries on transient errors, request timeouts, and error handling. The client
+ * constructs URLs based on a base URL from the configuration and allows for query parameters and
+ * request bodies. It also defines a custom ApiError class for consistent error representation
+ * across the application.
+ *
+ * ## Architectural boundary
+ * - Composes MCP configuration, API access, logging, registry, lifecycle, and transport-independent
+ *   server behavior.
+ * - Domain modules own individual tools; this layer owns consistent registration and process-level
+ *   coordination.
+ * - Host disappearance and signals must converge on bounded, idempotent cleanup.
+ *
+ * ## Local dependency edges
+ * - `../config/app-config.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../core/logger.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `node:fs/promises` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:path` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:timers/promises` — external package boundary; keep usage within the installed version and
+ *   the repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `ApiError` (class) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `DashboardApiClient` (class) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `ApiError` (class) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ApiErrorOptions` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `DashboardApiClient` (class) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `HttpMethod` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `isAbortError` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `isRetryableStatus` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MAX_BINARY_RESPONSE_BYTES` (variable) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `MAX_UPLOAD_FILE_BYTES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MAX_UPLOAD_TOTAL_BYTES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RequestOptions` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Literal API paths
+ * - `/api/` — route literal present in this source; keep request/response expectations aligned with
+ *   the server and API docs.
+ *
+ * ## Area invariants
+ * - Keep server metadata and advertised capabilities synchronized with the actual registered
+ *   implementation.
+ * - Do not let one tool-registration failure leave a partially initialized server accepting
+ *   requests.
+ * - Preserve transport neutrality for tool behavior and result formatting.
+ * - Route logs away from protocol stdout and redact secret-bearing fields.
+ * - Make startup failures explicit and nonzero while allowing graceful close to finish in-flight
+ *   cleanup.
+ * - Keep orphan detection bounded and compare against the correct startup parent semantics.
+ * - Avoid module-evaluation side effects that complicate tests or create resources before
+ *   configuration validates.
+ * - Keep tool collection deterministic so schemas and help output do not reorder between runs.
+ * - Treat unhandled rejection and exception paths as process health failures without double-running
+ *   shutdown.
+ * - Test server construction independently from real network transports where the SDK permits it.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/clients/dashboard-api-client.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

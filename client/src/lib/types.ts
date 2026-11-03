@@ -3,6 +3,425 @@
  * @description Defines TypeScript types and interfaces for the agent dashboard application, including data structures for sessions, agents, events, statistics, analytics, model pricing, cost breakdowns, WebSocket messages, and workflow-related data. These types provide a clear contract for the shape of data used throughout the application and facilitate type safety when interacting with the backend API and managing state within the frontend components.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/lib/types.ts
+ * **Area:** client library
+ * **Responsibility:**
+ * Defines TypeScript types and interfaces for the agent dashboard application, including data
+ * structures for sessions, agents, events, statistics, analytics, model pricing, cost breakdowns,
+ * WebSocket messages, and workflow-related data. These types provide a clear contract for the shape
+ * of data used throughout the application and facilitate type safety when interacting with the
+ * backend API and managing state within the frontend components.
+ *
+ * ## Architectural boundary
+ * - Provides shared typed behavior or wire contracts consumed by multiple client screens and
+ *   components.
+ * - Keep functions deterministic and side effects explicit; central helpers amplify both correct
+ *   behavior and regressions.
+ * - Types mirroring server payloads must stay aligned with serializers, OpenAPI descriptions, and
+ *   WebSocket messages.
+ *
+ * ## Public surface
+ * - `Agent` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `agentAwaitingReason` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `AgentStatus` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `AgentType` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `AlertEvent` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AlertRule` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AlertRuleConfig` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AlertRuleType` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `Analytics` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AWAITING_REASON_CONFIG` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `AWAITING_REASONS` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AWAITING_STATUS` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `AwaitingReason` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcConfigChangedPayload` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CompactionImpactData` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ConcurrencyData` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ConcurrencyLane` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CostBreakdown` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CostFeatureCosts` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CostResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CursorModelPricing` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `DashboardEvent` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `effectiveAgentStatus` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `EffectiveAgentStatus` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `effectiveSessionStatus` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `EffectiveSessionStatus` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ErrorPropagationData` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `GptModelPricing` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ImportProgressMessage` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `isAgentAwaitingInput` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `isSessionAwaitingInput` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ModelDelegationData` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ModelPricing` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `normalizeAwaitingReason` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `OrchestrationData` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `OrchestrationEdge` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteDataUpdatedPayload` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `RemoteSourceStatusPayload` (interface) — exported contract; search downstream imports and
+ *   tests before changing its name, shape, or timing.
+ * - `RunInputAckPayload` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `RunStatusPayload` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunStreamPayload` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `Session` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `SESSION_STATUS_CONFIG` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `sessionAwaitingReason` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SessionComplexityItem` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SessionDrillIn` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SessionStats` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SessionStatus` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `SessionTodoItem` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SessionTodoOwnerSummary` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SessionTodoSnapshot` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SessionTodoStatus` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SessionTodoSummary` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `Stats` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `STATUS_CONFIG` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SubagentEffectivenessItem` (interface) — exported contract; search downstream imports and
+ *   tests before changing its name, shape, or timing.
+ * - `ToolFlowData` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolFlowTransition` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `TranscriptContent` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TranscriptInfo` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TranscriptListResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `TranscriptMessage` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TranscriptResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TranscriptSender` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `UnpricedModel` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `UpdateStatusPayload` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WebhookDelivery` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WebhookDeliverySummary` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WebhookProvider` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WebhookProviderField` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WebhookTarget` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WebhookTestResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WebhookType` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `WorkflowData` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WorkflowPattern` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WorkflowPatternsData` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WorkflowPhase` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WorkflowProgressEntry` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WorkflowRun` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WorkflowRunDetail` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WorkflowRunsResponse` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `WorkflowStats` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WSMessage` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `Agent` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `agentAwaitingReason` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `AgentStatus` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AgentType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AlertEvent` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AlertRule` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AlertRuleConfig` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `AlertRuleType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Analytics` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AWAITING_REASON_CONFIG` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `AWAITING_REASONS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `AWAITING_STATUS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `AwaitingReason` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcConfigChangedPayload` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CompactionImpactData` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConcurrencyData` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ConcurrencyLane` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CostBreakdown` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CostFeatureCosts` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CostResult` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CursorModelPricing` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `DashboardEvent` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `effectiveAgentStatus` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EffectiveAgentStatus` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `effectiveSessionStatus` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EffectiveSessionStatus` (type) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ErrorPropagationData` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `GptModelPricing` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ImportProgressMessage` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `isAgentAwaitingInput` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `isSessionAwaitingInput` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ModelDelegationData` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ModelPricing` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `normalizeAwaitingReason` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `OrchestrationData` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `OrchestrationEdge` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RemoteDataUpdatedPayload` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `RemoteSourceStatusPayload` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `RunInputAckPayload` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RunStatusPayload` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RunStreamPayload` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Session` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SESSION_STATUS_CONFIG` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `sessionAwaitingReason` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SessionComplexityItem` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SessionDrillIn` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionStats` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionStatus` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SessionTodoItem` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionTodoOwnerSummary` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SessionTodoSnapshot` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SessionTodoStatus` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionTodoSummary` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Stats` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `STATUS_CONFIG` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SubagentEffectivenessItem` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `ToolFlowData` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolFlowTransition` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TranscriptContent` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TranscriptInfo` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TranscriptListResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TranscriptMessage` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TranscriptResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TranscriptSender` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `UnpricedModel` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `UpdateStatusPayload` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WebhookDelivery` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WebhookDeliverySummary` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WebhookProvider` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WebhookProviderField` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WebhookTarget` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WebhookTestResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WebhookType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `WorkflowData` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WorkflowPattern` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WorkflowPatternsData` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WorkflowPhase` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WorkflowProgressEntry` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WorkflowRun` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WorkflowRunDetail` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WorkflowRunsResponse` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `WorkflowStats` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WSMessage` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Preserve null, undefined, zero, and empty distinctions when they carry different server or
+ *   presentation meaning.
+ * - Do not mutate caller-owned collections in formatters, mergers, grouping helpers, or selectors.
+ * - Keep stable sorting and tie-breakers explicit so live updates do not reorder equal records
+ *   unpredictably.
+ * - Use exhaustive checks for discriminated unions when new providers, messages, or statuses can be
+ *   added.
+ * - Keep URL construction encoded and route through shared auth/source-scope behavior.
+ * - Return errors with enough context for the UI to explain the failed action without leaking
+ *   secrets.
+ * - Avoid browser globals at module evaluation time unless the module is deliberately browser-only
+ *   and tested as such.
+ * - Keep formatting locale-aware where the chosen UI language, not the browser default, owns the
+ *   output.
+ * - Document non-obvious thresholds, unit conversions, and compatibility fallbacks beside their
+ *   definitions.
+ * - Add table-driven tests for boundary values because library helpers often serve many visually
+ *   unrelated screens.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/lib/types.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================
