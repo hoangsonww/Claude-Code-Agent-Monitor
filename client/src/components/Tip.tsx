@@ -63,6 +63,8 @@
  *   and cleanup semantics.
  * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
  *   cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
@@ -175,7 +177,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useState, useRef, useCallback, useEffect, useId } from "react";
+import { useState, useRef, useCallback, useEffect, useId, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
 /** Props for {@link Tip}. */
@@ -217,6 +219,7 @@ export function Tip({
 }: TipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [tipSize, setTipSize] = useState<{ width: number; height: number } | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLSpanElement & HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,12 +232,25 @@ export function Tip({
     []
   );
 
+  useLayoutEffect(() => {
+    if (!show || !tipRef.current) return;
+    const next = {
+      width: tipRef.current.offsetWidth,
+      height: tipRef.current.offsetHeight,
+    };
+    setTipSize((current) =>
+      current?.width === next.width && current.height === next.height ? current : next
+    );
+  }, [content, maxWidth, raw, show]);
+
   /** Follow the pointer with the tooltip. */
   const updatePos = useCallback((e: React.MouseEvent) => {
     setPos({ x: e.clientX, y: e.clientY });
   }, []);
 
-  if (!raw && !content) return <>{children}</>;
+  const hasContent =
+    content !== undefined && content !== null && content !== false && content !== "";
+  if (!raw && !hasContent) return <>{children}</>;
 
   const cancelHide = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -250,7 +266,13 @@ export function Tip({
       setShow(false);
       return;
     }
-    hideTimerRef.current = setTimeout(() => setShow(false), 100);
+    hideTimerRef.current = setTimeout(() => {
+      const active = document.activeElement;
+      if (triggerRef.current?.contains(active) || tipRef.current?.contains(active)) {
+        return;
+      }
+      setShow(false);
+    }, 100);
   };
 
   const Wrapper = block ? "div" : "span";
@@ -268,8 +290,8 @@ export function Tip({
     visibility: "hidden",
   };
   if (show) {
-    const tipW = tipRef.current?.offsetWidth ?? 200;
-    const tipH = tipRef.current?.offsetHeight ?? 32;
+    const tipW = tipSize?.width ?? 0;
+    const tipH = tipSize?.height ?? 0;
     const vw = document.documentElement.clientWidth;
     const vh = window.innerHeight;
     const pad = 12;
@@ -292,7 +314,14 @@ export function Tip({
     // If goes off top, clamp
     if (top < pad) top = pad;
 
-    tipStyle = { position: "fixed", left, top, zIndex: 99999, maxWidth, visibility: "visible" };
+    tipStyle = {
+      position: "fixed",
+      left,
+      top,
+      zIndex: 99999,
+      maxWidth,
+      visibility: tipSize ? "visible" : "hidden",
+    };
   }
 
   return (
@@ -304,6 +333,7 @@ export function Tip({
       aria-describedby={show ? tipId : undefined}
       onMouseEnter={(e: React.MouseEvent) => {
         cancelHide();
+        setTipSize(null);
         setShow(true);
         updatePos(e);
       }}
@@ -312,6 +342,7 @@ export function Tip({
       onFocus={() => {
         const bounds = triggerRef.current?.getBoundingClientRect();
         if (bounds) setPos({ x: bounds.left + bounds.width / 2, y: bounds.bottom });
+        setTipSize(null);
         setShow(true);
       }}
       onBlur={(event: React.FocusEvent) => {
@@ -319,7 +350,19 @@ export function Tip({
         hide();
       }}
       onKeyDown={(event: React.KeyboardEvent) => {
-        if (event.key === "Escape") setShow(false);
+        if (event.key === "Escape") {
+          hide();
+          return;
+        }
+        if (interactive && event.key === "Tab" && !event.shiftKey) {
+          const firstFocusable = tipRef.current?.querySelector<HTMLElement>(
+            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable) {
+            event.preventDefault();
+            firstFocusable.focus();
+          }
+        }
       }}
     >
       {children}
@@ -334,7 +377,12 @@ export function Tip({
             onMouseLeave={scheduleHide}
             onFocus={cancelHide}
             onBlur={(event) => {
-              if (triggerRef.current?.contains(event.relatedTarget as Node | null)) return;
+              if (
+                triggerRef.current?.contains(event.relatedTarget as Node | null) ||
+                tipRef.current?.contains(event.relatedTarget as Node | null)
+              ) {
+                return;
+              }
               hide();
             }}
             className={
@@ -343,27 +391,28 @@ export function Tip({
                 : "px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
             }
           >
-            {content ||
-              (variant === "info" ? (
-                <div className="space-y-1.5">
-                  {infoLines.map((line, index) => (
-                    <p
-                      key={`${index}-${line}`}
-                      className={
-                        index === 0
-                          ? "font-semibold text-gray-100"
-                          : index === infoLines.length - 1 && infoLines.length > 2
-                            ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
-                            : "text-gray-400"
-                      }
-                    >
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                raw
-              ))}
+            {hasContent ? (
+              content
+            ) : variant === "info" ? (
+              <div className="space-y-1.5">
+                {infoLines.map((line, index) => (
+                  <p
+                    key={`${index}-${line}`}
+                    className={
+                      index === 0
+                        ? "font-semibold text-gray-100"
+                        : index === infoLines.length - 1 && infoLines.length > 2
+                          ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
+                          : "text-gray-400"
+                    }
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              raw
+            )}
           </div>,
           document.body
         )}

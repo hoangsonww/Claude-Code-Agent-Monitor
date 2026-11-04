@@ -28,6 +28,8 @@
  * ## Local dependency edges
  * - `../CostCoverage` — repository-local contract consumed by this module; review its exports
  *   before changing assumptions here.
+ * - `../Tip` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
  *
  * ## Package dependency edges
  * - `@testing-library/react` — external package boundary; keep usage within the installed version
@@ -42,9 +44,16 @@
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `labels an unset product scope as the Claude data it reads` — executable behavior named by this
  *   suite; preserve the observable contract or update the test with rationale.
+ * - `links each missing provider to its own pricing editor` — executable behavior named by this
+ *   suite; preserve the observable contract or update the test with rationale.
  * - `marks missing tier rates incomplete without calling the known model unknown` — executable
  *   behavior named by this suite; preserve the observable contract or update the test with
  *   rationale.
+ * - `moves keyboard focus from the info trigger into its portaled pricing link` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `treats numeric zero as rich tooltip content` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
  *
  * ## Area invariants
  * - Name the user-visible or contract-level behavior in each test title so failures explain the
@@ -107,9 +116,10 @@
  */
 
 import { it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { CostCoverage } from "../CostCoverage";
+import { CostCoverage, CostEstimateInfo } from "../CostCoverage";
+import { Tip } from "../Tip";
 it("does not call a complete scoped estimate a subscription bill", () => {
   render(
     <MemoryRouter>
@@ -132,6 +142,7 @@ it("marks missing tier rates incomplete without calling the known model unknown"
         scope={{ mode: "selected", selected: ["box"], provider: "codex" }}
         unpriced={[
           {
+            provider: "codex",
             model: "gpt-6-sol",
             input_tokens: 1,
             output_tokens: 1,
@@ -139,6 +150,7 @@ it("marks missing tier rates incomplete without calling the known model unknown"
             cache_write_tokens: 0,
           },
           {
+            provider: "codex",
             model: "gpt-6-sol",
             input_tokens: 1,
             output_tokens: 1,
@@ -157,6 +169,73 @@ it("marks missing tier rates incomplete without calling the known model unknown"
     "href",
     "/settings#gpt-pricing"
   );
+});
+it("links each missing provider to its own pricing editor", () => {
+  render(
+    <MemoryRouter>
+      <CostCoverage
+        scope={{ mode: "all", selected: [], provider: "both" }}
+        unpriced={[
+          {
+            provider: "cursor",
+            model: "cursor-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  expect(screen.getByRole("link", { name: "Cursor" })).toHaveAttribute(
+    "href",
+    "/settings#cursor-pricing"
+  );
+  expect(screen.getByRole("link", { name: "Codex" })).toHaveAttribute(
+    "href",
+    "/settings#gpt-pricing"
+  );
+});
+it("moves keyboard focus from the info trigger into its portaled pricing link", () => {
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "codex" }}
+        unpriced={[
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  fireEvent.focus(trigger);
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  expect(document.querySelector('a[href="/settings#gpt-pricing"]')).toHaveFocus();
+});
+it("treats numeric zero as rich tooltip content", () => {
+  render(
+    <Tip content={0}>
+      <span>metric</span>
+    </Tip>
+  );
+  fireEvent.focus(screen.getByText("metric").parentElement!);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("0");
 });
 it("labels an unset product scope as the Claude data it reads", () => {
   render(

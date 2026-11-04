@@ -106,6 +106,8 @@
  *   freshness and cleanup semantics.
  * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
@@ -249,7 +251,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+  type ReactNode,
+} from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -357,7 +367,9 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const routeIdRef = useRef(id);
   const loadSequenceRef = useRef(0);
-  routeIdRef.current = id;
+  useLayoutEffect(() => {
+    routeIdRef.current = id;
+  }, [id]);
   const { t } = useTranslation("sessions");
   const { t: wfT } = useTranslation("workflows");
   const [scope] = useDataScope();

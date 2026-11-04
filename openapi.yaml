@@ -1619,6 +1619,12 @@ components:
           items:
             type: object
             properties:
+              provider:
+                type: string
+                enum:
+                  - claude
+                  - cursor
+                  - codex
               model:
                 type: string
               input_tokens:
@@ -6853,7 +6859,8 @@ paths:
                   code_execution_hours_estimated: 0.1667
                   code_execution_free_hours: 50
                 unpriced_models:
-                  - model: claude-experimental-preview
+                  - provider: claude
+                    model: claude-experimental-preview
                     input_tokens: 4096
                     output_tokens: 2048
                     cache_read_tokens: 0
@@ -6932,7 +6939,8 @@ paths:
                   code_execution_hours_estimated: 0.1667
                   code_execution_free_hours: 50
                 unpriced_models:
-                  - model: claude-experimental-preview
+                  - provider: claude
+                    model: claude-experimental-preview
                     input_tokens: 4096
                     output_tokens: 2048
                     cache_read_tokens: 0

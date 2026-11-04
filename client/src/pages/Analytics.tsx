@@ -103,6 +103,8 @@
  *   freshness and cleanup semantics.
  * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
@@ -239,7 +241,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  useLayoutEffect,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
@@ -949,6 +959,12 @@ export function Analytics() {
   const [scope] = useDataScope();
   const [costScope, setCostScope] = useState(scope);
   const loadSequence = useRef(0);
+  const highestAppliedSequence = useRef(0);
+  const scopeRef = useRef(scope);
+
+  useLayoutEffect(() => {
+    scopeRef.current = scope;
+  }, [scope]);
 
   /**
    * Load analytics and total cost in parallel. A failed cost request leaves cost empty instead of
@@ -962,13 +978,17 @@ export function Analytics() {
         api.analytics.get(),
         api.pricing.totalCost().catch(() => null),
       ]);
-      if (sequence !== loadSequence.current) return;
+      if (scopeRef.current !== requestedScope || sequence <= highestAppliedSequence.current) return;
+      highestAppliedSequence.current = sequence;
       setData(result);
       setCostData(cost);
       setCostScope(requestedScope);
       setLastUpdate(new Date());
+      setLoading(false);
     } finally {
-      if (sequence === loadSequence.current) setLoading(false);
+      if (sequence === loadSequence.current && scopeRef.current === requestedScope) {
+        setLoading(false);
+      }
     }
   }, [scope]);
 

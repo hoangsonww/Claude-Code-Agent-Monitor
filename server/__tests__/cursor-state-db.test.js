@@ -278,4 +278,28 @@ describe("Cursor ingestion with state.vscdb titles", () => {
     });
     assert.equal(preserved.session.name, "hi");
   });
+
+  it("preserves a manual rename even when it resembles a generated placeholder", () => {
+    const transcript = writeTranscript(LEGACY_CUSTOM_ID);
+    const chatDir = writeChat(LEGACY_CUSTOM_ID, { prompts: ["original prompt"] });
+    enrichCursorSession(dbModule, transcript, { sessionId: LEGACY_CUSTOM_ID, chatDir });
+    const manualName = `Cursor session ${LEGACY_CUSTOM_ID.slice(0, 8)}`;
+    dbModule.db
+      .prepare("UPDATE sessions SET name = ?, metadata = ? WHERE id = ?")
+      .run(
+        manualName,
+        JSON.stringify({ cursor: true, cursor_title_source: "manual" }),
+        LEGACY_CUSTOM_ID
+      );
+
+    writeChat(LEGACY_CUSTOM_ID, {
+      title: "Generated title must not win",
+      prompts: ["original prompt"],
+    });
+    const preserved = enrichCursorSession(dbModule, transcript, {
+      sessionId: LEGACY_CUSTOM_ID,
+      chatDir,
+    });
+    assert.equal(preserved.session.name, manualName);
+  });
 });

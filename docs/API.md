@@ -376,7 +376,8 @@ user records are returned as one human turn. Cursor main sessions merge the
 ordered native `store.db` conversation, including tool calls/results and the
 concrete response model, with any replies available only in JSONL.
 `prompt_history.json` fills submitted prompts that neither durable source has
-recorded yet. All sources are snapshotted, their messages carry stable `id` values, and an
+recorded yet. JSONL and native `store.db` sources are snapshotted; prompt history is read from the
+live Cursor chat directory only. Messages carry stable `id` values, and an
 incremental result with `refresh: true` is a latest window that clients merge by
 `id`. A Cursor `/resume` shell ID is also accepted here and resolves to the
 canonical conversation before the transcript is read. The response does not
@@ -970,6 +971,20 @@ curl -X DELETE http://localhost:4820/api/pricing/gpt-5.1-codex
 | 404 | Pattern not found |
 | 403 | Cannot delete default rule |
 | 500 | Database error |
+
+---
+
+#### Calculate Cost
+
+```http
+GET /api/pricing/cost
+GET /api/pricing/cost/:sessionId
+```
+
+The response contains `total_cost`, `breakdown`, `daily_costs`, feature surcharges, and
+`unpriced_models`. Each unpriced entry includes `provider` (`claude`, `cursor`, or `codex`) so a
+client can link the missing rate to the correct Settings editor; its tokens contribute $0 until a
+matching rule exists.
 
 ---
 

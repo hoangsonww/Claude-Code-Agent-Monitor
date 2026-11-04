@@ -8,11 +8,13 @@
 const { resolveCursorStoreModel } = require("./cursor-store-transcript");
 const {
   claimCursorHookReceipt,
+  cursorSessionFamilyIds,
   cursorHookReceiptKey,
   reconcileHistoricalCursorSessionsBatched,
 } = require("./cursor-session-identity");
 
 const UNGROUPED_GENERATION = "__latest__";
+const activeRepairGenerations = new Set();
 
 function finiteCount(value) {
   if (value == null || value === "") return null;
@@ -147,7 +149,7 @@ function rewriteCursorTokenBuckets(stmts, sessionId, previousBucket = null) {
 }
 
 /** Persist and re-sum one Cursor generation; repeated hooks replace one row. */
-function applyCursorTurnUsage(stmts, sessionId, data) {
+function applyCursorTurnUsage(stmts, sessionId, data, options = {}) {
   if (!sessionId) return null;
   const reportedGenerationId =
     typeof data?.generation_id === "string" && data.generation_id.trim()
@@ -157,6 +159,13 @@ function applyCursorTurnUsage(stmts, sessionId, data) {
     reportedGenerationId === UNGROUPED_GENERATION
       ? `${sessionId}\0${UNGROUPED_GENERATION}`
       : reportedGenerationId;
+  if (options.repairGenerations) {
+    if (options.repairGenerations.has(generationId)) return null;
+  } else {
+    for (const repairGenerations of activeRepairGenerations) {
+      repairGenerations.add(generationId);
+    }
+  }
   const previous = stmts.getCursorTurn.get(generationId);
   const mergedData = { ...data };
   if (previous) {
@@ -176,15 +185,13 @@ function applyCursorTurnUsage(stmts, sessionId, data) {
   if (isModelAlias(cursorModelId(data))) {
     const eventModel = stmts.getCursorEventModel.get(sessionId, reportedGenerationId)?.model;
     const sourceSessionId = data?.cursor_alias_session_id || data?.conversation_id;
+    const familyIds = options.db ? cursorSessionFamilyIds(options.db, sessionId) : [sessionId];
+    const storeSessionIds = [
+      ...new Set([sourceSessionId, sessionId, ...familyIds].filter(Boolean)),
+    ];
     resolvedModel = previous && !isModelAlias(previous.model) ? previous.model : eventModel;
-    if (isModelAlias(resolvedModel) && sourceSessionId && sourceSessionId !== sessionId) {
-      resolvedModel = resolveCursorStoreModel(sourceSessionId, data?.text);
-    }
     if (isModelAlias(resolvedModel)) {
-      resolvedModel = resolveCursorStoreModel(sessionId, data?.text);
-    }
-    if (isModelAlias(resolvedModel)) {
-      resolvedModel = stmts.getLatestCursorSessionModel.get(sessionId)?.model;
+      resolvedModel = resolveCursorStoreModel(storeSessionIds, data?.text);
     }
   }
   const snapshot = normalizeCursorTurnUsage(mergedData, resolvedModel);
@@ -235,19 +242,22 @@ async function repairHistoricalCursorData(dbModule) {
   let merged = Number(progress.merged_count) || 0;
   let removed = Number(progress.removed_count) || 0;
   let usage = Number(progress.usage_count) || 0;
+  const repairGenerations = new Set();
+  activeRepairGenerations.add(repairGenerations);
 
-  if (progress.phase === "merge") {
-    merged += await reconcileHistoricalCursorSessionsBatched(db);
-    setProgress("usage", 0, merged, removed, usage);
-    progress = getProgress();
-  }
+  try {
+    if (progress.phase === "merge") {
+      merged += await reconcileHistoricalCursorSessionsBatched(db);
+      setProgress("usage", 0, merged, removed, usage);
+      progress = getProgress();
+    }
 
-  if (progress.phase === "usage") {
-    let lastEventId = Number(progress.last_event_id) || 0;
-    while (true) {
-      const rows = db
-        .prepare(
-          `SELECT e.id, e.data, e.session_id
+    if (progress.phase === "usage") {
+      let lastEventId = Number(progress.last_event_id) || 0;
+      while (true) {
+        const rows = db
+          .prepare(
+            `SELECT e.id, e.data, e.session_id
            FROM events e JOIN sessions s ON s.id = e.session_id
            WHERE e.id > ? AND s.provider = 'cursor'
              AND e.event_type IN ('afterAgentResponse', 'Stop')
@@ -255,114 +265,139 @@ async function repairHistoricalCursorData(dbModule) {
              AND (json_extract(e.data, '$.input_tokens') IS NOT NULL
                OR json_extract(e.data, '$.output_tokens') IS NOT NULL)
            ORDER BY e.id LIMIT 100`
-        )
-        .all(lastEventId);
-      if (!rows.length) break;
-      db.transaction(() => {
-        for (const row of rows) {
-          lastEventId = row.id;
-          try {
-            if (applyCursorTurnUsage(stmts, row.session_id, JSON.parse(row.data))) usage++;
-          } catch {
-            // One malformed legacy row must not block the remaining repair.
+          )
+          .all(lastEventId);
+        if (!rows.length) break;
+        db.transaction(() => {
+          for (const row of rows) {
+            lastEventId = row.id;
+            try {
+              if (
+                applyCursorTurnUsage(stmts, row.session_id, JSON.parse(row.data), {
+                  db,
+                  repairGenerations,
+                })
+              ) {
+                usage++;
+              }
+            } catch {
+              // One malformed legacy row must not block the remaining repair.
+            }
           }
-        }
-        setProgress("usage", lastEventId, merged, removed, usage);
-      })();
-      await yieldToHooks();
+          setProgress("usage", lastEventId, merged, removed, usage);
+        })();
+        await yieldToHooks();
+      }
+      setProgress("delete_responses", 0, merged, removed, usage);
+      progress = getProgress();
     }
-    setProgress("delete_responses", 0, merged, removed, usage);
-    progress = getProgress();
-  }
 
-  if (progress.phase === "delete_responses") {
-    while (true) {
-      const result = db
-        .prepare(
-          `DELETE FROM events WHERE id IN (
+    if (progress.phase === "delete_responses") {
+      while (true) {
+        const result = db
+          .prepare(
+            `DELETE FROM events WHERE id IN (
              SELECT e.id FROM events e JOIN sessions s ON s.id = e.session_id
              WHERE s.provider = 'cursor' AND e.event_type = 'afterAgentResponse'
              ORDER BY e.id LIMIT 100
            )`
-        )
-        .run();
-      removed += result.changes;
-      setProgress("delete_responses", 0, merged, removed, usage);
-      if (result.changes === 0) break;
-      await yieldToHooks();
+          )
+          .run();
+        removed += result.changes;
+        setProgress("delete_responses", 0, merged, removed, usage);
+        if (result.changes === 0) break;
+        await yieldToHooks();
+      }
+      setProgress("dedupe_stops", 0, merged, removed, usage);
+      progress = getProgress();
     }
-    setProgress("dedupe_stops", 0, merged, removed, usage);
-    progress = getProgress();
-  }
 
-  if (progress.phase === "dedupe_stops") {
-    while (true) {
-      const duplicates = db
-        .prepare(
-          `SELECT id FROM (
-             SELECT e.id,
-               ROW_NUMBER() OVER (
-                 PARTITION BY json_extract(e.data, '$.generation_id'),
-                   COALESCE(NULLIF(json_extract(e.data, '$.status'), ''),
-                     json_extract(e.data, '$.stop_reason'), ''),
-                   json_extract(e.data, '$.input_tokens'),
-                   json_extract(e.data, '$.output_tokens'),
-                   json_extract(e.data, '$.cache_read_tokens'),
-                   json_extract(e.data, '$.cache_write_tokens')
-                 ORDER BY e.id
-               ) AS duplicate_rank
-             FROM events e JOIN sessions s ON s.id = e.session_id
-             WHERE s.provider = 'cursor' AND e.event_type = 'Stop'
-               AND json_valid(e.data) = 1
-               AND json_extract(e.data, '$.generation_id') IS NOT NULL
-           ) ranked WHERE duplicate_rank > 1 LIMIT 100`
-        )
-        .all();
-      if (!duplicates.length) break;
-      db.transaction(() => {
-        const remove = db.prepare("DELETE FROM events WHERE id = ?");
-        for (const row of duplicates) removed += remove.run(row.id).changes;
-        setProgress("dedupe_stops", 0, merged, removed, usage);
-      })();
-      await yieldToHooks();
+    if (progress.phase === "dedupe_stops") {
+      db.exec(
+        `DROP TABLE IF EXISTS temp.cursor_stop_duplicates;
+       CREATE TEMP TABLE cursor_stop_duplicates AS
+       SELECT id FROM (
+         SELECT e.id,
+           ROW_NUMBER() OVER (
+             PARTITION BY json_extract(e.data, '$.generation_id'),
+               COALESCE(NULLIF(json_extract(e.data, '$.status'), ''),
+                 json_extract(e.data, '$.stop_reason'), ''),
+               json_extract(e.data, '$.input_tokens'),
+               json_extract(e.data, '$.output_tokens'),
+               json_extract(e.data, '$.cache_read_tokens'),
+               json_extract(e.data, '$.cache_write_tokens')
+             ORDER BY e.id
+           ) AS duplicate_rank
+         FROM events e JOIN sessions s ON s.id = e.session_id
+         WHERE s.provider = 'cursor' AND e.event_type = 'Stop'
+           AND json_valid(e.data) = 1
+           AND json_extract(e.data, '$.generation_id') IS NOT NULL
+       ) ranked WHERE duplicate_rank > 1`
+      );
+      while (true) {
+        const duplicates = db.prepare("SELECT id FROM temp.cursor_stop_duplicates LIMIT 100").all();
+        if (!duplicates.length) break;
+        db.transaction(() => {
+          const remove = db.prepare("DELETE FROM events WHERE id = ?");
+          const removeCandidate = db.prepare(
+            "DELETE FROM temp.cursor_stop_duplicates WHERE id = ?"
+          );
+          for (const row of duplicates) {
+            removed += remove.run(row.id).changes;
+            removeCandidate.run(row.id);
+          }
+          setProgress("dedupe_stops", 0, merged, removed, usage);
+        })();
+        await yieldToHooks();
+      }
+      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_duplicates");
+      setProgress("claim_stops", 0, merged, removed, usage);
+      progress = getProgress();
     }
-    setProgress("claim_stops", 0, merged, removed, usage);
-    progress = getProgress();
-  }
 
-  if (progress.phase === "claim_stops") {
-    let lastEventId = Number(progress.last_event_id) || 0;
-    while (true) {
-      const rows = db
-        .prepare(
-          `SELECT e.id, e.session_id, e.data
+    if (progress.phase === "claim_stops") {
+      let lastEventId = Number(progress.last_event_id) || 0;
+      while (true) {
+        const rows = db
+          .prepare(
+            `SELECT e.id, e.session_id, e.data
            FROM events e JOIN sessions s ON s.id = e.session_id
            WHERE e.id > ? AND s.provider = 'cursor' AND e.event_type = 'Stop'
              AND json_valid(e.data) = 1
              AND json_extract(e.data, '$.generation_id') IS NOT NULL
            ORDER BY e.id LIMIT 100`
-        )
-        .all(lastEventId);
-      if (!rows.length) break;
-      db.transaction(() => {
-        for (const row of rows) {
-          lastEventId = row.id;
-          const data = JSON.parse(row.data);
-          if (cursorHookReceiptKey("Stop", data)) {
-            claimCursorHookReceipt(db, "Stop", data, row.session_id);
+          )
+          .all(lastEventId);
+        if (!rows.length) break;
+        db.transaction(() => {
+          for (const row of rows) {
+            lastEventId = row.id;
+            const data = JSON.parse(row.data);
+            if (cursorHookReceiptKey("Stop", data)) {
+              claimCursorHookReceipt(db, "Stop", data, row.session_id);
+            }
           }
-        }
-        setProgress("claim_stops", lastEventId, merged, removed, usage);
-      })();
-      await yieldToHooks();
+          setProgress("claim_stops", lastEventId, merged, removed, usage);
+        })();
+        await yieldToHooks();
+      }
+    }
+
+    db.transaction(() => {
+      db.prepare("INSERT OR IGNORE INTO cursor_repair_state (repair_key) VALUES (?)").run(
+        repairKey
+      );
+      db.prepare("DELETE FROM cursor_repair_progress WHERE repair_key = ?").run(repairKey);
+    })();
+    return { repaired: true, merged, removed, usage };
+  } finally {
+    activeRepairGenerations.delete(repairGenerations);
+    try {
+      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_duplicates");
+    } catch {
+      // The repair result remains valid if SQLite already discarded the temp table.
     }
   }
-
-  db.transaction(() => {
-    db.prepare("INSERT OR IGNORE INTO cursor_repair_state (repair_key) VALUES (?)").run(repairKey);
-    db.prepare("DELETE FROM cursor_repair_progress WHERE repair_key = ?").run(repairKey);
-  })();
-  return { repaired: true, merged, removed, usage };
 }
 
 module.exports = {

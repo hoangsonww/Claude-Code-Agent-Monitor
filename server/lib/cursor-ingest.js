@@ -23,6 +23,7 @@ const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
 const { cursorStoreSnapshotPending, snapshotCursorStore } = require("./cursor-store-transcript");
 const { mergeCursorSessions, resolveCursorSessionId } = require("./cursor-session-identity");
+const { parseCursorMessage } = require("./cursor-transcript");
 
 const RECENT_SESSION_MS = 10 * 60 * 1000;
 // How often the orphan-agent heal below may rescan (it always runs on the
@@ -39,6 +40,8 @@ const WORKING_IDLE_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 120_000;
 })();
 const syncFingerprints = new Map();
+const transcriptTurnCountCache = new Map();
+const TRANSCRIPT_TURN_COUNT_CACHE_LIMIT = 256;
 let lastOrphanHealMs = 0;
 
 function statFingerprint(filePath) {
@@ -235,11 +238,13 @@ function parseMetadata(value) {
 
 function cursorNameIsIngestionOwned(session, sessionId) {
   if (!session) return true;
+  const metadata = parseMetadata(session.metadata);
+  if (metadata.cursor_title_source === "manual") return false;
   const placeholder =
     !session.name ||
     session.name === `Session ${sessionId.slice(0, 8)}` ||
     session.name === `Cursor session ${sessionId.slice(0, 8)}`;
-  const ingestedName = trimPrompt(parseMetadata(session.metadata).cursor_ingested_name);
+  const ingestedName = trimPrompt(metadata.cursor_ingested_name);
   return placeholder || Boolean(ingestedName && session.name === ingestedName);
 }
 
@@ -445,23 +450,31 @@ function discoverCursorTranscripts(root = getCursorProjectsDir()) {
   return results;
 }
 
-function cursorTranscriptTurnCount(transcriptPath) {
+function cursorTranscriptTurnCount(transcriptPath, stat = null) {
+  const fingerprint = stat
+    ? `${stat.dev || 0}:${stat.ino || 0}:${stat.size}:${stat.mtimeMs}`
+    : statFingerprint(transcriptPath);
+  const cached = transcriptTurnCountCache.get(transcriptPath);
+  if (cached?.fingerprint === fingerprint) {
+    transcriptTurnCountCache.delete(transcriptPath);
+    transcriptTurnCountCache.set(transcriptPath, cached);
+    return cached.turns;
+  }
   try {
     let turns = 0;
     for (const line of fs.readFileSync(transcriptPath, "utf8").split(/\r?\n/)) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
-        if (
-          (entry?.role === "user" || entry?.role === "assistant") &&
-          Array.isArray(entry?.message?.content) &&
-          entry.message.content.length > 0
-        ) {
-          turns++;
-        }
+        if (parseCursorMessage(entry, 0, false)) turns++;
       } catch {
         // A partially written tail does not count as a completed turn.
       }
+    }
+    transcriptTurnCountCache.delete(transcriptPath);
+    transcriptTurnCountCache.set(transcriptPath, { fingerprint, turns });
+    while (transcriptTurnCountCache.size > TRANSCRIPT_TURN_COUNT_CACHE_LIMIT) {
+      transcriptTurnCountCache.delete(transcriptTurnCountCache.keys().next().value);
     }
     return turns;
   } catch {
@@ -578,9 +591,10 @@ function enrichCursorSession(dbModule, transcriptPath, options = {}) {
         : existing.status;
     const desiredEndedAt = shouldComplete ? updatedAt : shouldReactivate ? null : existing.ended_at;
     const placeholder =
-      !existing.name ||
-      existing.name === `Session ${sessionId.slice(0, 8)}` ||
-      existing.name === `Cursor session ${sessionId.slice(0, 8)}`;
+      currentMeta.cursor_title_source !== "manual" &&
+      (!existing.name ||
+        existing.name === `Session ${sessionId.slice(0, 8)}` ||
+        existing.name === `Cursor session ${sessionId.slice(0, 8)}`);
     const previousIngestedName = trimPrompt(currentMeta.cursor_ingested_name);
     const matchesNativeTitle = Boolean(nativeTitle && existing.name === nativeTitle);
     const ingestionOwnedName = cursorNameIsIngestionOwned(existing, sessionId);
@@ -807,8 +821,8 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
     try {
       const candidate = fs.statSync(transcriptPath);
       const existing = fs.statSync(current);
-      const candidateTurns = cursorTranscriptTurnCount(transcriptPath);
-      const existingTurns = cursorTranscriptTurnCount(current);
+      const candidateTurns = cursorTranscriptTurnCount(transcriptPath, candidate);
+      const existingTurns = cursorTranscriptTurnCount(current, existing);
       if (
         candidateTurns > existingTurns ||
         (candidateTurns === existingTurns && candidate.mtimeMs > existing.mtimeMs)

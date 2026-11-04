@@ -139,6 +139,7 @@
     "title": "Datos del panel",
     "description": "Elige qué sesiones, tokens, costes y actividad de producto se muestran en toda la aplicación. El cambio se aplica de inmediato y es independiente del filtro de fuentes de datos de las máquinas.",
     "claude": "Claude Code",
+    "cursor": "Cursor",
     "codex": "Codex",
     "both": "Ambos",
     "claudeDescription": "Mostrar datos de Claude Code y Cursor.",

@@ -44,6 +44,7 @@ const {
   readCursorChatMetadata,
 } = require("../lib/cursor-home");
 const { readCursorStoreMessages } = require("../lib/cursor-store-transcript");
+const { parseCursorMessage } = require("../lib/cursor-transcript");
 const {
   cursorSessionFamilyIds,
   resolveCursorSessionId,
@@ -1259,49 +1260,6 @@ async function readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, of
   return { messages, total, has_more: hasMore, first_line: firstLine, last_line: lastLine };
 }
 
-/** Translate Cursor's Claude-compatible-but-minimal JSONL into conversation DTOs. */
-function parseCursorMessage(entry, line, isSubagentFile) {
-  if (entry?.role !== "user" && entry?.role !== "assistant") return null;
-  const rawContent = entry?.message?.content;
-  if (!Array.isArray(rawContent)) return null;
-  const content = [];
-  let embeddedTimestamp = null;
-  for (const block of rawContent) {
-    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
-      let text = block.text;
-      const timestampMatch = text.match(/<timestamp>([\s\S]*?)<\/timestamp>/i);
-      if (timestampMatch) {
-        const normalized = timestampMatch[1].replace(
-          /\(UTC([+-]\d{1,2})\)/i,
-          (_match, offset) =>
-            `GMT${Number(offset) >= 0 ? "+" : "-"}${String(Math.abs(Number(offset))).padStart(2, "0")}00`
-        );
-        const parsed = new Date(normalized);
-        if (!Number.isNaN(parsed.getTime())) embeddedTimestamp = parsed.toISOString();
-        text = text.replace(timestampMatch[0], "").trim();
-      }
-      const userQuery = text.match(/<user_query>([\s\S]*?)<\/user_query>/i);
-      if (userQuery) text = userQuery[1].trim();
-      if (text) content.push({ type: "text", text: truncate(text, 10240) });
-    } else if (entry.role === "assistant" && block?.type === "tool_use") {
-      content.push({
-        type: "tool_use",
-        name: block.name || "unknown",
-        id: block.id || null,
-        input: truncateObj(block.input || {}, 10240),
-      });
-    }
-  }
-  if (content.length === 0) return null;
-  return {
-    type: entry.role,
-    sender: entry.role === "assistant" ? "assistant" : isSubagentFile ? "orchestrator" : "user",
-    timestamp: entry.timestamp || embeddedTimestamp,
-    content,
-    line,
-  };
-}
-
 async function readCursorTranscript(
   jsonlPath,
   { limit, afterLine, beforeLine, offset, isSubagentFile }
@@ -1500,6 +1458,7 @@ async function readCursorConversation(
         .replace(/\[Image #\d+\]/gi, " ")
         .replace(/\s+/g, " ")
         .trim();
+    let untimedPromptInsertIndex = 0;
     for (const message of messages) {
       if (message.sender !== "user") continue;
       const text = cursorMessageText(message);
@@ -1523,7 +1482,7 @@ async function readCursorConversation(
           (tail.length >= 12 && text.includes(tail))
       );
       if (represented) return;
-      messages.push({
+      const promptMessage = {
         id,
         type: "user",
         sender: "user",
@@ -1532,7 +1491,19 @@ async function readCursorConversation(
             ? new Date(Number(meta.updatedAtMs)).toISOString()
             : null,
         content: [{ type: "text", text: truncate(prompt, 10240) }],
-      });
+      };
+      const promptTime = Date.parse(promptMessage.timestamp || "");
+      if (Number.isFinite(promptTime)) {
+        const laterIndex = messages.findIndex((message) => {
+          const messageTime = Date.parse(message.timestamp || "");
+          return Number.isFinite(messageTime) && messageTime > promptTime;
+        });
+        if (laterIndex >= 0) messages.splice(laterIndex, 0, promptMessage);
+        else messages.push(promptMessage);
+      } else {
+        messages.splice(untimedPromptInsertIndex, 0, promptMessage);
+        untimedPromptInsertIndex++;
+      }
       transcriptUserText.push(normalized);
     });
   }

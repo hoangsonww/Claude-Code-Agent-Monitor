@@ -368,18 +368,21 @@ async function reconcileHistoricalCursorSessionsBatched(db, batchSize = 50) {
     await new Promise((resolve) => setImmediate(resolve));
   }
 
+  let lastGenerationId = "";
   while (true) {
     const groups = db
       .prepare(
-        `SELECT json_extract(e.data, '$.generation_id') AS generation_id,
+        `SELECT CAST(json_extract(e.data, '$.generation_id') AS TEXT) AS generation_id,
                 GROUP_CONCAT(DISTINCT e.session_id) AS session_ids
          FROM events e JOIN sessions s ON s.id = e.session_id
          WHERE s.provider = 'cursor' AND json_valid(e.data) = 1
            AND json_extract(e.data, '$.generation_id') IS NOT NULL
+           AND CAST(json_extract(e.data, '$.generation_id') AS TEXT) > ?
          GROUP BY generation_id HAVING COUNT(DISTINCT e.session_id) > 1
+         ORDER BY generation_id
          LIMIT ?`
       )
-      .all(batchSize);
+      .all(lastGenerationId, batchSize);
     if (!groups.length) break;
     db.transaction(() => {
       for (const group of groups) {
@@ -398,6 +401,7 @@ async function reconcileHistoricalCursorSessionsBatched(db, batchSize = 50) {
         }
       }
     })();
+    lastGenerationId = groups[groups.length - 1].generation_id;
     await new Promise((resolve) => setImmediate(resolve));
   }
   return merged;

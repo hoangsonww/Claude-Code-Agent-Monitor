@@ -36,6 +36,7 @@ const {
 const {
   claimCursorHookReceipt,
   registerCursorGeneration,
+  resolveCursorSessionId,
 } = require("../lib/cursor-session-identity");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
@@ -545,6 +546,14 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   let sessionId = data.session_id;
   if (!sessionId) return null;
 
+  if (isCursorHook(hookType, data)) {
+    const suppliedSessionId = sessionId;
+    sessionId = resolveCursorSessionId(db, sessionId);
+    if (sessionId !== suppliedSessionId) {
+      data = { ...data, session_id: sessionId, cursor_alias_session_id: suppliedSessionId };
+    }
+  }
+
   let session = ensureSession(sessionId, data, origin);
   if (!session) return null;
   if (isCursorHook(hookType, data)) {
@@ -568,7 +577,7 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   }
   let cursorUsage = null;
   if (isCursorTurnPayload(hookType, data)) {
-    cursorUsage = applyCursorTurnUsage(stmts, sessionId, data);
+    cursorUsage = applyCursorTurnUsage(stmts, sessionId, data, { db });
     if (cursorUsage && session.provider !== "cursor" && session.provider !== "codex") {
       stmts.setSessionProvider.run("cursor", sessionId);
       session = stmts.getSession.get(sessionId);

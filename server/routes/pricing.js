@@ -115,6 +115,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
 
     if (!rule) {
       const u = unpriced.get(row.model) || {
+        provider: "claude",
         model: row.model,
         input_tokens: 0,
         output_tokens: 0,
@@ -250,6 +251,7 @@ function calculateGptCost(tokenRows, pricingRules) {
     if (!isPriced) {
       const key = `${row.model}|${isFast ? "fast" : "standard"}|${contextSize}`;
       const entry = unpriced.get(key) || {
+        provider: "codex",
         model: row.model,
         speed: row.speed || "standard",
         context_size: contextSize,
@@ -353,6 +355,7 @@ function calculateCursorCost(tokenRows, pricingRules) {
     breakdown.push(item);
     if (!rule) {
       unpriced.push({
+        provider: "cursor",
         model,
         speed: row.speed || "standard",
         reason: "No Cursor pricing rule matches this model",

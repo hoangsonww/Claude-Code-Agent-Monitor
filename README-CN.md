@@ -315,7 +315,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **任务进度** | 汇总 Claude 任务工具、旧版 `TodoWrite` 与 Codex `update_plan` 的按归属进度。卡片和表格行显示紧凑预览；会话详情增加状态分段、当前工作、归属信息和每页 10 行的分页。新的顶层工作会清除陈旧的未完成状态，已完成历史仍保留。 |
 | **Dashboard** | 持久化的 **Monitor** 和 **Health** 标签页汇总 Agent 总量、活跃层级、最近活动、加权的成功率/缓存/错误/堆内存健康度，以及存储、工具、模型、Subagent 效能和压缩指标。Health 每 5 秒从 `/api/settings/info` 和 `/api/workflows` 刷新。 |
 | **Kanban 看板** | Agent 列覆盖 Working、Waiting、Completed 和 Error，会话列另含 Active 和 Abandoned。卡片每次显示 10 张，仅订阅当前 WebSocket 视图，保留完整标题，并说明权限输入、回合完成、提示符空闲或中断等等待原因。 |
-| **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。Cursor 的原生生成标题一旦出现在元数据中，就会替换临时的首条提示回退名。 |
+| **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。只有导入元数据能够证明当前名称由 CCAM 管理时，Cursor 原生生成标题才会替换临时的首条提示回退名；手动名称和归属不明确的旧名称保持不变。 |
 | **会话详情** | 实时统计、当前工作、工具用量、Subagent、Token、层级、筛选后的事件时间线、`tool_use_id` 分组和工具专用渲染器。对话视图渲染排队回合、系统通知、Markdown、高亮代码和样式化工具；等待横幅显示原因和已等待时长。 |
 | **活动流** | 可暂停的实时事件流，带共享筛选器、服务端分页、分组、项目/会话/Subagent 来源、会话链接，以及一致的 Claude/Codex 状态徽标。 |
 | **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。 |
@@ -391,7 +391,7 @@ npm run install-hooks
 
 设置完成后，Provider 发现会持续运行：
 
-- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。CCAM 会自动将自己的 `stop` 与 `afterAgentResponse` 命令安全合并进 `~/.cursor/hooks.json`，不会替换或拆分无关的命令链；也可运行 `npm run install-cursor-hooks` 手动修复。Cursor 原生聊天存储与 Transcript 监听仍作为离线回退，将 `/resume` 临时 ID 关联到规范会话，合并原生 Store、JSONL 与别名提示历史，在采用生成标题时保留 Dashboard 重命名，仅在存储的响应匹配时解析 `default`，并遵循 `DASHBOARD_CURSOR_HOME`。
+- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。CCAM 会自动将自己的 `stop` 与 `afterAgentResponse` 命令安全合并进 `~/.cursor/hooks.json`，不会替换或拆分无关的命令链；也可运行 `npm run install-cursor-hooks` 手动修复。Cursor 原生聊天存储与 Transcript 监听仍作为离线回退，将 `/resume` 临时 ID 关联到规范会话，合并原生 Store、JSONL 与别名提示历史，仅为导入流程拥有的名称采用生成标题，仅在别名会话族任一原生 Store 中找到匹配响应时解析 `default`，并遵循 `DASHBOARD_CURSOR_HOME`。
 - **Codex：** Hook 与 `~/.codex/sessions` rollout 增量监听共同保持生命周期、提示、标题、工具、Token、成本、压缩、对话和 WebSocket 状态最新。坏文件会独立重试；精确的 rollout/进程匹配可防止幽灵活跃卡片；原生 `/rename` 标题和基于游标分页的对话历史会实时更新。
 - **Both：** 卡片保留最近两条不同的人类提示，渲染持久化图片附件，并对重复的 Codex 响应去重。仅 Codex 的范围会隐藏只适用于 Claude 的 Dynamic Workflow 日志。
 ### 3. 启动

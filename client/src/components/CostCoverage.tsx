@@ -54,6 +54,8 @@
  *   test selection.
  * - `CostEstimateInfo` (function) — top-level declaration that helps orient code review and focused
  *   test selection.
+ * - `PricingReviewLinks` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
  * - `useCostCoverageText` (function) — top-level declaration that helps orient code review and
  *   focused test selection.
  *
@@ -136,7 +138,7 @@ import type { UnpricedModel } from "../lib/types";
 import { Tip } from "./Tip";
 
 export function CostCoverage({ scope, unpriced }: { scope: DataScope; unpriced: UnpricedModel[] }) {
-  const { pricingAnchor, scopeKey, provider, models } = useCostCoverageText(scope, unpriced);
+  const { pricingTargets, scopeKey, provider, models } = useCostCoverageText(scope, unpriced);
   const { t } = useTranslation("dashboard");
   return (
     <div className="text-xs text-gray-400 mb-4 space-y-1">
@@ -151,10 +153,7 @@ export function CostCoverage({ scope, unpriced }: { scope: DataScope; unpriced: 
       </p>
       {unpriced.length > 0 && (
         <p role="status" className="text-amber-400">
-          {t("costIncomplete", { models })}{" "}
-          <Link className="underline" to={`/settings#${pricingAnchor}`}>
-            {t("reviewRates")}
-          </Link>
+          {t("costIncomplete", { models })} <PricingReviewLinks targets={pricingTargets} />
         </p>
       )}
     </div>
@@ -170,7 +169,7 @@ export function CostEstimateInfo({
   unpriced: UnpricedModel[];
 }) {
   const { t } = useTranslation("dashboard");
-  const { text, scopeText, incompleteText, pricingAnchor } = useCostCoverageText(scope, unpriced);
+  const { text, scopeText, incompleteText, pricingTargets } = useCostCoverageText(scope, unpriced);
   return (
     <Tip
       raw={text}
@@ -180,13 +179,7 @@ export function CostEstimateInfo({
           <p className="text-gray-400">{scopeText}</p>
           {incompleteText && (
             <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200">
-              {incompleteText}{" "}
-              <Link
-                className="font-medium text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
-                to={`/settings#${pricingAnchor}`}
-              >
-                {t("reviewRates")}
-              </Link>
+              {incompleteText} <PricingReviewLinks targets={pricingTargets} tooltip />
             </p>
           )}
         </div>
@@ -213,7 +206,23 @@ export function useCostCoverageText(scope: DataScope, unpriced: UnpricedModel[])
         : "scopeAll";
   const models = [...new Set(unpriced.map((row) => row.model))].join(", ");
   const provider = scope.provider || "claude";
-  const pricingAnchor = provider === "codex" ? "gpt-pricing" : "claude-pricing";
+  const fallbackProviders = provider === "both" ? ["claude"] : [provider];
+  const pricingProviders = [
+    ...new Set(
+      unpriced.map((row) => row.provider).filter(Boolean) as Array<"claude" | "cursor" | "codex">
+    ),
+  ];
+  const pricingTargets = (pricingProviders.length ? pricingProviders : fallbackProviders).map(
+    (pricingProvider) => ({
+      provider: pricingProvider,
+      anchor:
+        pricingProvider === "codex"
+          ? "gpt-pricing"
+          : pricingProvider === "cursor"
+            ? "cursor-pricing"
+            : "claude-pricing",
+    })
+  );
   const scopeText = t("costScope", {
     sources: t(`settings:remoteSources.${scopeKey}`),
     providers: t(`settings:display.${provider}`),
@@ -224,9 +233,42 @@ export function useCostCoverageText(scope: DataScope, unpriced: UnpricedModel[])
     text: [t("costEstimate"), scopeText, incomplete].filter(Boolean).join("\n"),
     scopeText,
     incompleteText,
-    pricingAnchor,
+    pricingTargets,
     scopeKey,
     provider,
     models,
   };
+}
+
+function PricingReviewLinks({
+  targets,
+  tooltip = false,
+}: {
+  targets: Array<{ provider: string; anchor: string }>;
+  tooltip?: boolean;
+}) {
+  const { t } = useTranslation("dashboard");
+  const linkClass = tooltip
+    ? "font-medium text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
+    : "underline";
+  if (targets.length <= 1) {
+    return (
+      <Link className={linkClass} to={`/settings#${targets[0]?.anchor || "claude-pricing"}`}>
+        {t("reviewRates")}
+      </Link>
+    );
+  }
+  return (
+    <>
+      {t("reviewRates")}:{" "}
+      {targets.map((target, index) => (
+        <span key={target.provider}>
+          {index > 0 && " · "}
+          <Link className={linkClass} to={`/settings#${target.anchor}`}>
+            {t(`settings:display.${target.provider}`)}
+          </Link>
+        </span>
+      ))}
+    </>
+  );
 }

@@ -139,6 +139,7 @@
     "title": "Dữ liệu dashboard",
     "description": "Chọn phiên, token, chi phí và hoạt động của sản phẩm nào hiển thị trên toàn ứng dụng. Thay đổi có hiệu lực ngay và độc lập với bộ lọc nguồn dữ liệu máy.",
     "claude": "Claude Code",
+    "cursor": "Cursor",
     "codex": "Codex",
     "both": "Cả hai",
     "claudeDescription": "Hiển thị dữ liệu Claude Code và Cursor.",

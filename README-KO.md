@@ -313,7 +313,7 @@ flowchart LR
 | **작업 진행률** | Claude 작업 도구, 레거시 `TodoWrite`, Codex `update_plan`에서 소유자를 인식하는 진행률을 생성합니다. 카드와 행에는 간단한 미리보기가 표시되고, Session Detail에는 상태 구간, 활성 작업, 소유자, 10개 행 단위 페이지가 추가됩니다. 새 최상위 작업은 이전의 미완료 상태를 지우고, 완료 기록은 유지합니다. |
 | **Dashboard** | 저장되는 **Monitor**와 **Health** 탭이 전체 합계, 활성 계층, 최근 활동, 가중 성공률/캐시/오류/힙 상태, 스토리지, 도구, 모델, Subagent 효과, 컴팩션 지표를 결합합니다. Health는 `/api/settings/info`와 `/api/workflows`에서 5초마다 새로 고칩니다. |
 | **Kanban Board** | Agent 열은 Working, Waiting, Completed, Error를, 세션 열은 Active와 Abandoned를 추가로 다룹니다. 카드는 10개씩 표시하고 활성 WebSocket 보기만 구독하며, 전체 제목을 보존하고 권한 입력, 턴 완료, 프롬프트 대기, 중단 같은 대기 사유를 설명합니다. |
-| **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. Cursor의 네이티브 생성 제목이 메타데이터에 나타나는 즉시 임시 첫 프롬프트 대체 이름을 덮어씁니다. |
+| **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. Cursor의 네이티브 생성 제목은 수집 메타데이터가 현재 이름을 CCAM이 소유함을 입증할 때만 임시 첫 프롬프트 대체 이름을 갱신하며, 수동 이름과 소유권이 불분명한 레거시 이름은 그대로 유지됩니다. |
 | **Session Detail** | 실시간 통계, 활성 작업, 도구 사용량, Subagent, 토큰, 계층, 필터링된 이벤트 타임라인, `tool_use_id` 그룹화, 도구별 렌더러를 제공합니다. Conversation 보기는 대기 중인 턴, 시스템 알림, Markdown, 구문 강조 코드, 스타일이 적용된 도구를 렌더링하고, 대기 배너에는 사유와 경과 시간을 표시합니다. |
 | **Activity Feed** | 공유 필터, 서버 페이지네이션, 그룹화, 프로젝트/세션/Subagent 출처, 세션 링크, 일관된 Claude/Codex 상태 배지를 갖춘 일시 정지 가능한 실시간 이벤트를 제공합니다. |
 | **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. |
@@ -390,7 +390,7 @@ npm run install-hooks
 
 설정 후에도 provider 검색은 계속됩니다.
 
-- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. CCAM은 관련 없는 명령 체인을 바꾸거나 분리하지 않고 자체 `stop` 및 `afterAgentResponse` 명령을 `~/.cursor/hooks.json`에 자동 병합하며, `npm run install-cursor-hooks`로 수동 복구할 수도 있습니다. Cursor의 네이티브 채팅 저장소와 transcript watcher는 오프라인 대체 경로로 유지되어 `/resume` 임시 ID를 정식 대화에 연결하고, 네이티브 Store·JSONL·alias prompt history를 병합하며, 생성 제목을 적용할 때 Dashboard에서 바꾼 이름을 보존하고, 저장된 응답이 일치할 때만 `default`를 해석하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
+- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. CCAM은 관련 없는 명령 체인을 바꾸거나 분리하지 않고 자체 `stop` 및 `afterAgentResponse` 명령을 `~/.cursor/hooks.json`에 자동 병합하며, `npm run install-cursor-hooks`로 수동 복구할 수도 있습니다. Cursor의 네이티브 채팅 저장소와 transcript watcher는 오프라인 대체 경로로 유지되어 `/resume` 임시 ID를 정식 대화에 연결하고, 네이티브 Store·JSONL·alias prompt history를 병합하며, 수집기가 소유한 이름에만 생성 제목을 적용하고, alias 패밀리의 어느 네이티브 Store에서든 일치하는 응답을 찾은 경우에만 `default`를 해석하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
 - **Codex:** Hook과 증분 `~/.codex/sessions` rollout 감시가 라이프사이클, 프롬프트, 제목, 도구, 토큰, 비용, 컴팩션, 대화, WebSocket 상태를 최신으로 유지합니다. 잘못된 파일은 독립적으로 다시 시도하고, 정확한 rollout/process 매칭으로 유령 활성 카드를 방지하며, native `/rename` 제목과 cursor 페이지네이션 대화 히스토리를 실시간으로 유지합니다.
 - **Both:** 카드는 서로 다른 최근 사용자 프롬프트 2개를 유지하고, 저장된 이미지 첨부 파일을 렌더링하며, 반복된 Codex 응답을 중복 제거합니다. Codex-only 범위에서는 Claude-only Dynamic Workflow journal을 숨깁니다.
 

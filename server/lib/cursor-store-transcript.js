@@ -288,12 +288,16 @@ function normalizeModel(model) {
   return typeof model === "string" ? model.trim().replace(/^cursor-/, "") : "";
 }
 
-/** Resolve Cursor's `default` alias by matching the returned assistant text. */
-function resolveCursorStoreModel(sessionId, responseText = null) {
-  const messages = readCursorStoreMessages(sessionId) || [];
+/** Resolve Cursor's `default` alias by matching the returned assistant text in every family store. */
+function resolveCursorStoreModel(sessionIds, responseText = null) {
   const expected = typeof responseText === "string" ? responseText.replace(/\s+/g, " ").trim() : "";
-  const assistants = messages.filter((message) => message.sender === "assistant" && message.model);
-  if (expected) {
+  if (!expected) return "";
+  for (const dbPath of cursorStorePaths(sessionIds)) {
+    if (!fs.existsSync(dbPath)) continue;
+    const messages = readCursorStoreFile(dbPath) || [];
+    const assistants = messages.filter(
+      (message) => message.sender === "assistant" && message.model
+    );
     const matched = assistants.findLast((message) => {
       const actual = message.content
         .filter((block) => block.type === "text")
@@ -301,6 +305,7 @@ function resolveCursorStoreModel(sessionId, responseText = null) {
         .join("\n")
         .replace(/\s+/g, " ")
         .trim();
+      if (!actual) return false;
       return actual === expected || actual.endsWith(expected) || expected.endsWith(actual);
     });
     if (matched) return normalizeModel(matched.model);

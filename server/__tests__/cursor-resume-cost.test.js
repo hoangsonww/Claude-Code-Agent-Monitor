@@ -185,6 +185,34 @@ describe("Cursor resume and cost ingestion", () => {
     assert.ok(text.includes("follow up"));
     assert.ok(text.includes("Alias-native reply"));
 
+    await postHook("afterAgentResponse", {
+      conversation_id: canonical,
+      generation_id: "generation-alias-store-model",
+      model: "default",
+      input_tokens: 20,
+      output_tokens: 2,
+      text: "Alias-native reply",
+    });
+    assert.ok(
+      stmts.getTokensBySession
+        .all(canonical)
+        .some((row) => row.model === "grok-4.5-high" && row.output_tokens === 2)
+    );
+
+    await postHook("PreToolUse", {
+      conversation_id: provisional,
+      generation_id: "generation-known-alias",
+      model: "grok-4.7",
+      tool_name: "Read",
+      tool_use_id: "known-alias-call",
+    });
+    assert.equal(stmts.getSession.get(provisional), undefined);
+    assert.ok(
+      stmts.listEventsBySession
+        .all(canonical)
+        .some((event) => event.tool_name === "Read" && event.event_type === "PreToolUse")
+    );
+
     // Older builds could recreate a native chat row after the first merge.
     stmts.insertSession.run(provisional, "Recreated shell", "completed", null, null, "{}");
     stmts.insertAgent.run(
@@ -344,13 +372,24 @@ describe("Cursor resume and cost ingestion", () => {
     createStore(sessionId, "cursor-grok-4.5-high", "A later response");
     await postHook("afterAgentResponse", {
       conversation_id: sessionId,
+      generation_id: "generation-model-concrete",
+      model: "grok-4.7",
+      input_tokens: 20,
+      output_tokens: 4,
+    });
+    await postHook("afterAgentResponse", {
+      conversation_id: sessionId,
       generation_id: "generation-model-mismatch",
       model: "default",
       input_tokens: 10,
       output_tokens: 2,
       text: "An earlier delayed response",
     });
-    assert.equal(stmts.getTokensBySession.all(sessionId)[0].model, "default");
+    assert.ok(
+      stmts.getTokensBySession
+        .all(sessionId)
+        .some((row) => row.model === "default" && row.output_tokens === 2)
+    );
   });
 
   it("merges newer JSONL replies with store detail and keeps short pending prompts", async () => {
@@ -396,6 +435,7 @@ describe("Cursor resume and cost ingestion", () => {
     assert.ok(text.includes("Newest JSONL response"));
     assert.ok(text.includes("hi"));
     assert.ok(text.includes("hi there"));
+    assert.ok(text.indexOf("hi") < text.indexOf("Newest JSONL response"));
   });
 
   it("installs one copy of each usage hook while preserving unrelated commands", () => {

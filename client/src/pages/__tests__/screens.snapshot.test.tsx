@@ -70,6 +70,8 @@
  *   repository's existing adapter patterns.
  *
  * ## Top-level implementation landmarks
+ * - `eventBusTestState` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
  * - `LocationProbe` (function) — top-level declaration that helps orient code review and focused
  *   test selection.
  * - `nodeProcess` (variable) — top-level declaration that helps orient code review and focused test
@@ -101,6 +103,9 @@
  *   rationale.
  * - `Analytics` — executable behavior named by this suite; preserve the observable contract or
  *   update the test with rationale.
+ * - `Analytics applies a completed refresh while a newer request is still pending` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
  * - `Analytics cost info icon explains API scope and missing rates` — executable behavior named by
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `Claude Config` — executable behavior named by this suite; preserve the observable contract or
@@ -669,11 +674,16 @@ vi.mock("../../lib/api", async (importOriginal) => {
   };
 });
 
-// eventBus: no-op pub/sub so pages mount without a live socket. onConnection +
-// connected back the useSyncExternalStore(eventBus.onConnection, …) reads.
+const eventBusTestState = vi.hoisted(() => ({ subscribers: new Set<(message: any) => void>() }));
+
+// eventBus: local pub/sub so pages mount without a live socket and refresh races
+// can be exercised. onConnection + connected back useSyncExternalStore reads.
 vi.mock("../../lib/eventBus", () => ({
   eventBus: {
-    subscribe: () => () => {},
+    subscribe: (callback: (message: any) => void) => {
+      eventBusTestState.subscribers.add(callback);
+      return () => eventBusTestState.subscribers.delete(callback);
+    },
     publish: () => {},
     onConnection: () => () => {},
     connected: true,
@@ -769,6 +779,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  eventBusTestState.subscribers.clear();
   vi.clearAllMocks();
 });
 
@@ -903,6 +914,59 @@ describe("screen snapshots", () => {
     expect(infoTooltip).toHaveTextContent(
       "Incomplete estimate: some usage has no applicable rate (gpt-5-codex). Review pricing"
     );
+  });
+  it("Analytics applies a completed refresh while a newer request is still pending", async () => {
+    const baselineAnalytics = await vi.mocked(api.analytics.get)();
+    const baselineCost = await vi.mocked(api.pricing.totalCost)();
+    let resolveOlderAnalytics!: (value: typeof baselineAnalytics) => void;
+    let resolveOlderCost!: (value: typeof baselineCost) => void;
+    let resolveNewerAnalytics!: (value: typeof baselineAnalytics) => void;
+    let resolveNewerCost!: (value: typeof baselineCost) => void;
+    vi.mocked(api.analytics.get)
+      .mockImplementationOnce(
+        () => new Promise<typeof baselineAnalytics>((resolve) => (resolveOlderAnalytics = resolve))
+      )
+      .mockImplementationOnce(
+        () => new Promise<typeof baselineAnalytics>((resolve) => (resolveNewerAnalytics = resolve))
+      );
+    vi.mocked(api.pricing.totalCost)
+      .mockImplementationOnce(
+        () => new Promise<typeof baselineCost>((resolve) => (resolveOlderCost = resolve))
+      )
+      .mockImplementationOnce(
+        () => new Promise<typeof baselineCost>((resolve) => (resolveNewerCost = resolve))
+      );
+
+    render(
+      <MemoryRouter initialEntries={["/analytics"]}>
+        <Analytics />
+      </MemoryRouter>
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      eventBusTestState.subscribers.forEach((callback) => callback({ type: "new_event" }));
+    });
+    await act(async () => {
+      resolveOlderAnalytics({
+        ...baselineAnalytics,
+        overview: { ...baselineAnalytics.overview, total_sessions: 7 },
+      });
+      resolveOlderCost(baselineCost);
+      await Promise.resolve();
+    });
+    expect(screen.getByText("7")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveNewerAnalytics({
+        ...baselineAnalytics,
+        overview: { ...baselineAnalytics.overview, total_sessions: 8 },
+      });
+      resolveNewerCost(baselineCost);
+      await Promise.resolve();
+    });
+    expect(screen.getByText("8")).toBeInTheDocument();
   });
   it("Workflows", async () => {
     await snapshot(<Workflows />, "/workflows");
