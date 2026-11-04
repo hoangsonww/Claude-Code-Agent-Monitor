@@ -414,16 +414,17 @@ function ensureCursorUsageHooks() {
     const { installCursorHooks } = require("../scripts/install-cursor-hooks");
     const result = installCursorHooks({ silent: true });
     if (result.ok) console.log("Cursor usage hooks configured.");
+    else console.warn("Cursor usage hooks could not be configured:", result.output?.join(" "));
   } catch (error) {
     console.warn("Cursor usage hooks could not be configured:", error.message);
   }
 }
 
-function repairCursorHistory() {
+async function repairCursorHistory() {
   try {
     const dbModule = require("./db");
     const { repairHistoricalCursorData } = require("./lib/cursor-turn-usage");
-    const result = repairHistoricalCursorData(dbModule);
+    const result = await repairHistoricalCursorData(dbModule);
     if (result.repaired && (result.merged || result.removed || result.usage)) {
       console.log(
         `[cursor] repaired ${result.usage} usage snapshot(s), merged ${result.merged} ` +
@@ -451,7 +452,7 @@ function startBackgroundServices() {
   // Repairing before the first sync keeps provisional /resume cards out of the
   // initial list and backfills historical token snapshots exactly once.
   ensureCursorUsageHooks();
-  repairCursorHistory();
+  void repairCursorHistory();
 
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();

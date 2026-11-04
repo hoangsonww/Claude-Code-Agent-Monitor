@@ -355,6 +355,9 @@ const EVENTS_REFRESH_DEBOUNCE_MS = 500;
 export function SessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const routeIdRef = useRef(id);
+  const loadSequenceRef = useRef(0);
+  routeIdRef.current = id;
   const { t } = useTranslation("sessions");
   const { t: wfT } = useTranslation("workflows");
   const [scope] = useDataScope();
@@ -462,12 +465,15 @@ export function SessionDetail() {
   /** Load the session with its agents and its cost; a failed cost request leaves cost empty. */
   const load = useCallback(async () => {
     if (!id) return;
+    const requestedId = id;
+    const sequence = ++loadSequenceRef.current;
     try {
       const [data, costData] = await Promise.all([
-        api.sessions.get(id),
-        api.pricing.sessionCost(id).catch(() => null),
+        api.sessions.get(requestedId),
+        api.pricing.sessionCost(requestedId).catch(() => null),
       ]);
-      if (data.session.id !== id) {
+      if (sequence !== loadSequenceRef.current || routeIdRef.current !== requestedId) return;
+      if (data.session.id !== requestedId) {
         navigate(
           {
             pathname: `/sessions/${encodeURIComponent(data.session.id)}`,
@@ -482,9 +488,12 @@ export function SessionDetail() {
       setCost(costData);
       setError(null);
     } catch (err) {
+      if (sequence !== loadSequenceRef.current || routeIdRef.current !== requestedId) return;
       setError(err instanceof Error ? err.message : t("detail.failedLoad"));
     } finally {
-      setLoading(false);
+      if (sequence === loadSequenceRef.current && routeIdRef.current === requestedId) {
+        setLoading(false);
+      }
     }
   }, [id, navigate, scope, t]);
 

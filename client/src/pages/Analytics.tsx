@@ -107,6 +107,8 @@
  *   and cleanup semantics.
  * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
  * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useSyncExternalStore` — lifecycle/state dependency detected in this module; preserve
@@ -237,7 +239,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
@@ -945,22 +947,28 @@ export function Analytics() {
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   // Global data scope; a change re-runs `load` (api injects the `sources` param).
   const [scope] = useDataScope();
+  const [costScope, setCostScope] = useState(scope);
+  const loadSequence = useRef(0);
 
   /**
    * Load analytics and total cost in parallel. A failed cost request leaves cost empty instead of
    * failing the whole page.
    */
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    const requestedScope = scope;
     try {
       const [result, cost] = await Promise.all([
         api.analytics.get(),
         api.pricing.totalCost().catch(() => null),
       ]);
+      if (sequence !== loadSequence.current) return;
       setData(result);
       setCostData(cost);
+      setCostScope(requestedScope);
       setLastUpdate(new Date());
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, [scope]);
 
@@ -1254,7 +1262,7 @@ export function Analytics() {
         <StatPill
           label={t("totalCost")}
           labelAccessory={
-            <CostEstimateInfo scope={scope} unpriced={costData?.unpriced_models || []} />
+            <CostEstimateInfo scope={costScope} unpriced={costData?.unpriced_models || []} />
           }
           value={costData ? fmtCost(costData.total_cost) : ""}
           raw={costData ? fmtCostFull(costData.total_cost) : undefined}

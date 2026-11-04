@@ -16,14 +16,26 @@ const CURSOR_HOOKS = [
   ["afterAgentResponse", "afterAgentResponse"],
 ];
 
+function hookCommand(hookType) {
+  return `node "${HOOK_HANDLER}" ${hookType}`;
+}
+
 function hooksPath() {
   return path.join(getCursorHome(), "hooks.json");
 }
 
 function isOurCommand(entry, hookType) {
   if (typeof entry?.command !== "string") return false;
-  const command = entry.command.trim();
-  return command.includes(HOOK_HANDLER) && command.endsWith(hookType);
+  return entry.command.trim() === hookCommand(hookType);
+}
+
+function isSymbolicLink(target) {
+  try {
+    return fs.lstatSync(target).isSymbolicLink();
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 function getCursorHookStatus() {
@@ -49,6 +61,17 @@ function writeHooksFile(filePath, body) {
     const linkStat = fs.lstatSync(filePath);
     if (linkStat.isSymbolicLink()) {
       destination = path.resolve(path.dirname(filePath), fs.readlinkSync(filePath));
+      const visited = new Set([path.resolve(filePath)]);
+      for (let hops = 0; hops < 40 && isSymbolicLink(destination); hops++) {
+        if (visited.has(destination)) {
+          throw new Error(`Symbolic link cycle while resolving ${filePath}`);
+        }
+        visited.add(destination);
+        destination = path.resolve(path.dirname(destination), fs.readlinkSync(destination));
+      }
+      if (isSymbolicLink(destination)) {
+        throw new Error(`Too many symbolic link levels while resolving ${filePath}`);
+      }
       try {
         mode = fs.statSync(destination).mode & 0o777;
       } catch (error) {
@@ -102,6 +125,11 @@ function installCursorHooks({ silent = false } = {}) {
     if (!silent) console.error(message);
     return { ok: false, output: [message], status: getCursorHookStatus() };
   }
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    const message = `Failed to parse ${filePath}: expected a JSON object`;
+    if (!silent) console.error(message);
+    return { ok: false, output: [message], status: getCursorHookStatus() };
+  }
   if (!config.hooks || typeof config.hooks !== "object" || Array.isArray(config.hooks)) {
     config.hooks = {};
   }
@@ -109,7 +137,7 @@ function installCursorHooks({ silent = false } = {}) {
   let updated = 0;
   for (const [name, hookType] of CURSOR_HOOKS) {
     if (!Array.isArray(config.hooks[name])) config.hooks[name] = [];
-    const command = `node "${HOOK_HANDLER}" ${hookType}`;
+    const command = hookCommand(hookType);
     const matches = config.hooks[name]
       .map((entry, index) => (isOurCommand(entry, hookType) ? index : -1))
       .filter((index) => index >= 0);

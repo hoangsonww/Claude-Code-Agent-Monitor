@@ -28,6 +28,7 @@ const TITLED_ID = "3eb9ff9b-4e11-486e-b678-7ac26820ea22";
 const UNTITLED_ID = "4fc0aa0c-5f22-497f-8789-8bd37931fb33";
 const REPAIR_ID = "5ad1bb1d-6033-4a80-989a-9ce48a42ac44";
 const GENERATED_TITLE_ID = "6be2cc2e-7144-4b91-a8e3-ae816f757b55";
+const LEGACY_CUSTOM_ID = "7cf3dd3f-8254-4c92-b9c2-bf927ef86c66";
 
 fs.mkdirSync(ROOT, { recursive: true });
 process.env.DASHBOARD_DB_PATH = path.join(ROOT, "dashboard.db");
@@ -260,5 +261,21 @@ describe("Cursor ingestion with state.vscdb titles", () => {
       chatDir,
     });
     assert.equal(custom.session.name, "Dashboard custom name");
+  });
+
+  it("does not infer that a legacy name matching the first prompt is ingestion-owned", () => {
+    const transcript = writeTranscript(LEGACY_CUSTOM_ID);
+    const chatDir = writeChat(LEGACY_CUSTOM_ID, { prompts: ["hi"] });
+    enrichCursorSession(dbModule, transcript, { sessionId: LEGACY_CUSTOM_ID, chatDir });
+    dbModule.db
+      .prepare("UPDATE sessions SET name = ?, metadata = ? WHERE id = ?")
+      .run("hi", JSON.stringify({ cursor: true }), LEGACY_CUSTOM_ID);
+
+    writeChat(LEGACY_CUSTOM_ID, { title: "Generated after the rename", prompts: ["hi"] });
+    const preserved = enrichCursorSession(dbModule, transcript, {
+      sessionId: LEGACY_CUSTOM_ID,
+      chatDir,
+    });
+    assert.equal(preserved.session.name, "hi");
   });
 });

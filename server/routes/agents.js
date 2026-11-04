@@ -10,6 +10,7 @@ const { attachAgentCosts } = require("./pricing");
 const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
 const { parseProviders, sessionIdInProvidersClause } = require("../lib/provider-filter");
 const { getCodexProcessAgents } = require("../lib/codex-process-overlay");
+const { resolveCursorSessionId } = require("../lib/cursor-session-identity");
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.get("/", (req, res) => {
   const limit = rawLimit > 0 ? rawLimit : 10000;
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
-  const session_id = req.query.session_id;
+  const session_id = req.query.session_id ? resolveCursorSessionId(db, req.query.session_id) : null;
   const includeTransient =
     req.query.include_transient === "1" || req.query.include_transient === "true";
   const sources = parseSources(req);

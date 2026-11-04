@@ -453,15 +453,16 @@ Standard rates and intro rates are edited independently: the pricing update path
 
 ---
 
-### cursor_session_aliases, cursor_generations, cursor_hook_receipts, cursor_turn_usage, cursor_repair_state
+### cursor_session_aliases, cursor_generations, cursor_hook_receipts, cursor_turn_usage, cursor_repair_state, cursor_repair_progress
 
 These internal Cursor tables make resumed turns and completion usage durable:
 
 - `cursor_generations(generation_id PRIMARY KEY, session_id, has_transcript, updated_at)` binds Cursor's stable turn identity to the canonical session. The transcript-bearing row wins when `/resume` emits different shell and conversation IDs.
 - `cursor_session_aliases(alias_session_id PRIMARY KEY, canonical_session_id, generation_id, created_at)` preserves stale URLs after dependent rows have been moved transactionally.
 - `cursor_hook_receipts(receipt_key PRIMARY KEY, session_id, hook_type, generation_id, created_at)` suppresses exact repeated completion deliveries while retaining different status, text, or token payloads.
-- `cursor_turn_usage(generation_id PRIMARY KEY, session_id, model, speed, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, updated_at)` stores one authoritative token snapshot per generation. Session `token_usage` buckets are rebuilt from these rows, preventing a resumed shell and canonical conversation from charging the same turn twice.
+- `cursor_turn_usage(generation_id PRIMARY KEY, session_id, model, speed, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, updated_at)` stores one authoritative token snapshot per generation. Generation-less fallback keys are scoped to their session, and partial later hooks preserve fields already reported for the same turn. Session `token_usage` buckets are rebuilt from these rows, preventing a resumed shell and canonical conversation from charging the same turn twice.
 - `cursor_repair_state(repair_key PRIMARY KEY, completed_at)` records one-time historical repairs, including alias correlation, usage backfill, response-event cleanup, and exact Stop deduplication.
+- `cursor_repair_progress(repair_key PRIMARY KEY, phase, last_event_id, merged_count, removed_count, usage_count, updated_at)` checkpoints that repair between bounded transactions. Startup yields between batches so live hook ingestion remains responsive; the row is removed only after the completion marker is committed.
 
 All session references cascade on delete. Alias resolution is applied by the session and pricing routes rather than exposing duplicate session rows.
 

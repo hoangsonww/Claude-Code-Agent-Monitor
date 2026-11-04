@@ -233,6 +233,16 @@ function parseMetadata(value) {
   }
 }
 
+function cursorNameIsIngestionOwned(session, sessionId) {
+  if (!session) return true;
+  const placeholder =
+    !session.name ||
+    session.name === `Session ${sessionId.slice(0, 8)}` ||
+    session.name === `Cursor session ${sessionId.slice(0, 8)}`;
+  const ingestedName = trimPrompt(parseMetadata(session.metadata).cursor_ingested_name);
+  return placeholder || Boolean(ingestedName && session.name === ingestedName);
+}
+
 /**
  * Snapshot a Cursor transcript (and its subagent transcripts) into the
  * dashboard's data dir before Cursor's own cleanup removes them. Goes through
@@ -435,6 +445,30 @@ function discoverCursorTranscripts(root = getCursorProjectsDir()) {
   return results;
 }
 
+function cursorTranscriptTurnCount(transcriptPath) {
+  try {
+    let turns = 0;
+    for (const line of fs.readFileSync(transcriptPath, "utf8").split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (
+          (entry?.role === "user" || entry?.role === "assistant") &&
+          Array.isArray(entry?.message?.content) &&
+          entry.message.content.length > 0
+        ) {
+          turns++;
+        }
+      } catch {
+        // A partially written tail does not count as a completed turn.
+      }
+    }
+    return turns;
+  } catch {
+    return -1;
+  }
+}
+
 function enrichCursorSession(dbModule, transcriptPath, options = {}) {
   const { db, stmts } = dbModule;
   const sourceSessionId =
@@ -548,13 +582,8 @@ function enrichCursorSession(dbModule, transcriptPath, options = {}) {
       existing.name === `Session ${sessionId.slice(0, 8)}` ||
       existing.name === `Cursor session ${sessionId.slice(0, 8)}`;
     const previousIngestedName = trimPrompt(currentMeta.cursor_ingested_name);
-    const matchesLegacyPrompt = Boolean(promptTitle && existing.name === promptTitle);
     const matchesNativeTitle = Boolean(nativeTitle && existing.name === nativeTitle);
-    const ingestionOwnedName = Boolean(
-      placeholder ||
-      (previousIngestedName && existing.name === previousIngestedName) ||
-      (!previousIngestedName && (matchesLegacyPrompt || matchesNativeTitle))
-    );
+    const ingestionOwnedName = cursorNameIsIngestionOwned(existing, sessionId);
     const desiredName =
       nativeTitle && ingestionOwnedName ? nativeTitle : placeholder ? name : existing.name;
     let nextTitleSource = currentMeta.cursor_title_source;
@@ -565,9 +594,6 @@ function enrichCursorSession(dbModule, transcriptPath, options = {}) {
     } else if (placeholder) {
       nextTitleSource = titleSource;
       nextIngestedName = desiredName;
-    } else if (!previousIngestedName && matchesLegacyPrompt) {
-      nextTitleSource = "prompt";
-      nextIngestedName = existing.name;
     } else if (!previousIngestedName && matchesNativeTitle) {
       nextTitleSource = "native";
       nextIngestedName = existing.name;
@@ -776,13 +802,16 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
       continue;
     }
     // One conversation id can exist below multiple Cursor project roots after
-    // `/resume`. Prefer the more complete export; mtime is only a tie-breaker.
+    // `/resume`. Prefer the export with more complete turns; byte size can be
+    // inflated by an older padded response. Mtime is only a tie-breaker.
     try {
       const candidate = fs.statSync(transcriptPath);
       const existing = fs.statSync(current);
+      const candidateTurns = cursorTranscriptTurnCount(transcriptPath);
+      const existingTurns = cursorTranscriptTurnCount(current);
       if (
-        candidate.size > existing.size ||
-        (candidate.size === existing.size && candidate.mtimeMs > existing.mtimeMs)
+        candidateTurns > existingTurns ||
+        (candidateTurns === existingTurns && candidate.mtimeMs > existing.mtimeMs)
       ) {
         transcriptsBySession.set(sessionId, transcriptPath);
       }
@@ -815,6 +844,18 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
     const chatDir = chatDirs.get(sessionId) || null;
     const fingerprint = cursorSessionFingerprint(transcriptPath, chatDir);
     const existing = dbModule.stmts.getSession.get(canonicalSessionId);
+    let nativeTitlePending = false;
+    if (existing && canonicalSessionId !== sessionId) {
+      const { meta } = readCursorChatMetadata(sessionId, chatDir);
+      const discoveredTitle =
+        trimPrompt(meta?.title) ||
+        (typeof cursorTitle === "function" ? trimPrompt(cursorTitle(sessionId)) : "");
+      nativeTitlePending = Boolean(
+        discoveredTitle &&
+        discoveredTitle !== existing.name &&
+        cursorNameIsIngestionOwned(existing, canonicalSessionId)
+      );
+    }
     let recencyExpired = false;
     let workingIdleExpired = false;
     if (existing?.status === "active") {
@@ -836,7 +877,8 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
         existing.transcript_path === transcriptPath ||
         canonicalSessionId !== sessionId) &&
       !recencyExpired &&
-      !workingIdleExpired
+      !workingIdleExpired &&
+      !nativeTitlePending
     ) {
       if (cursorStoreSnapshotPending(sessionId)) snapshotCursorStore(sessionId);
       counters.skipped++;

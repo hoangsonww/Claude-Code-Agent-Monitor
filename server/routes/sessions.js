@@ -44,7 +44,10 @@ const {
   readCursorChatMetadata,
 } = require("../lib/cursor-home");
 const { readCursorStoreMessages } = require("../lib/cursor-store-transcript");
-const { resolveCursorSessionId } = require("../lib/cursor-session-identity");
+const {
+  cursorSessionFamilyIds,
+  resolveCursorSessionId,
+} = require("../lib/cursor-session-identity");
 
 const router = Router();
 const MAX_TASK_PROGRESS_ROWS = 100;
@@ -639,11 +642,27 @@ router.patch("/:id", (req, res) => {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
 
+  let nextMetadata = metadata ? metadata : null;
+  if (existing.provider === "cursor" && typeof name === "string" && name.trim()) {
+    let currentMetadata = {};
+    try {
+      currentMetadata = existing.metadata ? JSON.parse(existing.metadata) : {};
+    } catch {
+      currentMetadata = {};
+    }
+    nextMetadata = {
+      ...currentMetadata,
+      ...(metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {}),
+      cursor_title_source: "manual",
+    };
+    delete nextMetadata.cursor_ingested_name;
+  }
+
   stmts.updateSession.run(
     name || null,
     status || null,
     ended_at || null,
-    metadata ? JSON.stringify(metadata) : null,
+    nextMetadata ? JSON.stringify(nextMetadata) : null,
     req.params.id
   );
 
@@ -1332,6 +1351,86 @@ function cursorMessageText(message) {
     .join("\n");
 }
 
+function cursorMessageFingerprint(message) {
+  const parts = (message?.content || []).map((block) => {
+    if (block?.type === "text" || block?.type === "thinking") {
+      return `${block.type}:${String(block.text || "")
+        .replace(/\s+/g, " ")
+        .trim()}`;
+    }
+    if (block?.type === "tool_use") {
+      return `tool_use:${block.id || ""}:${block.name || ""}:${JSON.stringify(block.input || {})}`;
+    }
+    if (block?.type === "tool_result") {
+      return `tool_result:${block.id || ""}:${block.name || ""}:${String(block.output || "")}`;
+    }
+    return JSON.stringify(block);
+  });
+  return `${message?.sender || message?.type || ""}\0${parts.join("\0")}`;
+}
+
+function cursorMessagesEquivalent(left, right) {
+  if ((left?.sender || left?.type) !== (right?.sender || right?.type)) return false;
+  if (cursorMessageFingerprint(left) === cursorMessageFingerprint(right)) return true;
+  const leftText = cursorMessageText(left);
+  const rightText = cursorMessageText(right);
+  if (!leftText || !rightText) return false;
+  return (
+    leftText === rightText ||
+    (Math.min(leftText.length, rightText.length) >= 12 &&
+      (leftText.endsWith(rightText) || rightText.endsWith(leftText)))
+  );
+}
+
+/** Keep Cursor store tool detail while filling any replies present only in JSONL. */
+function mergeCursorMessageSources(storeMessages, transcriptMessages) {
+  if (!storeMessages?.length) return transcriptMessages;
+  if (!transcriptMessages.length) return storeMessages;
+
+  const matches = new Map();
+  let searchFrom = 0;
+  transcriptMessages.forEach((message, transcriptIndex) => {
+    const storeIndex = storeMessages.findIndex(
+      (candidate, index) => index >= searchFrom && cursorMessagesEquivalent(candidate, message)
+    );
+    if (storeIndex < 0) return;
+    matches.set(transcriptIndex, storeIndex);
+    searchFrom = storeIndex + 1;
+  });
+
+  const before = new Map();
+  const after = [];
+  transcriptMessages.forEach((message, transcriptIndex) => {
+    const matchedIndex = matches.get(transcriptIndex);
+    if (matchedIndex != null) {
+      const stored = storeMessages[matchedIndex];
+      if (!stored.timestamp && message.timestamp) stored.timestamp = message.timestamp;
+      return;
+    }
+    let nextStoreIndex = null;
+    for (let index = transcriptIndex + 1; index < transcriptMessages.length; index++) {
+      if (matches.has(index)) {
+        nextStoreIndex = matches.get(index);
+        break;
+      }
+    }
+    if (nextStoreIndex == null) {
+      after.push(message);
+      return;
+    }
+    const pending = before.get(nextStoreIndex) || [];
+    pending.push(message);
+    before.set(nextStoreIndex, pending);
+  });
+
+  const merged = [];
+  storeMessages.forEach((message, index) => {
+    merged.push(...(before.get(index) || []), message);
+  });
+  merged.push(...after);
+  return merged;
+}
+
 /**
  * Merge Cursor's immediate prompt history with its later canonical transcript.
  * Prompt ids remain stable when the matching JSONL user row arrives, letting
@@ -1340,7 +1439,7 @@ function cursorMessageText(message) {
 async function readCursorConversation(
   sessionId,
   jsonlPath,
-  { limit, afterLine, beforeLine, offset, isSubagentFile }
+  { limit, afterLine, beforeLine, offset, isSubagentFile, sourceSessionIds = [sessionId] }
 ) {
   if (isSubagentFile) {
     if (!jsonlPath) {
@@ -1356,7 +1455,7 @@ async function readCursorConversation(
   }
 
   const messages = [];
-  const stored = readCursorStoreMessages(sessionId);
+  const stored = readCursorStoreMessages(sourceSessionIds);
   const transcriptMessages = [];
   if (jsonlPath) {
     let rawLine = 0;
@@ -1376,11 +1475,21 @@ async function readCursorConversation(
       transcriptMessages.push(message);
     }
   }
-  const usingStore = !!stored?.length && stored.length >= transcriptMessages.length;
-  messages.push(...(usingStore ? stored : transcriptMessages));
+  messages.push(...mergeCursorMessageSources(stored || [], transcriptMessages));
 
-  if (!usingStore) {
-    const { meta, prompts } = readCursorChatMetadata(sessionId);
+  const promptSources = sourceSessionIds.flatMap((sourceSessionId) => {
+    const { meta, prompts } = readCursorChatMetadata(sourceSessionId);
+    return prompts.map((prompt, index) => ({
+      id:
+        sourceSessionId === sessionId
+          ? `cursor-prompt:${index}`
+          : `cursor-prompt:${sourceSessionId}:${index}`,
+      isLast: index === prompts.length - 1,
+      meta,
+      prompt,
+    }));
+  });
+  if (promptSources.length > 0) {
     const claimedPromptIndexes = new Set();
     const transcriptUserText = messages
       .filter((message) => message.sender === "user")
@@ -1394,36 +1503,37 @@ async function readCursorConversation(
     for (const message of messages) {
       if (message.sender !== "user") continue;
       const text = cursorMessageText(message);
-      const promptIndex = prompts.findIndex(
-        (prompt, index) =>
-          !claimedPromptIndexes.has(index) && prompt.replace(/\s+/g, " ").trim() === text
+      const sourceIndex = promptSources.findIndex(
+        (entry, index) =>
+          !claimedPromptIndexes.has(index) && entry.prompt.replace(/\s+/g, " ").trim() === text
       );
-      if (promptIndex < 0) continue;
-      claimedPromptIndexes.add(promptIndex);
-      message.id = `cursor-prompt:${promptIndex}`;
+      if (sourceIndex < 0) continue;
+      claimedPromptIndexes.add(sourceIndex);
+      message.id = promptSources[sourceIndex].id;
     }
-    prompts.forEach((prompt, index) => {
-      if (claimedPromptIndexes.has(index)) return;
+    promptSources.forEach(({ id, isLast, meta, prompt }, sourceIndex) => {
+      if (claimedPromptIndexes.has(sourceIndex)) return;
       const normalized = prompt.replace(/\s+/g, " ").trim();
       const tail = promptTail(prompt);
       const represented = transcriptUserText.some(
         (text) =>
           text === normalized ||
-          text.includes(normalized) ||
+          (normalized.length >= 12 && text.includes(normalized)) ||
           (text.length >= 12 && normalized.includes(text)) ||
           (tail.length >= 12 && text.includes(tail))
       );
       if (represented) return;
       messages.push({
-        id: `cursor-prompt:${index}`,
+        id,
         type: "user",
         sender: "user",
         timestamp:
-          index === prompts.length - 1 && Number.isFinite(Number(meta?.updatedAtMs))
+          isLast && Number.isFinite(Number(meta?.updatedAtMs))
             ? new Date(Number(meta.updatedAtMs)).toISOString()
             : null,
         content: [{ type: "text", text: truncate(prompt, 10240) }],
       });
+      transcriptUserText.push(normalized);
     });
   }
 
@@ -1508,6 +1618,7 @@ router.get("/:id/transcript", async (req, res) => {
           beforeLine,
           offset,
           isSubagentFile,
+          sourceSessionIds: cursorSessionFamilyIds(db, req.params.id),
         })
       );
     } catch {

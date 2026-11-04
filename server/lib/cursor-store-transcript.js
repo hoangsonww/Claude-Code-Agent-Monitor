@@ -11,8 +11,56 @@ const { findCursorChatDir, getCursorSnapshotDir } = require("./cursor-home");
 
 const TEXT_LIMIT = 10240;
 const STORE_SNAPSHOT_RETRY_LIMIT = 5;
+const STORE_CACHE_LIMIT = 64;
 const lastStoreSnapshot = new Map();
+const lastStoreSnapshotStamp = new Map();
+const pendingStoreSnapshots = new Map();
 const snapshotFailures = new Map();
+const storeMessageCache = new Map();
+let StoreDatabase = null;
+
+function getStoreDatabase() {
+  if (StoreDatabase) return StoreDatabase;
+  try {
+    const Candidate = require("better-sqlite3");
+    new Candidate(":memory:").close();
+    StoreDatabase = Candidate;
+  } catch {
+    StoreDatabase = require("../compat-sqlite");
+  }
+  return StoreDatabase;
+}
+
+function fileStamp(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return "-";
+  }
+}
+
+function cursorStoreStamp(dbPath) {
+  const main = fileStamp(dbPath);
+  if (main === "-") return null;
+  return `${main}|${fileStamp(`${dbPath}-wal`)}`;
+}
+
+function cloneMessages(messages) {
+  if (!messages) return null;
+  return messages.map((message) => ({
+    ...message,
+    content: message.content.map((block) => ({ ...block })),
+  }));
+}
+
+function cacheStoreMessages(dbPath, stamp, messages) {
+  storeMessageCache.delete(dbPath);
+  storeMessageCache.set(dbPath, { stamp, messages: cloneMessages(messages) });
+  while (storeMessageCache.size > STORE_CACHE_LIMIT) {
+    storeMessageCache.delete(storeMessageCache.keys().next().value);
+  }
+}
 
 function truncate(value, maxLen = TEXT_LIMIT) {
   if (typeof value !== "string" || value.length <= maxLen) return value;
@@ -160,15 +208,29 @@ function readMeta(db) {
 
 /** Return ordered conversation DTOs from one Cursor `store.db`. */
 function readCursorStoreFile(dbPath) {
+  const stamp = cursorStoreStamp(dbPath);
+  if (!stamp) return null;
+  const cached = storeMessageCache.get(dbPath);
+  if (cached?.stamp === stamp) {
+    storeMessageCache.delete(dbPath);
+    storeMessageCache.set(dbPath, cached);
+    return cloneMessages(cached.messages);
+  }
   let db;
   try {
-    const Database = require("better-sqlite3");
+    const Database = getStoreDatabase();
     db = new Database(dbPath, { readonly: true, fileMustExist: true, timeout: 250 });
     const rootId = readMeta(db)?.latestRootBlobId;
-    if (typeof rootId !== "string" || !rootId) return null;
+    if (typeof rootId !== "string" || !rootId) {
+      cacheStoreMessages(dbPath, stamp, null);
+      return null;
+    }
     const root = db.prepare("SELECT data FROM blobs WHERE id = ?").get(rootId);
     const ids = rootBlobIds(root?.data ? Buffer.from(root.data) : null);
-    if (!ids.length) return null;
+    if (!ids.length) {
+      cacheStoreMessages(dbPath, stamp, null);
+      return null;
+    }
     const load = db.prepare("SELECT data FROM blobs WHERE id = ?");
     const messages = [];
     for (const id of ids) {
@@ -183,7 +245,9 @@ function readCursorStoreFile(dbPath) {
         // Encrypted and partially-written blobs are expected while Cursor runs.
       }
     }
-    return messages.length ? messages : null;
+    const result = messages.length ? messages : null;
+    cacheStoreMessages(dbPath, stamp, result);
+    return cloneMessages(result);
   } catch {
     return null;
   } finally {
@@ -195,20 +259,24 @@ function readCursorStoreFile(dbPath) {
   }
 }
 
-function cursorStorePaths(sessionId) {
-  const liveDir = findCursorChatDir(sessionId);
-  return [
-    liveDir && path.join(liveDir, "store.db"),
-    path.join(getCursorSnapshotDir(), sessionId, "store.db"),
-  ]
+function cursorStorePaths(sessionIds) {
+  const ids = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
+  return ids
+    .flatMap((sessionId) => {
+      const liveDir = findCursorChatDir(sessionId);
+      return [
+        liveDir && path.join(liveDir, "store.db"),
+        path.join(getCursorSnapshotDir(), sessionId, "store.db"),
+      ];
+    })
     .filter(Boolean)
     .filter((candidate, index, all) => all.indexOf(candidate) === index);
 }
 
 /** Prefer the richest readable live/snapshotted store, not merely the newest path. */
-function readCursorStoreMessages(sessionId) {
+function readCursorStoreMessages(sessionIds) {
   let richest = null;
-  for (const dbPath of cursorStorePaths(sessionId)) {
+  for (const dbPath of cursorStorePaths(sessionIds)) {
     if (!fs.existsSync(dbPath)) continue;
     const messages = readCursorStoreFile(dbPath);
     if (messages && (!richest || messages.length > richest.length)) richest = messages;
@@ -237,12 +305,18 @@ function resolveCursorStoreModel(sessionId, responseText = null) {
     });
     if (matched) return normalizeModel(matched.model);
   }
-  return normalizeModel(assistants.at(-1)?.model);
+  return "";
 }
 
 function cursorStoreSnapshotPending(sessionId) {
   const entry = snapshotFailures.get(sessionId);
-  return !!entry && entry.count > 0 && entry.count < STORE_SNAPSHOT_RETRY_LIMIT;
+  if (pendingStoreSnapshots.has(sessionId)) return true;
+  if (!entry || entry.count <= 0) return false;
+  const source = cursorStorePaths(sessionId)[0];
+  const currentStamp = source ? cursorStoreStamp(source) : null;
+  return (
+    entry.count < STORE_SNAPSHOT_RETRY_LIMIT || (!!currentStamp && currentStamp !== entry.stamp)
+  );
 }
 
 function noteSnapshotFailure(sessionId, stamp) {
@@ -257,14 +331,14 @@ function noteSnapshotFailure(sessionId, stamp) {
 /** Create a consistent backup so conversation details survive Cursor cleanup. */
 function snapshotCursorStore(sessionId) {
   const now = Date.now();
-  if (now - (lastStoreSnapshot.get(sessionId) || 0) < 60_000) return false;
   const source = cursorStorePaths(sessionId)[0];
   if (!source || !fs.existsSync(source)) return false;
-  let stamp;
-  try {
-    const stat = fs.statSync(source);
-    stamp = `${stat.mtimeMs}:${stat.size}`;
-  } catch {
+  const stamp = cursorStoreStamp(source);
+  if (!stamp) return false;
+  if (now - (lastStoreSnapshot.get(sessionId) || 0) < 60_000) {
+    if (lastStoreSnapshotStamp.get(sessionId) !== stamp) {
+      pendingStoreSnapshots.set(sessionId, stamp);
+    }
     return false;
   }
   let db;
@@ -273,8 +347,11 @@ function snapshotCursorStore(sessionId) {
     fs.mkdirSync(destinationDir, { recursive: true });
     const destination = path.join(destinationDir, "store.db");
     lastStoreSnapshot.set(sessionId, now);
-    const Database = require("better-sqlite3");
+    const Database = getStoreDatabase();
     db = new Database(source, { readonly: true, fileMustExist: true, timeout: 250 });
+    if (typeof db.backup !== "function") {
+      throw new Error("The active SQLite driver does not support online backup");
+    }
     const backup = db.backup(destination);
     const close = () => {
       try {
@@ -287,6 +364,8 @@ function snapshotCursorStore(sessionId) {
       backup.then(
         () => {
           snapshotFailures.delete(sessionId);
+          pendingStoreSnapshots.delete(sessionId);
+          lastStoreSnapshotStamp.set(sessionId, stamp);
           close();
         },
         () => {
@@ -296,6 +375,8 @@ function snapshotCursorStore(sessionId) {
       );
     } else {
       snapshotFailures.delete(sessionId);
+      pendingStoreSnapshots.delete(sessionId);
+      lastStoreSnapshotStamp.set(sessionId, stamp);
       close();
     }
     return true;

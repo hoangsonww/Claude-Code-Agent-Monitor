@@ -241,9 +241,13 @@ it("lists unpriced models inside the cost info tooltip", async () => {
   await mount();
   fireEvent.focus(screen.getByLabelText("About API cost estimate"));
   const warning = screen.getByText(
-    "Incomplete estimate: some usage has no applicable rate (default). Review pricing"
+    "Incomplete estimate: some usage has no applicable rate (default)."
   );
   expect(warning).toHaveClass("text-amber-200");
+  expect(screen.getByRole("link", { name: "Review pricing" })).toHaveAttribute(
+    "href",
+    "/settings#claude-pricing"
+  );
 });
 it("pending polls coalesce and A→B→A cannot publish an older cost", async () => {
   const a = deferred(),

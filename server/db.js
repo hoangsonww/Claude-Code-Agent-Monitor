@@ -351,6 +351,16 @@ db.exec(`
     completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
+  CREATE TABLE IF NOT EXISTS cursor_repair_progress (
+    repair_key TEXT PRIMARY KEY,
+    phase TEXT NOT NULL,
+    last_event_id INTEGER NOT NULL DEFAULT 0,
+    merged_count INTEGER NOT NULL DEFAULT 0,
+    removed_count INTEGER NOT NULL DEFAULT 0,
+    usage_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_cursor_alias_canonical
     ON cursor_session_aliases(canonical_session_id);
   CREATE INDEX IF NOT EXISTS idx_cursor_generation_session ON cursor_generations(session_id);
@@ -2208,9 +2218,11 @@ const stmts = {
       SUM(cache_write_tokens) AS cache_write_tokens
     FROM cursor_turn_usage WHERE session_id = ? GROUP BY model, speed
   `),
-  getCursorTurn: db.prepare(
-    "SELECT session_id, model, speed FROM cursor_turn_usage WHERE generation_id = ?"
-  ),
+  getCursorTurn: db.prepare(`
+    SELECT session_id, model, speed, input_tokens, output_tokens,
+      cache_read_tokens, cache_write_tokens
+    FROM cursor_turn_usage WHERE generation_id = ?
+  `),
   getCursorEventModel: db.prepare(`
     SELECT COALESCE(json_extract(data, '$.model_id'), json_extract(data, '$.model')) AS model
     FROM events

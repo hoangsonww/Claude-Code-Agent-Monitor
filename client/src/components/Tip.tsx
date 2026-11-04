@@ -10,8 +10,8 @@
  * cursor is near viewport edges.
  *
  * ## No-op mode
- * When `raw` is omitted the component returns `children` unchanged — callers
- * do not need conditional wrappers.
+ * When both `raw` and `content` are omitted the component returns `children`
+ * unchanged — callers do not need conditional wrappers.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -29,8 +29,8 @@
  * metric values and anywhere a compact display needs a full-precision expansion without cluttering
  * the layout. ## Portal rendering Tooltip content is portaled to `document.body` with
  * `position: fixed` so parent `overflow: hidden` cannot clip it. Placement flips left/up when the
- * cursor is near viewport edges. ## No-op mode When `raw` is omitted the component returns
- * `children` unchanged — callers do not need conditional wrappers.
+ * cursor is near viewport edges. ## No-op mode When both `raw` and `content` are omitted the
+ * component returns `children` unchanged — callers do not need conditional wrappers.
  *
  * ## Architectural boundary
  * - This component should express one reusable UI responsibility through typed props and observable
@@ -59,6 +59,8 @@
  * ## React and framework hooks
  * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
  * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
  *   cleanup semantics.
  * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
@@ -173,13 +175,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useState, useRef, useCallback, useId } from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import { createPortal } from "react-dom";
 
 /** Props for {@link Tip}. */
 interface TipProps {
   /** Tooltip body; when absent, only `children` are rendered. */
   raw?: string;
+  /** Optional rich tooltip body, used when the panel contains an actionable link. */
+  content?: React.ReactNode;
   /** Element that triggers the tooltip on hover. */
   children: React.ReactNode;
   /** Max tooltip width in pixels. Default `320`. */
@@ -192,6 +196,8 @@ interface TipProps {
   triggerClassName?: string;
   /** Visual treatment for compact values or explanatory information. */
   variant?: "value" | "info";
+  /** Keep the panel open while its links or controls are hovered and focused. */
+  interactive?: boolean;
 }
 
 /**
@@ -200,32 +206,59 @@ interface TipProps {
  */
 export function Tip({
   raw,
+  content,
   children,
   maxWidth = 320,
   block = false,
   ariaLabel,
   triggerClassName = "",
   variant = "value",
+  interactive = false,
 }: TipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const tipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLSpanElement & HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipId = useId();
+
+  useEffect(
+    () => () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    },
+    []
+  );
 
   /** Follow the pointer with the tooltip. */
   const updatePos = useCallback((e: React.MouseEvent) => {
     setPos({ x: e.clientX, y: e.clientY });
   }, []);
 
-  if (!raw) return <>{children}</>;
+  if (!raw && !content) return <>{children}</>;
+
+  const cancelHide = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = null;
+  };
+  const hide = () => {
+    cancelHide();
+    setShow(false);
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    if (!interactive) {
+      setShow(false);
+      return;
+    }
+    hideTimerRef.current = setTimeout(() => setShow(false), 100);
+  };
 
   const Wrapper = block ? "div" : "span";
   const baseWrapperClass = block ? "cursor-default" : "relative inline-block cursor-default";
   const wrapperClass = triggerClassName
     ? `${baseWrapperClass} ${triggerClassName}`
     : baseWrapperClass;
-  const infoLines = variant === "info" ? raw.split("\n").filter(Boolean) : [];
+  const infoLines = variant === "info" && raw ? raw.split("\n").filter(Boolean) : [];
 
   // Compute tooltip placement avoiding screen edges
   let tipStyle: React.CSSProperties = {
@@ -270,17 +303,21 @@ export function Tip({
       aria-label={ariaLabel}
       aria-describedby={show ? tipId : undefined}
       onMouseEnter={(e: React.MouseEvent) => {
+        cancelHide();
         setShow(true);
         updatePos(e);
       }}
       onMouseMove={updatePos}
-      onMouseLeave={() => setShow(false)}
+      onMouseLeave={scheduleHide}
       onFocus={() => {
         const bounds = triggerRef.current?.getBoundingClientRect();
         if (bounds) setPos({ x: bounds.left + bounds.width / 2, y: bounds.bottom });
         setShow(true);
       }}
-      onBlur={() => setShow(false)}
+      onBlur={(event: React.FocusEvent) => {
+        if (tipRef.current?.contains(event.relatedTarget as Node | null)) return;
+        hide();
+      }}
       onKeyDown={(event: React.KeyboardEvent) => {
         if (event.key === "Escape") setShow(false);
       }}
@@ -293,32 +330,40 @@ export function Tip({
             role="tooltip"
             ref={tipRef}
             style={tipStyle}
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
+            onFocus={cancelHide}
+            onBlur={(event) => {
+              if (triggerRef.current?.contains(event.relatedTarget as Node | null)) return;
+              hide();
+            }}
             className={
               variant === "info"
-                ? "min-w-[260px] px-3.5 py-3 text-xs leading-5 font-sans text-gray-300 bg-[#12121f] border border-[#30304d] rounded-xl shadow-2xl pointer-events-none break-words"
+                ? `min-w-[260px] px-3.5 py-3 text-xs leading-5 font-sans text-gray-300 bg-[#12121f] border border-[#30304d] rounded-xl shadow-2xl break-words ${interactive ? "pointer-events-auto" : "pointer-events-none"}`
                 : "px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
             }
           >
-            {variant === "info" ? (
-              <div className="space-y-1.5">
-                {infoLines.map((line, index) => (
-                  <p
-                    key={`${index}-${line}`}
-                    className={
-                      index === 0
-                        ? "font-semibold text-gray-100"
-                        : index === infoLines.length - 1 && infoLines.length > 2
-                          ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
-                          : "text-gray-400"
-                    }
-                  >
-                    {line}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              raw
-            )}
+            {content ||
+              (variant === "info" ? (
+                <div className="space-y-1.5">
+                  {infoLines.map((line, index) => (
+                    <p
+                      key={`${index}-${line}`}
+                      className={
+                        index === 0
+                          ? "font-semibold text-gray-100"
+                          : index === infoLines.length - 1 && infoLines.length > 2
+                            ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
+                            : "text-gray-400"
+                      }
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                raw
+              ))}
           </div>,
           document.body
         )}

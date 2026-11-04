@@ -555,6 +555,17 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
       session = stmts.getSession.get(sessionId);
     }
   }
+  if (isCursorHook(hookType, data) && !claimCursorHookReceipt(db, hookType, data, sessionId)) {
+    return {
+      session_id: sessionId,
+      agent_id: getMainAgent(sessionId)?.id || null,
+      event_type: hookType,
+      tool_name: data.tool_name || null,
+      summary: null,
+      created_at: new Date().toISOString(),
+      duplicate: true,
+    };
+  }
   let cursorUsage = null;
   if (isCursorTurnPayload(hookType, data)) {
     cursorUsage = applyCursorTurnUsage(stmts, sessionId, data);
@@ -579,18 +590,6 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
       summary: null,
       created_at: new Date().toISOString(),
       suppressed: true,
-    };
-  }
-
-  if (isCursorHook(hookType, data) && !claimCursorHookReceipt(db, hookType, data, sessionId)) {
-    return {
-      session_id: sessionId,
-      agent_id: getMainAgent(sessionId)?.id || null,
-      event_type: hookType,
-      tool_name: data.tool_name || null,
-      summary: null,
-      created_at: new Date().toISOString(),
-      duplicate: true,
     };
   }
 

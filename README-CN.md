@@ -391,7 +391,7 @@ npm run install-hooks
 
 设置完成后，Provider 发现会持续运行：
 
-- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。CCAM 会自动将自己的 `stop` 与 `afterAgentResponse` 命令安全合并进 `~/.cursor/hooks.json`，不会替换无关命令；也可运行 `npm run install-cursor-hooks` 手动修复。Cursor 原生聊天存储与 Transcript 监听仍作为离线回退，将 `/resume` 临时 ID 关联到规范会话，在清理前快照两种来源，在可用时把 `default` 解析为具体模型，并遵循 `DASHBOARD_CURSOR_HOME`。
+- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。CCAM 会自动将自己的 `stop` 与 `afterAgentResponse` 命令安全合并进 `~/.cursor/hooks.json`，不会替换或拆分无关的命令链；也可运行 `npm run install-cursor-hooks` 手动修复。Cursor 原生聊天存储与 Transcript 监听仍作为离线回退，将 `/resume` 临时 ID 关联到规范会话，合并原生 Store、JSONL 与别名提示历史，在采用生成标题时保留 Dashboard 重命名，仅在存储的响应匹配时解析 `default`，并遵循 `DASHBOARD_CURSOR_HOME`。
 - **Codex：** Hook 与 `~/.codex/sessions` rollout 增量监听共同保持生命周期、提示、标题、工具、Token、成本、压缩、对话和 WebSocket 状态最新。坏文件会独立重试；精确的 rollout/进程匹配可防止幽灵活跃卡片；原生 `/rename` 标题和基于游标分页的对话历史会实时更新。
 - **Both：** 卡片保留最近两条不同的人类提示，渲染持久化图片附件，并对重复的 Codex 响应去重。仅 Codex 的范围会隐藏只适用于 Claude 的 Dynamic Workflow 日志。
 ### 3. 启动

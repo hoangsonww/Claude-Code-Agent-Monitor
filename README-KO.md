@@ -390,7 +390,7 @@ npm run install-hooks
 
 설정 후에도 provider 검색은 계속됩니다.
 
-- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. CCAM은 관련 없는 명령을 바꾸지 않고 자체 `stop` 및 `afterAgentResponse` 명령을 `~/.cursor/hooks.json`에 자동 병합하며, `npm run install-cursor-hooks`로 수동 복구할 수도 있습니다. Cursor의 네이티브 채팅 저장소와 transcript watcher는 오프라인 대체 경로로 유지되어 `/resume` 임시 ID를 정식 대화에 연결하고, 정리 전에 두 소스를 스냅샷하며, 가능하면 `default`를 실제 모델로 해석하고 `DASHBOARD_CURSOR_HOME`을 따릅니다.
+- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. CCAM은 관련 없는 명령 체인을 바꾸거나 분리하지 않고 자체 `stop` 및 `afterAgentResponse` 명령을 `~/.cursor/hooks.json`에 자동 병합하며, `npm run install-cursor-hooks`로 수동 복구할 수도 있습니다. Cursor의 네이티브 채팅 저장소와 transcript watcher는 오프라인 대체 경로로 유지되어 `/resume` 임시 ID를 정식 대화에 연결하고, 네이티브 Store·JSONL·alias prompt history를 병합하며, 생성 제목을 적용할 때 Dashboard에서 바꾼 이름을 보존하고, 저장된 응답이 일치할 때만 `default`를 해석하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
 - **Codex:** Hook과 증분 `~/.codex/sessions` rollout 감시가 라이프사이클, 프롬프트, 제목, 도구, 토큰, 비용, 컴팩션, 대화, WebSocket 상태를 최신으로 유지합니다. 잘못된 파일은 독립적으로 다시 시도하고, 정확한 rollout/process 매칭으로 유령 활성 카드를 방지하며, native `/rename` 제목과 cursor 페이지네이션 대화 히스토리를 실시간으로 유지합니다.
 - **Both:** 카드는 서로 다른 최근 사용자 프롬프트 2개를 유지하고, 저장된 이미지 첨부 파일을 렌더링하며, 반복된 Codex 응답을 중복 제거합니다. Codex-only 범위에서는 Claude-only Dynamic Workflow journal을 숨깁니다.
 

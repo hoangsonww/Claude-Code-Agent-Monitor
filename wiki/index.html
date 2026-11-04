@@ -1071,12 +1071,13 @@
                   <h3>Cursor Monitoring</h3>
                   <p>
                     Cursor combines merge-safe completion hooks with native local history. CCAM
-                    preserves unrelated hook commands, deduplicates completion signals, and joins
-                    <code>/resume</code> shell IDs to the canonical conversation by
-                    <code>generation_id</code>. Native generated titles replace prompt fallbacks
-                    without overwriting dashboard renames. Conversation chooses the most complete
-                    native store or JSONL snapshot. Hook tokens resolve <code>default</code> to the
-                    concrete store model and price each generation once on Cursor's own rate card.
+                    preserves chained third-party hook commands, deduplicates completion signals
+                    before applying usage, and joins <code>/resume</code> shell IDs to the canonical
+                    conversation by <code>generation_id</code>. Native generated titles replace
+                    prompt fallbacks without overwriting dashboard renames. Conversation merges
+                    native store, JSONL, and prompt history across aliases. Hook tokens resolve
+                    <code>default</code> only when the stored response matches and price one
+                    authoritative snapshot per generation on Cursor's own rate card.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -7295,7 +7296,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=118" defer></script>
+    <script src="i18n-content.js?v=119" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

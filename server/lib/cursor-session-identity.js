@@ -23,6 +23,32 @@ function resolveCursorSessionId(db, sessionId) {
   return current;
 }
 
+function cursorSessionFamilyIds(db, sessionId) {
+  const canonicalId = resolveCursorSessionId(db, sessionId);
+  if (!canonicalId) return [];
+  const aliases = db
+    .prepare(
+      `SELECT alias_session_id FROM cursor_session_aliases
+       WHERE canonical_session_id = ? ORDER BY created_at, alias_session_id`
+    )
+    .all(canonicalId)
+    .map((row) => row.alias_session_id);
+  return [canonicalId, ...aliases.filter((id) => id !== canonicalId)];
+}
+
+function parseMetadata(value) {
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function hasManualCursorName(session) {
+  return parseMetadata(session?.metadata).cursor_title_source === "manual";
+}
+
 function mainAgent(db, sessionId) {
   return db
     .prepare(
@@ -78,6 +104,15 @@ function mergeCursorSessionsNow(db, aliasSessionId, canonicalSessionId, generati
   const alias = db.prepare("SELECT * FROM sessions WHERE id = ?").get(aliasId);
   const canonical = db.prepare("SELECT * FROM sessions WHERE id = ?").get(canonicalId);
   if (!alias || !canonical) return canonicalId;
+  const aliasMetadata = parseMetadata(alias.metadata);
+  const canonicalMetadata = parseMetadata(canonical.metadata);
+  const keepAliasName = Boolean(
+    alias.name && hasManualCursorName(alias) && !hasManualCursorName(canonical)
+  );
+  const mergedMetadata = keepAliasName
+    ? { ...canonicalMetadata, cursor_title_source: "manual" }
+    : canonicalMetadata;
+  if (keepAliasName) delete mergedMetadata.cursor_ingested_name;
 
   const aliasMain = mainAgent(db, aliasId);
   const canonicalMain = mainAgent(db, canonicalId);
@@ -126,12 +161,27 @@ function mergeCursorSessionsNow(db, aliasSessionId, canonicalSessionId, generati
 
   db.prepare(
     `UPDATE sessions SET
+       name = CASE WHEN ? THEN ? ELSE name END,
        started_at = MIN(started_at, ?),
        updated_at = MAX(updated_at, ?),
        card_prompt_preview = COALESCE(NULLIF(card_prompt_preview, ''), ?),
-       metadata = COALESCE(metadata, ?)
+       metadata = ?
      WHERE id = ?`
-  ).run(alias.started_at, alias.updated_at, alias.card_prompt_preview, alias.metadata, canonicalId);
+  ).run(
+    keepAliasName ? 1 : 0,
+    alias.name,
+    alias.started_at,
+    alias.updated_at,
+    alias.card_prompt_preview,
+    JSON.stringify(mergedMetadata),
+    canonicalId
+  );
+  if (keepAliasName && canonicalMain) {
+    db.prepare("UPDATE agents SET name = ? WHERE id = ?").run(
+      `Cursor · ${alias.name}`,
+      canonicalMain.id
+    );
+  }
   db.prepare(
     `UPDATE cursor_session_aliases SET canonical_session_id = ?
      WHERE canonical_session_id = ?`
@@ -290,11 +340,76 @@ function reconcileHistoricalCursorSessions(db) {
   return merged;
 }
 
+/** Reconcile historical resume shells in bounded write transactions. */
+async function reconcileHistoricalCursorSessionsBatched(db, batchSize = 50) {
+  let merged = 0;
+  while (true) {
+    const aliases = db
+      .prepare(
+        `SELECT a.alias_session_id, a.canonical_session_id, a.generation_id
+         FROM cursor_session_aliases a
+         JOIN sessions alias ON alias.id = a.alias_session_id
+         JOIN sessions canonical ON canonical.id = a.canonical_session_id
+         LIMIT ?`
+      )
+      .all(batchSize);
+    if (!aliases.length) break;
+    db.transaction(() => {
+      for (const alias of aliases) {
+        mergeCursorSessionsNow(
+          db,
+          alias.alias_session_id,
+          alias.canonical_session_id,
+          alias.generation_id
+        );
+        merged++;
+      }
+    })();
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  while (true) {
+    const groups = db
+      .prepare(
+        `SELECT json_extract(e.data, '$.generation_id') AS generation_id,
+                GROUP_CONCAT(DISTINCT e.session_id) AS session_ids
+         FROM events e JOIN sessions s ON s.id = e.session_id
+         WHERE s.provider = 'cursor' AND json_valid(e.data) = 1
+           AND json_extract(e.data, '$.generation_id') IS NOT NULL
+         GROUP BY generation_id HAVING COUNT(DISTINCT e.session_id) > 1
+         LIMIT ?`
+      )
+      .all(batchSize);
+    if (!groups.length) break;
+    db.transaction(() => {
+      for (const group of groups) {
+        const sessionIds = group.session_ids.split(",").filter(Boolean);
+        const canonicalId = candidateCanonicalSession(db, sessionIds);
+        if (!canonicalId) continue;
+        for (const aliasId of sessionIds) {
+          if (
+            aliasId === canonicalId ||
+            !db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(aliasId)
+          ) {
+            continue;
+          }
+          mergeCursorSessionsNow(db, aliasId, canonicalId, group.generation_id);
+          merged++;
+        }
+      }
+    })();
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  return merged;
+}
+
 module.exports = {
   claimCursorHookReceipt,
+  cursorSessionFamilyIds,
   cursorHookReceiptKey,
   mergeCursorSessions,
   reconcileHistoricalCursorSessions,
+  reconcileHistoricalCursorSessionsBatched,
   registerCursorGeneration,
   resolveCursorSessionId,
 };

@@ -9,7 +9,13 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const Database = require("better-sqlite3");
+let Database;
+try {
+  Database = require("better-sqlite3");
+  new Database(":memory:").close();
+} catch {
+  Database = require("../compat-sqlite");
+}
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-resume-cost-"));
 process.env.DASHBOARD_DB_PATH = path.join(ROOT, "dashboard.db");
@@ -117,6 +123,12 @@ describe("Cursor resume and cost ingestion", () => {
       tool_name: "Read",
       tool_use_id: "call-1",
     });
+    const rename = await fetch(`${base}/api/sessions/${provisional}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "My resumed conversation" }),
+    });
+    assert.equal(rename.status, 200);
     await postHook("Stop", {
       conversation_id: canonical,
       generation_id: generation,
@@ -127,11 +139,20 @@ describe("Cursor resume and cost ingestion", () => {
 
     assert.equal(stmts.getSession.get(provisional), undefined);
     assert.equal(stmts.getSession.get(canonical).provider, "cursor");
+    assert.equal(stmts.getSession.get(canonical).name, "My resumed conversation");
     assert.equal(stmts.listEventsBySession.all(canonical).length, 2);
     const response = await fetch(`${base}/api/sessions/${provisional}`);
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.session.id, canonical);
+    const aliasedEvents = await (
+      await fetch(`${base}/api/events?session_id=${provisional}`)
+    ).json();
+    assert.equal(aliasedEvents.total, 2);
+    const aliasedAgents = await (
+      await fetch(`${base}/api/agents?session_id=${provisional}`)
+    ).json();
+    assert.ok(aliasedAgents.agents.some((agent) => agent.session_id === canonical));
 
     const chatDir = path.join(process.env.DASHBOARD_CURSOR_HOME, "chats", "workspace", provisional);
     fs.mkdirSync(chatDir, { recursive: true });
@@ -152,6 +173,17 @@ describe("Cursor resume and cost ingestion", () => {
         .get(canonical, provisional).count,
       1
     );
+
+    createStore(provisional, "cursor-grok-4.5-high", "Alias-native reply");
+    const conversation = await fetch(`${base}/api/sessions/${provisional}/transcript`);
+    assert.equal(conversation.status, 200);
+    const conversationBody = await conversation.json();
+    const text = conversationBody.messages
+      .flatMap((message) => message.content || [])
+      .map((block) => block.text)
+      .filter(Boolean);
+    assert.ok(text.includes("follow up"));
+    assert.ok(text.includes("Alias-native reply"));
 
     // Older builds could recreate a native chat row after the first merge.
     stmts.insertSession.run(provisional, "Recreated shell", "completed", null, null, "{}");
@@ -234,6 +266,138 @@ describe("Cursor resume and cost ingestion", () => {
     assert.equal(usage[0].cache_read_tokens, 40);
   });
 
+  it("keeps complete generation counts when a later hook omits fields", async () => {
+    const sessionId = "cursor-partial-usage";
+    const generation = "generation-partial-usage";
+    await postHook("afterAgentResponse", {
+      conversation_id: sessionId,
+      generation_id: generation,
+      model: "grok-4.7",
+      input_tokens: 100,
+      output_tokens: 10,
+      cache_read_tokens: 20,
+      cache_write_tokens: 0,
+    });
+    await postHook("Stop", {
+      conversation_id: sessionId,
+      generation_id: generation,
+      model: "grok-4.7",
+      input_tokens: 120,
+      status: "completed",
+    });
+    const [usage] = stmts.getTokensBySession.all(sessionId);
+    assert.equal(usage.input_tokens, 100);
+    assert.equal(usage.output_tokens, 10);
+    assert.equal(usage.cache_read_tokens, 20);
+  });
+
+  it("rejects invalid counts and scopes generation-less usage to each session", async () => {
+    await postHook("afterAgentResponse", {
+      conversation_id: "cursor-invalid-count",
+      generation_id: "generation-invalid-count",
+      model: "grok-4.7",
+      input_tokens: -1,
+      output_tokens: 10,
+    });
+    assert.deepEqual(stmts.getTokensBySession.all("cursor-invalid-count"), []);
+
+    for (const [sessionId, input] of [
+      ["cursor-ungrouped-a", 40],
+      ["cursor-ungrouped-b", 70],
+    ]) {
+      await postHook("afterAgentResponse", {
+        conversation_id: sessionId,
+        model: "grok-4.7",
+        input_tokens: input,
+        output_tokens: 5,
+      });
+    }
+    assert.equal(stmts.getTokensBySession.all("cursor-ungrouped-a")[0].input_tokens, 40);
+    assert.equal(stmts.getTokensBySession.all("cursor-ungrouped-b")[0].input_tokens, 70);
+  });
+
+  it("claims an exact receipt before it can overwrite a newer usage snapshot", async () => {
+    const sessionId = "cursor-replayed-response";
+    const generation = "generation-replayed-response";
+    const older = {
+      conversation_id: sessionId,
+      generation_id: generation,
+      model: "grok-4.7",
+      input_tokens: 100,
+      output_tokens: 10,
+    };
+    await postHook("afterAgentResponse", older);
+    await postHook("Stop", {
+      ...older,
+      input_tokens: 200,
+      output_tokens: 20,
+      status: "completed",
+    });
+    await postHook("afterAgentResponse", older);
+    const [usage] = stmts.getTokensBySession.all(sessionId);
+    assert.equal(usage.input_tokens, 200);
+    assert.equal(usage.output_tokens, 20);
+  });
+
+  it("does not guess a native-store model when response text does not match", async () => {
+    const sessionId = "cursor-model-mismatch";
+    createStore(sessionId, "cursor-grok-4.5-high", "A later response");
+    await postHook("afterAgentResponse", {
+      conversation_id: sessionId,
+      generation_id: "generation-model-mismatch",
+      model: "default",
+      input_tokens: 10,
+      output_tokens: 2,
+      text: "An earlier delayed response",
+    });
+    assert.equal(stmts.getTokensBySession.all(sessionId)[0].model, "default");
+  });
+
+  it("merges newer JSONL replies with store detail and keeps short pending prompts", async () => {
+    const sessionId = "cursor-merged-conversation";
+    const transcript = path.join(
+      process.env.DASHBOARD_CURSOR_HOME,
+      "projects",
+      "workspace",
+      "agent-transcripts",
+      sessionId,
+      `${sessionId}.jsonl`
+    );
+    fs.mkdirSync(path.dirname(transcript), { recursive: true });
+    const entry = (role, text) =>
+      JSON.stringify({ role, message: { content: [{ type: "text", text }] } });
+    fs.writeFileSync(
+      transcript,
+      [
+        entry("user", "<user_query>hello</user_query>"),
+        entry("assistant", "Stored response"),
+        entry("user", "<user_query>hi there</user_query>"),
+        entry("assistant", "Newest JSONL response"),
+      ].join("\n")
+    );
+    createStore(sessionId, "cursor-grok-4.5-high", "Stored response");
+    const chatDir = path.join(process.env.DASHBOARD_CURSOR_HOME, "chats", "workspace", sessionId);
+    fs.writeFileSync(path.join(chatDir, "prompt_history.json"), JSON.stringify(["hi"]));
+    await postHook("Stop", {
+      conversation_id: sessionId,
+      generation_id: "generation-merged-conversation",
+      model: "grok-4.5-high",
+      transcript_path: transcript,
+      status: "completed",
+    });
+
+    const response = await fetch(`${base}/api/sessions/${sessionId}/transcript`);
+    const body = await response.json();
+    const text = body.messages
+      .flatMap((message) => message.content || [])
+      .map((block) => block.text)
+      .filter(Boolean);
+    assert.ok(text.includes("Stored response"));
+    assert.ok(text.includes("Newest JSONL response"));
+    assert.ok(text.includes("hi"));
+    assert.ok(text.includes("hi there"));
+  });
+
   it("installs one copy of each usage hook while preserving unrelated commands", () => {
     const hooksPath = path.join(process.env.DASHBOARD_CURSOR_HOME, "hooks.json");
     fs.mkdirSync(path.dirname(hooksPath), { recursive: true });
@@ -257,5 +421,22 @@ describe("Cursor resume and cost ingestion", () => {
         .length,
       1
     );
+  });
+
+  it("preserves chained user commands and reports non-object hook files", () => {
+    const hooksPath = path.join(process.env.DASHBOARD_CURSOR_HOME, "hooks.json");
+    const chained = `node "${path.resolve(__dirname, "../../scripts/hook-handler.js").replace(/\\/g, "/")}" Stop && keep-running`;
+    fs.writeFileSync(
+      hooksPath,
+      JSON.stringify({ version: 1, hooks: { stop: [{ command: chained }] } })
+    );
+    assert.equal(installCursorHooks({ silent: true }).ok, true);
+    const config = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
+    assert.ok(config.hooks.stop.some((entry) => entry.command === chained));
+
+    fs.writeFileSync(hooksPath, "null");
+    const invalid = installCursorHooks({ silent: true });
+    assert.equal(invalid.ok, false);
+    assert.match(invalid.output[0], /expected a JSON object/);
   });
 });

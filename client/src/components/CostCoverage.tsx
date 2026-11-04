@@ -170,10 +170,28 @@ export function CostEstimateInfo({
   unpriced: UnpricedModel[];
 }) {
   const { t } = useTranslation("dashboard");
-  const { text } = useCostCoverageText(scope, unpriced);
+  const { text, scopeText, incompleteText, pricingAnchor } = useCostCoverageText(scope, unpriced);
   return (
     <Tip
       raw={text}
+      content={
+        <div className="space-y-1.5">
+          <p className="font-semibold text-gray-100">{t("costEstimate")}</p>
+          <p className="text-gray-400">{scopeText}</p>
+          {incompleteText && (
+            <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200">
+              {incompleteText}{" "}
+              <Link
+                className="font-medium text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
+                to={`/settings#${pricingAnchor}`}
+              >
+                {t("reviewRates")}
+              </Link>
+            </p>
+          )}
+        </div>
+      }
+      interactive={Boolean(incompleteText)}
       maxWidth={360}
       ariaLabel={t("costInfoLabel")}
       variant="info"
@@ -200,11 +218,12 @@ export function useCostCoverageText(scope: DataScope, unpriced: UnpricedModel[])
     sources: t(`settings:remoteSources.${scopeKey}`),
     providers: t(`settings:display.${provider}`),
   });
-  const incomplete = unpriced.length
-    ? `${t("costIncomplete", { models })} ${t("reviewRates")}`
-    : "";
+  const incompleteText = unpriced.length ? t("costIncomplete", { models }) : "";
+  const incomplete = incompleteText ? `${incompleteText} ${t("reviewRates")}` : "";
   return {
     text: [t("costEstimate"), scopeText, incomplete].filter(Boolean).join("\n"),
+    scopeText,
+    incompleteText,
     pricingAnchor,
     scopeKey,
     provider,
