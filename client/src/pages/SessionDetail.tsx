@@ -367,6 +367,12 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const routeIdRef = useRef(id);
   const loadSequenceRef = useRef(0);
+  useEffect(
+    () => () => {
+      loadSequenceRef.current += 1;
+    },
+    []
+  );
   useLayoutEffect(() => {
     routeIdRef.current = id;
   }, [id]);

@@ -320,6 +320,8 @@ export function Tip({
       top,
       zIndex: 99999,
       maxWidth,
+      maxHeight: variant === "info" && interactive ? "70vh" : undefined,
+      overflowY: variant === "info" && interactive ? "auto" : undefined,
       visibility: tipSize ? "visible" : "hidden",
     };
   }
@@ -354,13 +356,27 @@ export function Tip({
           hide();
           return;
         }
-        if (interactive && event.key === "Tab" && !event.shiftKey) {
+        if (
+          interactive &&
+          event.target === event.currentTarget &&
+          event.key === "Tab" &&
+          !event.shiftKey
+        ) {
           const firstFocusable = tipRef.current?.querySelector<HTMLElement>(
             'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
           );
           if (firstFocusable) {
             event.preventDefault();
             firstFocusable.focus();
+          }
+        }
+        if (interactive && event.key === "Tab" && event.shiftKey) {
+          const firstFocusable = tipRef.current?.querySelector<HTMLElement>(
+            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable && event.target === firstFocusable) {
+            event.preventDefault();
+            triggerRef.current?.focus();
           }
         }
       }}

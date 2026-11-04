@@ -44,6 +44,8 @@
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `labels an unset product scope as the Claude data it reads` — executable behavior named by this
  *   suite; preserve the observable contract or update the test with rationale.
+ * - `lets forward keyboard focus leave the portaled pricing links` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
  * - `links each missing provider to its own pricing editor` — executable behavior named by this
  *   suite; preserve the observable contract or update the test with rationale.
  * - `marks missing tier rates incomplete without calling the known model unknown` — executable
@@ -225,8 +227,49 @@ it("moves keyboard focus from the info trigger into its portaled pricing link", 
   );
   const trigger = screen.getByLabelText("About API cost estimate");
   fireEvent.focus(trigger);
+  expect(screen.getByRole("tooltip")).toHaveStyle({ maxHeight: "70vh", overflowY: "auto" });
   fireEvent.keyDown(trigger, { key: "Tab" });
-  expect(document.querySelector('a[href="/settings#gpt-pricing"]')).toHaveFocus();
+  const pricingLink = document.querySelector<HTMLElement>('a[href="/settings#gpt-pricing"]')!;
+  expect(pricingLink).toHaveFocus();
+  fireEvent.keyDown(pricingLink, { key: "Tab", shiftKey: true });
+  expect(trigger).toHaveFocus();
+});
+it("lets forward keyboard focus leave the portaled pricing links", () => {
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "both" }}
+        unpriced={[
+          {
+            provider: "cursor",
+            model: "cursor-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  fireEvent.focus(trigger);
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="/settings#"]'));
+  expect(links).toHaveLength(2);
+  const [firstLink, secondLink] = links as [HTMLAnchorElement, HTMLAnchorElement];
+  expect(firstLink).toHaveFocus();
+  secondLink.focus();
+  fireEvent.keyDown(secondLink, { key: "Tab" });
+  expect(secondLink).toHaveFocus();
 });
 it("treats numeric zero as rich tooltip content", () => {
   render(

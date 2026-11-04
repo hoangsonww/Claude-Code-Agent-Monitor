@@ -1435,13 +1435,15 @@ async function readCursorConversation(
   }
   messages.push(...mergeCursorMessageSources(stored || [], transcriptMessages));
 
+  const promptMessageId = (sourceSessionId, index) =>
+    sourceSessionId === sessionId
+      ? `cursor-prompt:${index}`
+      : `cursor-prompt:${sourceSessionId}:${index}`;
   const promptSources = sourceSessionIds.flatMap((sourceSessionId) => {
     const { meta, prompts } = readCursorChatMetadata(sourceSessionId);
     return prompts.map((prompt, index) => ({
-      id:
-        sourceSessionId === sessionId
-          ? `cursor-prompt:${index}`
-          : `cursor-prompt:${sourceSessionId}:${index}`,
+      id: promptMessageId(sourceSessionId, index),
+      previousId: index > 0 ? promptMessageId(sourceSessionId, index - 1) : null,
       isLast: index === prompts.length - 1,
       meta,
       prompt,
@@ -1449,15 +1451,7 @@ async function readCursorConversation(
   });
   if (promptSources.length > 0) {
     const claimedPromptIndexes = new Set();
-    const transcriptUserText = messages
-      .filter((message) => message.sender === "user")
-      .map(cursorMessageText);
-    const promptTail = (prompt) =>
-      prompt
-        .replace(/\[Pasted text #\d+ \+\d+ lines\]/gi, " ")
-        .replace(/\[Image #\d+\]/gi, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+    const promptAnchors = new Map();
     let untimedPromptInsertIndex = 0;
     for (const message of messages) {
       if (message.sender !== "user") continue;
@@ -1469,19 +1463,27 @@ async function readCursorConversation(
       if (sourceIndex < 0) continue;
       claimedPromptIndexes.add(sourceIndex);
       message.id = promptSources[sourceIndex].id;
+      promptAnchors.set(promptSources[sourceIndex].id, message.id);
     }
-    promptSources.forEach(({ id, isLast, meta, prompt }, sourceIndex) => {
+    promptSources.forEach(({ id, previousId, isLast, meta, prompt }, sourceIndex) => {
       if (claimedPromptIndexes.has(sourceIndex)) return;
       const normalized = prompt.replace(/\s+/g, " ").trim();
-      const tail = promptTail(prompt);
-      const represented = transcriptUserText.some(
-        (text) =>
+      const hasAttachmentPlaceholder = /\[(?:Pasted text #\d+ \+\d+ lines|Image #\d+)\]/i.test(
+        normalized
+      );
+      const representedMessage = messages.find((message) => {
+        if (message.sender !== "user") return false;
+        const text = cursorMessageText(message);
+        return (
           text === normalized ||
           (normalized.length >= 12 && text.includes(normalized)) ||
-          (text.length >= 12 && normalized.includes(text)) ||
-          (tail.length >= 12 && text.includes(tail))
-      );
-      if (represented) return;
+          (!hasAttachmentPlaceholder && text.length >= 12 && normalized.includes(text))
+        );
+      });
+      if (representedMessage) {
+        promptAnchors.set(id, representedMessage.id);
+        return;
+      }
       const promptMessage = {
         id,
         type: "user",
@@ -1501,10 +1503,17 @@ async function readCursorConversation(
         if (laterIndex >= 0) messages.splice(laterIndex, 0, promptMessage);
         else messages.push(promptMessage);
       } else {
-        messages.splice(untimedPromptInsertIndex, 0, promptMessage);
-        untimedPromptInsertIndex++;
+        const previousAnchor = previousId ? promptAnchors.get(previousId) || previousId : null;
+        const previousIndex = previousAnchor
+          ? messages.findIndex((message) => message.id === previousAnchor)
+          : -1;
+        const insertIndex = previousIndex >= 0 ? previousIndex + 1 : untimedPromptInsertIndex;
+        messages.splice(insertIndex, 0, promptMessage);
+        if (previousIndex < 0 || insertIndex <= untimedPromptInsertIndex) {
+          untimedPromptInsertIndex++;
+        }
       }
-      transcriptUserText.push(normalized);
+      promptAnchors.set(id, id);
     });
   }
 

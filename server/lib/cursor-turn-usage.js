@@ -14,6 +14,7 @@ const {
 } = require("./cursor-session-identity");
 
 const UNGROUPED_GENERATION = "__latest__";
+const REPAIR_EVENT_RANGE_SIZE = 500;
 const activeRepairGenerations = new Set();
 
 function finiteCount(value) {
@@ -161,10 +162,6 @@ function applyCursorTurnUsage(stmts, sessionId, data, options = {}) {
       : reportedGenerationId;
   if (options.repairGenerations) {
     if (options.repairGenerations.has(generationId)) return null;
-  } else {
-    for (const repairGenerations of activeRepairGenerations) {
-      repairGenerations.add(generationId);
-    }
   }
   const previous = stmts.getCursorTurn.get(generationId);
   const mergedData = { ...data };
@@ -187,7 +184,7 @@ function applyCursorTurnUsage(stmts, sessionId, data, options = {}) {
     const sourceSessionId = data?.cursor_alias_session_id || data?.conversation_id;
     const familyIds = options.db ? cursorSessionFamilyIds(options.db, sessionId) : [sessionId];
     const storeSessionIds = [
-      ...new Set([sourceSessionId, sessionId, ...familyIds].filter(Boolean)),
+      ...new Set([sessionId, sourceSessionId, ...familyIds].filter(Boolean)),
     ];
     resolvedModel = previous && !isModelAlias(previous.model) ? previous.model : eventModel;
     if (isModelAlias(resolvedModel)) {
@@ -207,6 +204,11 @@ function applyCursorTurnUsage(stmts, sessionId, data, options = {}) {
     snapshot.cacheRead,
     snapshot.cacheWrite
   );
+  if (!options.repairGenerations) {
+    for (const repairGenerations of activeRepairGenerations) {
+      repairGenerations.add(generationId);
+    }
+  }
   const buckets = rewriteCursorTokenBuckets(stmts, sessionId, previous);
   if (previous?.session_id && previous.session_id !== sessionId) {
     rewriteCursorTokenBuckets(stmts, previous.session_id, previous);
@@ -314,43 +316,55 @@ async function repairHistoricalCursorData(dbModule) {
 
     if (progress.phase === "dedupe_stops") {
       db.exec(
-        `DROP TABLE IF EXISTS temp.cursor_stop_duplicates;
-       CREATE TEMP TABLE cursor_stop_duplicates AS
-       SELECT id FROM (
-         SELECT e.id,
-           ROW_NUMBER() OVER (
-             PARTITION BY json_extract(e.data, '$.generation_id'),
-               COALESCE(NULLIF(json_extract(e.data, '$.status'), ''),
-                 json_extract(e.data, '$.stop_reason'), ''),
-               json_extract(e.data, '$.input_tokens'),
-               json_extract(e.data, '$.output_tokens'),
-               json_extract(e.data, '$.cache_read_tokens'),
-               json_extract(e.data, '$.cache_write_tokens')
-             ORDER BY e.id
-           ) AS duplicate_rank
+        `DROP TABLE IF EXISTS temp.cursor_stop_seen;
+         CREATE TEMP TABLE cursor_stop_seen (
+           duplicate_key TEXT PRIMARY KEY
+         ) WITHOUT ROWID`
+      );
+      const selectRangeEnd = db.prepare(
+        "SELECT id FROM events WHERE id > ? ORDER BY id LIMIT 1 OFFSET ?"
+      );
+      const selectLastEvent = db.prepare("SELECT MAX(id) AS id FROM events WHERE id > ?");
+      const selectStops = db.prepare(
+        `SELECT e.id,
+           json_array(
+             json_extract(e.data, '$.generation_id'),
+             COALESCE(NULLIF(json_extract(e.data, '$.status'), ''),
+               json_extract(e.data, '$.stop_reason'), ''),
+             json_extract(e.data, '$.input_tokens'),
+             json_extract(e.data, '$.output_tokens'),
+             json_extract(e.data, '$.cache_read_tokens'),
+             json_extract(e.data, '$.cache_write_tokens')
+           ) AS duplicate_key
          FROM events e JOIN sessions s ON s.id = e.session_id
-         WHERE s.provider = 'cursor' AND e.event_type = 'Stop'
+         WHERE e.id > ? AND e.id <= ?
+           AND s.provider = 'cursor' AND e.event_type = 'Stop'
            AND json_valid(e.data) = 1
            AND json_extract(e.data, '$.generation_id') IS NOT NULL
-       ) ranked WHERE duplicate_rank > 1`
+         ORDER BY e.id`
       );
+      const remember = db.prepare(
+        "INSERT OR IGNORE INTO temp.cursor_stop_seen (duplicate_key) VALUES (?)"
+      );
+      const remove = db.prepare("DELETE FROM events WHERE id = ?");
+      let lastEventId = 0;
       while (true) {
-        const duplicates = db.prepare("SELECT id FROM temp.cursor_stop_duplicates LIMIT 100").all();
-        if (!duplicates.length) break;
+        const boundary = selectRangeEnd.get(lastEventId, REPAIR_EVENT_RANGE_SIZE - 1);
+        const rangeEnd = Number(boundary?.id || selectLastEvent.get(lastEventId)?.id || 0);
+        if (rangeEnd <= lastEventId) break;
+        const rows = selectStops.all(lastEventId, rangeEnd);
         db.transaction(() => {
-          const remove = db.prepare("DELETE FROM events WHERE id = ?");
-          const removeCandidate = db.prepare(
-            "DELETE FROM temp.cursor_stop_duplicates WHERE id = ?"
-          );
-          for (const row of duplicates) {
-            removed += remove.run(row.id).changes;
-            removeCandidate.run(row.id);
+          for (const row of rows) {
+            if (remember.run(row.duplicate_key).changes === 0) {
+              removed += remove.run(row.id).changes;
+            }
           }
-          setProgress("dedupe_stops", 0, merged, removed, usage);
+          setProgress("dedupe_stops", rangeEnd, merged, removed, usage);
         })();
+        lastEventId = rangeEnd;
         await yieldToHooks();
       }
-      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_duplicates");
+      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_seen");
       setProgress("claim_stops", 0, merged, removed, usage);
       progress = getProgress();
     }
@@ -393,7 +407,7 @@ async function repairHistoricalCursorData(dbModule) {
   } finally {
     activeRepairGenerations.delete(repairGenerations);
     try {
-      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_duplicates");
+      db.exec("DROP TABLE IF EXISTS temp.cursor_stop_seen");
     } catch {
       // The repair result remains valid if SQLite already discarded the temp table.
     }

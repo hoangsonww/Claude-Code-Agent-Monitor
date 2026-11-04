@@ -18,7 +18,7 @@ const {
   indexCursorChatDirs,
   readCursorChatMetadata,
 } = require("./cursor-home");
-const { writeSnapshot } = require("./snapshot-store");
+const { createTranscriptLineReader, writeSnapshot } = require("./snapshot-store");
 const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
 const { cursorStoreSnapshotPending, snapshotCursorStore } = require("./cursor-store-transcript");
@@ -450,7 +450,7 @@ function discoverCursorTranscripts(root = getCursorProjectsDir()) {
   return results;
 }
 
-function cursorTranscriptTurnCount(transcriptPath, stat = null) {
+async function cursorTranscriptTurnCount(transcriptPath, stat = null) {
   const fingerprint = stat
     ? `${stat.dev || 0}:${stat.ino || 0}:${stat.size}:${stat.mtimeMs}`
     : statFingerprint(transcriptPath);
@@ -462,7 +462,10 @@ function cursorTranscriptTurnCount(transcriptPath, stat = null) {
   }
   try {
     let turns = 0;
-    for (const line of fs.readFileSync(transcriptPath, "utf8").split(/\r?\n/)) {
+    // Cursor entries can legitimately contain large tool payloads, so retain one
+    // complete line at a time rather than imposing a lossy line-length cap.
+    const lines = createTranscriptLineReader(transcriptPath);
+    for await (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
@@ -821,8 +824,8 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
     try {
       const candidate = fs.statSync(transcriptPath);
       const existing = fs.statSync(current);
-      const candidateTurns = cursorTranscriptTurnCount(transcriptPath, candidate);
-      const existingTurns = cursorTranscriptTurnCount(current, existing);
+      const candidateTurns = await cursorTranscriptTurnCount(transcriptPath, candidate);
+      const existingTurns = await cursorTranscriptTurnCount(current, existing);
       if (
         candidateTurns > existingTurns ||
         (candidateTurns === existingTurns && candidate.mtimeMs > existing.mtimeMs)

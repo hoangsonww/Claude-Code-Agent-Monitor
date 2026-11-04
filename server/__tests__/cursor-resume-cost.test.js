@@ -27,7 +27,9 @@ const { db, stmts } = require("../db");
 const { createApp, startServer } = require("../index");
 const { calculateCursorCost } = require("../routes/pricing");
 const { enrichCursorSession } = require("../lib/cursor-ingest");
+const { resolveCursorStoreModel } = require("../lib/cursor-store-transcript");
 const { reconcileHistoricalCursorSessions } = require("../lib/cursor-session-identity");
+const { repairHistoricalCursorData } = require("../lib/cursor-turn-usage");
 const { installCursorHooks } = require("../../scripts/install-cursor-hooks");
 
 let server;
@@ -392,6 +394,66 @@ describe("Cursor resume and cost ingestion", () => {
     );
   });
 
+  it("prefers the current native store and rejects short suffix-only model matches", () => {
+    const current = "cursor-model-current";
+    const alias = "cursor-model-alias";
+    const suffixOnly = "cursor-model-short-suffix";
+    createStore(current, "cursor-grok-4.7", "OK");
+    createStore(alias, "cursor-grok-4.5-high", "OK");
+    createStore(suffixOnly, "cursor-grok-4.5-high", "Earlier response: OK");
+
+    assert.equal(resolveCursorStoreModel([current, alias], "OK"), "grok-4.7");
+    assert.equal(resolveCursorStoreModel([suffixOnly], "OK"), "");
+  });
+
+  it("anchors untimed prompts and preserves attachment placeholders", async () => {
+    const sessionId = "cursor-untimed-prompts";
+    const transcript = path.join(
+      process.env.DASHBOARD_CURSOR_HOME,
+      "projects",
+      "workspace",
+      "agent-transcripts",
+      sessionId,
+      `${sessionId}.jsonl`
+    );
+    fs.mkdirSync(path.dirname(transcript), { recursive: true });
+    const entry = (role, text) =>
+      JSON.stringify({ role, message: { content: [{ type: "text", text }] } });
+    fs.writeFileSync(
+      transcript,
+      [
+        entry("user", "<user_query>first prompt</user_query>"),
+        entry("assistant", "first answer"),
+        entry("user", "<user_query>Summarize the report</user_query>"),
+        entry("assistant", "report summary"),
+      ].join("\n")
+    );
+    const chatDir = path.join(process.env.DASHBOARD_CURSOR_HOME, "chats", "workspace", sessionId);
+    fs.mkdirSync(chatDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(chatDir, "prompt_history.json"),
+      JSON.stringify(["first prompt", "middle pending prompt", "[Image #1] Summarize the report"])
+    );
+    await postHook("Stop", {
+      conversation_id: sessionId,
+      generation_id: "generation-untimed-prompts",
+      model: "grok-4.7",
+      transcript_path: transcript,
+      status: "completed",
+    });
+
+    const body = await (await fetch(`${base}/api/sessions/${sessionId}/transcript`)).json();
+    const text = body.messages
+      .flatMap((message) => message.content || [])
+      .map((block) => block.text)
+      .filter(Boolean);
+    assert.ok(text.indexOf("first prompt") < text.indexOf("middle pending prompt"));
+    assert.ok(
+      text.indexOf("middle pending prompt") < text.indexOf("[Image #1] Summarize the report")
+    );
+    assert.ok(text.includes("Summarize the report"));
+  });
+
   it("merges newer JSONL replies with store detail and keeps short pending prompts", async () => {
     const sessionId = "cursor-merged-conversation";
     const transcript = path.join(
@@ -436,6 +498,41 @@ describe("Cursor resume and cost ingestion", () => {
     assert.ok(text.includes("hi"));
     assert.ok(text.includes("hi there"));
     assert.ok(text.indexOf("hi") < text.indexOf("Newest JSONL response"));
+  });
+
+  it("deduplicates matching stops across bounded repair ranges", async () => {
+    const sessionId = "cursor-repair-ranges";
+    const generationId = "generation-repair-ranges";
+    stmts.insertSession.run(sessionId, "Repair ranges", "completed", null, null, "{}");
+    db.prepare("UPDATE sessions SET provider = 'cursor' WHERE id = ?").run(sessionId);
+    const insert = stmts.insertEvent;
+    const duplicate = JSON.stringify({
+      generation_id: generationId,
+      status: "completed",
+      input_tokens: 10,
+      output_tokens: 2,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      model: "grok-4.7",
+    });
+    insert.run(sessionId, null, "Stop", null, null, duplicate);
+    for (let index = 0; index < 600; index++) {
+      insert.run(sessionId, null, "PreToolUse", null, null, "{}");
+    }
+    insert.run(sessionId, null, "Stop", null, null, duplicate);
+    db.prepare("DELETE FROM cursor_repair_state WHERE repair_key = ?").run("resume-usage-v2");
+    db.prepare("DELETE FROM cursor_repair_progress WHERE repair_key = ?").run("resume-usage-v2");
+
+    await repairHistoricalCursorData({ db, stmts });
+
+    const remaining = db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM events
+         WHERE session_id = ? AND event_type = 'Stop'
+           AND json_extract(data, '$.generation_id') = ?`
+      )
+      .get(sessionId, generationId).count;
+    assert.equal(remaining, 1);
   });
 
   it("installs one copy of each usage hook while preserving unrelated commands", () => {

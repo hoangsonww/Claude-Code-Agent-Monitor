@@ -10,6 +10,7 @@ const path = require("path");
 const { findCursorChatDir, getCursorSnapshotDir } = require("./cursor-home");
 
 const TEXT_LIMIT = 10240;
+const MODEL_SUFFIX_MATCH_MIN_LENGTH = 16;
 const STORE_SNAPSHOT_RETRY_LIMIT = 5;
 const STORE_CACHE_LIMIT = 64;
 const lastStoreSnapshot = new Map();
@@ -306,7 +307,11 @@ function resolveCursorStoreModel(sessionIds, responseText = null) {
         .replace(/\s+/g, " ")
         .trim();
       if (!actual) return false;
-      return actual === expected || actual.endsWith(expected) || expected.endsWith(actual);
+      if (actual === expected) return true;
+      return (
+        Math.min(actual.length, expected.length) >= MODEL_SUFFIX_MATCH_MIN_LENGTH &&
+        (actual.endsWith(expected) || expected.endsWith(actual))
+      );
     });
     if (matched) return normalizeModel(matched.model);
   }
