@@ -26,18 +26,35 @@ function isOurEntry(entry) {
     : false;
 }
 
+function hasUsableHandler(entry) {
+  const commands = [
+    entry?.command,
+    ...(Array.isArray(entry?.hooks) ? entry.hooks.map((hook) => hook?.command) : []),
+  ];
+  return commands.some((command) => {
+    if (typeof command !== "string" || !command.includes("codex-hook-handler.js")) return false;
+    const quoted = command.match(/"([^"]*codex-hook-handler\.js)"/);
+    const unquoted = command.match(/(?:^|\s)([^\s"']*codex-hook-handler\.js)(?=\s|$)/);
+    const handler = quoted?.[1] || unquoted?.[1];
+    return Boolean(handler && fs.existsSync(handler));
+  });
+}
+
 function getCodexHookStatus() {
   const hooksPath = getCodexHooksPath();
   try {
     if (!fs.existsSync(hooksPath)) return { installed: false, path: hooksPath, hooks: {} };
     const config = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
     const hooks = Object.fromEntries(
-      HOOK_TYPES.map((type) => [type, (config.hooks?.[type] || []).some(isOurEntry)])
+      HOOK_TYPES.map((type) => [
+        type,
+        (config.hooks?.[type] || []).some((entry) => isOurEntry(entry) && hasUsableHandler(entry)),
+      ])
     );
     const hookLists = Object.values(config.hooks || {}).filter(Array.isArray);
     return {
       installed: Object.values(hooks).every(Boolean),
-      has_dashboard_hooks: Object.values(hooks).some(Boolean),
+      has_dashboard_hooks: hookLists.some((entries) => entries.some(isOurEntry)),
       has_existing_hooks: hookLists.some((entries) => entries.length > 0),
       path: hooksPath,
       hooks,

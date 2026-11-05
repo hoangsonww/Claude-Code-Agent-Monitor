@@ -175,6 +175,18 @@ describe("install-hooks host-only guard (#193)", () => {
         ""
       );
     }
+
+    const config = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8"));
+    const command = config.hooks.SessionStart[0].hooks[0].command;
+    const installedHandler = command.match(/"([^"]*codex-hook-handler\.js)"/)?.[1];
+    assert.ok(installedHandler);
+    config.hooks.SessionStart[0].hooks[0].command = command.replace(installedHandler, missing);
+    fs.writeFileSync(CODEX_HOOKS, JSON.stringify(config));
+    assert.equal(getCodexHookStatus().hooks.SessionStart, false);
+    assert.equal(getCodexHookStatus().installed, false);
+    assert.equal(getCodexHookStatus().has_dashboard_hooks, true);
+    assert.equal(installCodexHooks({ silent: true }).ok, true);
+    assert.equal(getCodexHookStatus().hooks.SessionStart, true);
   });
 
   it("is idempotent — re-running updates in place with no duplicate entries", () => {

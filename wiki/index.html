@@ -1931,14 +1931,16 @@ docker run -d --name agent-monitor \
               <p>
                 When you run the server directly on the host with <code>npm run dev</code> or
                 <code>npm start</code>, it automatically writes Claude Code hook entries to
-                <code>~/.claude/settings.json</code>. If you run the dashboard in Docker or Podman,
-                install hooks from the host with
+                <code>settings.json</code> in the resolved Claude home (<code>CLAUDE_HOME</code>,
+                then <code>CLAUDE_CONFIG_DIR</code>, then <code>~/.claude</code>). Set
+                <code>CCAM_NO_AUTO_HOOKS=1</code> to skip startup installation. If you run the
+                dashboard in Docker or Podman, install hooks from the host with
                 <code>npm run install-hooks -- --both --dashboard-port 4820</code> after the
                 container is up, then restart Claude Code. Replace <code>4820</code> for a custom
                 published host port. The installer embeds this verified target because the
                 read-only container cannot publish a host-visible discovery entry, and it refuses
                 to run inside a container (issue #193) so it never writes a container-internal
-                handler path into a bind-mounted host <code>~/.claude</code>; override with
+                handler path into a bind-mounted host Claude home; override with
                 <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code> only if Claude Code itself runs in the container.
               </p>
             </div>
@@ -7156,7 +7158,8 @@ npm run install-hooks</code></pre>
                     Hooks run on the host, not inside the container. Run
                     <code>npm run install-hooks -- --both --dashboard-port 4820</code> on the host
                     after the container starts, replacing the port for a custom mapping. Verify
-                    the hook commands embed <code>CLAUDE_DASHBOARD_PORT='4820'</code>.
+                    the hook commands embed the same selected port in
+                    <code>CLAUDE_DASHBOARD_PORT</code>.
                   </td>
                 </tr>
               </tbody>
@@ -7304,7 +7307,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=119" defer></script>
+    <script src="i18n-content.js?v=120" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {
