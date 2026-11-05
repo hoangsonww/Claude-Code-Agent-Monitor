@@ -480,7 +480,7 @@ npm run docker:full:up
 Todos los puertos del host se enlazan con loopback de forma predeterminada: Panel `4820`, MCP `8819`, Nginx `8080`, Prometheus `9090` y Grafana `3000`. Los homes de Claude y Codex se montan como solo lectura. Los volúmenes con nombre conservan SQLite y la configuración propiedad del panel. Nginx actúa como proxy de la interfaz, la API REST autenticada y WebSocket. Los hooks, las métricas y MCP quedan bloqueados en el perímetro salvo que se habiliten expresamente. El objetivo Docker opcional `agent-runtime` añade las CLI fijadas de Claude Code y Codex para flujos de Ejecutar agente nativos del contenedor.
 
 > [!IMPORTANT]
-> Instala los hooks de Claude Code/Codex en el host después de iniciar el contenedor. Para hooks remotos en la nube, configura `CCAM_DASHBOARD_URL=https://...` y un `CCAM_HOOK_TOKEN` independiente. Las URL de hooks que no usen loopback requieren HTTPS. Consulta [DEPLOYMENT.md](DEPLOYMENT.md).
+> Después de iniciar el contenedor, instala los hooks de Claude Code/Codex en el host con `npm run install-hooks -- --both --dashboard-port 4820` (sustituye `4820` si publicas otro puerto del host). El instalador integra este destino verificado porque el contenedor de solo lectura no puede publicar una entrada de descubrimiento visible para el host. Los usuarios actuales de Compose deben volver a ejecutar este comando una vez después de actualizar para que las entradas anteriores del panel reciban el destino explícito. Para hooks remotos en la nube, configura `CCAM_DASHBOARD_URL=https://...` y un `CCAM_HOOK_TOKEN` independiente. Las URL de hooks que no usen loopback requieren HTTPS. Consulta [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -515,7 +515,7 @@ sequenceDiagram
 ### Ciclo de vida de los hooks
 
 1. **Claude Code** emite hooks de sesión, prompt, herramienta, notificación, subagente, turno y salida.
-2. **`scripts/hook-handler.js`** lee cada evento desde stdin y descubre paneles activos mediante el registro local `.agent-dashboard.json` o `CLAUDE_DASHBOARD_PORT`. Si `CLAUDE_HOME` o `CLAUDE_CONFIG_DIR` traslada la ruta de Claude, el registro reside en datos locales del equipo; con la ruta predeterminada, en `~/.claude`. Primero filtra por la ruta de Claude canónica y luego envía una sola vez por cada directorio de datos SQLite único; elige el puerto más bajo si hay listeners duplicados, aunque sigue alimentando los paneles de la misma ruta que usan bases de datos distintas. La entrega es fail-safe. Cada destino está aislado y el handler termina en un máximo de 5 segundos.
+2. **`scripts/hook-handler.js`** lee cada evento desde stdin y selecciona primero `CCAM_DASHBOARD_URL`, después un `CLAUDE_DASHBOARD_PORT` explícito y, por último, los paneles activos del registro local `.agent-dashboard.json`. Si `CLAUDE_HOME` o `CLAUDE_CONFIG_DIR` traslada la ruta de Claude, el registro reside en datos locales del equipo; con la ruta predeterminada, en `~/.claude`. Primero filtra por la ruta de Claude canónica y luego envía una sola vez por cada directorio de datos SQLite único; elige el puerto más bajo si hay listeners duplicados, aunque sigue alimentando los paneles de la misma ruta que usan bases de datos distintas. La entrega es fail-safe. Cada destino está aislado y el handler termina en un máximo de 2,5 segundos.
 3. **El servidor** confirma el evento y el estado relacionado en una transacción SQLite:
    - El primer contacto crea la sesión y el agente principal. `SessionStart` comienza en **En espera**. `UserPromptSubmit` o `PreToolUse` lo mueve a **Trabajando**. `PostToolUse` lo mantiene trabajando.
    - `Stop` devuelve el agente principal a **En espera** mientras continúan los agentes en segundo plano. `stop_reason=error` marca el agente y la sesión como **Error**. Las notificaciones de permisos también esperan una entrada. Solo un prompt nuevo o el inicio de una herramienta recuperan un error.
@@ -616,7 +616,7 @@ flowchart LR
 | Variable de entorno | Valor predeterminado | Propósito |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Puerto del servidor Express. |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Puerto usado por el handler de hooks. |
+| `CLAUDE_DASHBOARD_PORT` | sin definir (descubrimiento) | Anulación explícita del puerto del handler de hooks; se puede conservar al instalar con `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Usa `production` para servir el cliente compilado. |
 | `DASHBOARD_UPDATE_CHECK` | enabled | Configura `0`, `false` u `off` para desactivar las comprobaciones programadas del upstream. |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` | Intervalo de actualización, mínimo 60,000 ms. **Comprobar ahora** sigue disponible. |

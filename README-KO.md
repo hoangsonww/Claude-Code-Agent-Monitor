@@ -483,7 +483,7 @@ npm run docker:full:up
 Host port는 기본적으로 loopback에만 bind됩니다: Dashboard `4820`, MCP `8819`, Nginx `8080`, Prometheus `9090`, Grafana `3000`. Claude/Codex home은 read-only mount이고 named volume이 SQLite와 dashboard-owned config를 보존합니다. Nginx는 UI, 인증된 REST, WebSocket을 proxy하지만 Hook, metrics, MCP는 기본적으로 edge에서 차단합니다.
 
 > [!IMPORTANT]
-> Hook은 host에서 설치하십시오. Remote Hook은 `CCAM_DASHBOARD_URL=https://...`와 `CCAM_HOOK_TOKEN`을 사용하며 non-loopback URL은 HTTPS가 필수입니다. [DEPLOYMENT.md](DEPLOYMENT.md)를 참조하십시오.
+> 컨테이너가 시작된 뒤 host에서 `npm run install-hooks -- --both --dashboard-port 4820`으로 Claude Code/Codex Hook을 설치하십시오(다른 host port를 publish했다면 `4820`을 바꾸십시오). Read-only 컨테이너는 host-visible discovery entry를 게시할 수 없으므로 installer가 이 검증된 target을 내장합니다. 기존 Compose 사용자는 업그레이드 후 이 명령을 한 번 다시 실행하여 이전 dashboard-owned Hook entry에 명시적 target을 추가해야 합니다. Remote Hook은 `CCAM_DASHBOARD_URL=https://...`와 `CCAM_HOOK_TOKEN`을 사용하며 non-loopback URL은 HTTPS가 필수입니다. [DEPLOYMENT.md](DEPLOYMENT.md)를 참조하십시오.
 
 ---
 
@@ -518,7 +518,7 @@ sequenceDiagram
 ### Hook 라이프사이클
 
 1. **Claude Code**가 세션, 프롬프트, 도구, 알림, Subagent, 턴, 종료 Hook을 발생시킵니다.
-2. **`scripts/hook-handler.js`**가 stdin에서 각 이벤트를 읽고 로컬 `.agent-dashboard.json` 등록 파일 또는 `CLAUDE_DASHBOARD_PORT`를 통해 실행 중인 대시보드를 찾습니다. `CLAUDE_HOME` 또는 `CLAUDE_CONFIG_DIR`로 Claude 홈을 이동하면 등록 파일은 컴퓨터의 로컬 앱 데이터에, 기본 홈을 사용하면 `~/.claude`에 위치합니다. 정규화된 Claude 홈으로 먼저 필터링한 뒤 고유한 SQLite 데이터 디렉터리마다 한 번 전송하고, 중복 listener에서는 가장 낮은 port를 선택하면서 홈이 일치하고 별도 database를 사용하는 대시보드에는 계속 전달합니다. 각 target은 격리되며 handler는 5초 이내에 종료되어 안전하게 실패합니다.
+2. **`scripts/hook-handler.js`**가 stdin에서 각 이벤트를 읽고 `CCAM_DASHBOARD_URL`, 명시적 `CLAUDE_DASHBOARD_PORT`, 로컬 `.agent-dashboard.json` 등록 파일의 실행 중인 대시보드 순서로 target을 선택합니다. `CLAUDE_HOME` 또는 `CLAUDE_CONFIG_DIR`로 Claude 홈을 이동하면 등록 파일은 컴퓨터의 로컬 앱 데이터에, 기본 홈을 사용하면 `~/.claude`에 위치합니다. 정규화된 Claude 홈으로 먼저 필터링한 뒤 고유한 SQLite 데이터 디렉터리마다 한 번 전송하고, 중복 listener에서는 가장 낮은 port를 선택하면서 홈이 일치하고 별도 database를 사용하는 대시보드에는 계속 전달합니다. 각 target은 격리되며 handler는 2.5초 이내에 종료되어 안전하게 실패합니다.
 3. **서버**가 이벤트와 관련 상태를 하나의 SQLite transaction으로 commit합니다.
    - 첫 접촉에서 세션과 main Agent를 만듭니다. `SessionStart`는 **Waiting**으로 시작하고, `UserPromptSubmit` 또는 `PreToolUse`가 **Working**으로 전환하며, `PostToolUse`는 working 상태를 유지합니다.
    - `Stop`은 background Agent를 계속 실행하면서 main Agent를 **Waiting**으로 되돌립니다. `stop_reason=error`는 Agent와 세션을 **Error**로 표시합니다. 권한 알림도 입력을 기다리며, 새 프롬프트나 도구 시작만 오류를 복구합니다.
@@ -619,7 +619,7 @@ flowchart LR
 | 환경 변수 | 기본값 | 목적 |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Express server port. |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Hook handler가 사용하는 port. |
+| `CLAUDE_DASHBOARD_PORT` | 미설정(discovery) | Hook handler의 명시적 port override이며 설치 시 `--dashboard-port N`으로 영구 저장할 수 있습니다. |
 | `NODE_ENV` | `development` | 빌드된 client를 제공하려면 `production`을 사용합니다. |
 | `DASHBOARD_UPDATE_CHECK` | 활성화 | 예약 upstream 확인을 끄려면 `0`, `false`, `off`로 설정합니다. |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` | 업데이트 간격이며 최솟값은 60,000 ms입니다. 수동 **Check now**는 계속 사용할 수 있습니다. |

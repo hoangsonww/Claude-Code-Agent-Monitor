@@ -1857,9 +1857,10 @@ cd Claude-Code-Agent-Monitor
 # 2. Install all dependencies (server + client)
 npm run setup
 
-# Optional: install hooks on the HOST (e.g. for container deployments)
-# or if auto-install on server startup fails. Run this on the host, never
-# inside a container — the installer refuses there (issue #193).
+# Optional: install hooks on the HOST if auto-install on server startup fails.
+# For a container deployment, use --both --dashboard-port 4820 instead so the
+# host hooks carry the verified published port. Never run the installer inside
+# a container — it refuses there (issue #193).
 npm run install-hooks
 
 # Optional: develop in a preconfigured VS Code Dev Container / Codespace
@@ -1911,6 +1912,9 @@ docker compose up -d --build
 # Podman Compose
 podman compose up -d --build
 
+# On the host: persist the container's verified published port in hooks
+npm run install-hooks -- --both --dashboard-port 4820
+
 # Plain Docker / Podman
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
@@ -1928,12 +1932,14 @@ docker run -d --name agent-monitor \
                 When you run the server directly on the host with <code>npm run dev</code> or
                 <code>npm start</code>, it automatically writes Claude Code hook entries to
                 <code>~/.claude/settings.json</code>. If you run the dashboard in Docker or Podman,
-                install hooks from the host with <code>npm run install-hooks</code> after the
-                container is up, then restart Claude Code. The installer refuses to run inside a
-                container (issue #193) so it never writes a container-internal handler path into a
-                bind-mounted host <code>~/.claude</code>; override with
-                <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code> only if Claude Code itself runs in the
-                container.
+                install hooks from the host with
+                <code>npm run install-hooks -- --both --dashboard-port 4820</code> after the
+                container is up, then restart Claude Code. Replace <code>4820</code> for a custom
+                published host port. The installer embeds this verified target because the
+                read-only container cannot publish a host-visible discovery entry, and it refuses
+                to run inside a container (issue #193) so it never writes a container-internal
+                handler path into a bind-mounted host <code>~/.claude</code>; override with
+                <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code> only if Claude Code itself runs in the container.
               </p>
             </div>
           </div>
@@ -2028,9 +2034,10 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 </tr>
                 <tr>
                   <td><code>CLAUDE_DASHBOARD_PORT</code></td>
-                  <td><code>4820</code></td>
+                  <td><code>(unset; discovery)</code></td>
                   <td>
-                    Port used by the hook handler to reach the server (for custom port setups)
+                    Explicit hook-handler port override; persist it at installation with
+                    <code>--dashboard-port N</code>
                   </td>
                 </tr>
                 <tr>
@@ -6837,6 +6844,9 @@ docker compose up -d --build
 # or
 podman compose up -d --build
 
+# On the host: persist the verified published port in Claude/Codex hooks
+npm run install-hooks -- --both --dashboard-port 4820
+
 # Complete authenticated stack
 umask 077
 openssl rand -hex 32 &gt; deployments/secrets/dashboard-token
@@ -6854,8 +6864,10 @@ npm run docker:full:up</code></pre>
             <div class="callout-body">
               <strong>One SQLite writer</strong>
               <p>
-                Run exactly one dashboard container per data volume. Install hooks on the host.
-                Remote hook destinations must use HTTPS plus <code>CCAM_HOOK_TOKEN</code>.
+                Run exactly one dashboard container per data volume. Install host hooks with
+                <code>npm run install-hooks -- --both --dashboard-port 4820</code>, replacing the
+                port when the host mapping differs. Remote hook destinations must use HTTPS plus
+                <code>CCAM_HOOK_TOKEN</code>.
               </p>
             </div>
           </div>
@@ -7142,9 +7154,9 @@ npm run install-hooks</code></pre>
                   <td>Docker container runs but no sessions appear</td>
                   <td>
                     Hooks run on the host, not inside the container. Run
-                    <code>npm run install-hooks</code> on the host after the container starts.
-                    Verify hooks in <code>~/.claude/settings.json</code> point to
-                    <code>localhost:4820</code>.
+                    <code>npm run install-hooks -- --both --dashboard-port 4820</code> on the host
+                    after the container starts, replacing the port for a custom mapping. Verify
+                    the hook commands embed <code>CLAUDE_DASHBOARD_PORT='4820'</code>.
                   </td>
                 </tr>
               </tbody>
@@ -7292,7 +7304,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=118" defer></script>
+    <script src="i18n-content.js?v=119" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

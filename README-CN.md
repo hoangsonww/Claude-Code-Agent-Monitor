@@ -489,7 +489,7 @@ npm run docker:full:up
 宿主机端口默认仅绑定 loopback：Dashboard `4820`、MCP `8819`、Nginx `8080`、Prometheus `9090`、Grafana `3000`。Claude/Codex home 只读挂载，命名卷保存 SQLite 与 Dashboard 配置。Nginx 代理 UI、认证 REST 与 WebSocket，默认在边缘阻止 Hook、指标和 MCP。
 
 > [!IMPORTANT]
-> Hook 必须在宿主机安装。远程 Hook 使用 `CCAM_DASHBOARD_URL=https://...` 和 `CCAM_HOOK_TOKEN`；非 loopback URL 必须使用 HTTPS。详见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+> 容器启动后，请在宿主机运行 `npm run install-hooks -- --both --dashboard-port 4820` 安装 Claude Code/Codex Hook（若发布了其他宿主机端口，请替换 `4820`）。安装器会嵌入这个已验证目标，因为只读容器无法发布宿主机可见的发现条目。现有 Compose 用户升级后应重新运行一次该命令，让旧的 Dashboard 自有 Hook 条目获得显式目标。远程 Hook 使用 `CCAM_DASHBOARD_URL=https://...` 和 `CCAM_HOOK_TOKEN`；非 loopback URL 必须使用 HTTPS。详见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ---
 
@@ -521,7 +521,7 @@ sequenceDiagram
 ### Hook 生命周期
 
 1. **Claude Code** 发出会话、提示、工具、通知、Subagent、回合和退出 Hook。
-2. **`scripts/hook-handler.js`** 从 stdin 读取每个事件，并通过本地 `.agent-dashboard.json` 注册表或 `CLAUDE_DASHBOARD_PORT` 发现实时 Dashboard。`CLAUDE_HOME` 或 `CLAUDE_CONFIG_DIR` 迁移 Claude 主目录时，注册表位于本机应用数据目录；默认主目录时位于 `~/.claude`。它先按规范化 Claude 主目录筛选，再对每个独立 SQLite 数据目录发送一次；对于重复监听器选择最低端口，同时仍向使用不同数据库且主目录匹配的 Dashboard 提供事件。投递采用故障安全设计，每个目标彼此隔离，处理器会在 5 秒内退出。
+2. **`scripts/hook-handler.js`** 从 stdin 读取每个事件，依次选择 `CCAM_DASHBOARD_URL`、显式 `CLAUDE_DASHBOARD_PORT`，最后选择本地 `.agent-dashboard.json` 注册表中的实时 Dashboard。`CLAUDE_HOME` 或 `CLAUDE_CONFIG_DIR` 迁移 Claude 主目录时，注册表位于本机应用数据目录；默认主目录时位于 `~/.claude`。它先按规范化 Claude 主目录筛选，再对每个独立 SQLite 数据目录发送一次；对于重复监听器选择最低端口，同时仍向使用不同数据库且主目录匹配的 Dashboard 提供事件。投递采用故障安全设计，每个目标彼此隔离，处理器会在 2.5 秒内退出。
 3. **服务器** 在一个 SQLite 事务中提交事件及相关状态：
    - 首次接触会创建会话和主 Agent。`SessionStart` 从 **Waiting** 开始；`UserPromptSubmit` 或 `PreToolUse` 将其移至 **Working**；`PostToolUse` 让它保持工作中。
    - `Stop` 将主 Agent 恢复为 **Waiting**，后台 Agent 继续运行。`stop_reason=error` 将 Agent 和会话标记为 **Error**。权限通知同样会等待输入；只有新的提示或工具启动可从错误中恢复。
@@ -619,7 +619,7 @@ flowchart LR
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Express 服务器端口。 |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Hook Handler 使用的端口。 |
+| `CLAUDE_DASHBOARD_PORT` | 未设置（自动发现） | Hook Handler 使用的显式端口覆盖；可在安装时通过 `--dashboard-port N` 持久化。 |
 | `NODE_ENV` | `development` | 设为 `production` 时提供构建后的客户端。 |
 | `DASHBOARD_UPDATE_CHECK` | 已启用 | 设为 `0`、`false` 或 `off` 可禁用定时上游检查。 |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` | 更新检查间隔，最小 60,000 ms。手动 **Check now** 仍可使用。 |

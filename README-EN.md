@@ -481,7 +481,7 @@ npm run docker:full:up
 All host ports bind to loopback by default: dashboard `4820`, MCP `8819`, Nginx `8080`, Prometheus `9090`, and Grafana `3000`. Claude and Codex homes are mounted read-only; named volumes persist SQLite and dashboard-owned configuration. Nginx proxies the UI, authenticated REST API, and WebSocket, while hooks, metrics, and MCP stay blocked at the edge unless explicitly enabled. The optional `agent-runtime` Docker target adds pinned Claude Code and Codex CLIs for container-native Run Agent workflows.
 
 > [!IMPORTANT]
-> Install Claude Code/Codex hooks on the host after the container starts. For remote cloud hooks, set `CCAM_DASHBOARD_URL=https://...` and a separate `CCAM_HOOK_TOKEN`; non-loopback hook URLs require HTTPS. See [DEPLOYMENT.md](DEPLOYMENT.md).
+> Install Claude Code/Codex hooks on the host after the container starts with `npm run install-hooks -- --both --dashboard-port 4820` (replace `4820` for a custom published host port). The installer embeds this verified target because the read-only container cannot publish a host-visible discovery entry. Existing Compose users should rerun this command once after upgrading so older dashboard-owned hook entries receive the explicit target. For remote cloud hooks, set `CCAM_DASHBOARD_URL=https://...` and a separate `CCAM_HOOK_TOKEN`; non-loopback hook URLs require HTTPS. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -516,7 +516,7 @@ sequenceDiagram
 ### Hook Lifecycle
 
 1. **Claude Code** emits session, prompt, tool, notification, subagent, turn, and exit hooks.
-2. **`scripts/hook-handler.js`** reads each event from stdin and discovers live dashboards through the local `.agent-dashboard.json` registry or `CLAUDE_DASHBOARD_PORT`. For a relocated Claude home selected by either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR`, the registry lives in machine-local app data; for the default home it lives under `~/.claude`. It filters by canonical Claude home, then sends once per unique SQLite data directory, choosing the lowest port for duplicate listeners while still feeding matching dashboards with separate databases. Delivery is fail-safe: each target is isolated and the handler exits within 5 seconds.
+2. **`scripts/hook-handler.js`** reads each event from stdin and targets `CCAM_DASHBOARD_URL` first, then an explicit `CLAUDE_DASHBOARD_PORT`, then live dashboards in the local `.agent-dashboard.json` registry. For a relocated Claude home selected by either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR`, the registry lives in machine-local app data; for the default home it lives under `~/.claude`. It filters by canonical Claude home, then sends once per unique SQLite data directory, choosing the lowest port for duplicate listeners while still feeding matching dashboards with separate databases. Delivery is fail-safe: each target is isolated and the handler exits within 2.5 seconds.
 3. **The server** commits the event and related state in one SQLite transaction:
    - First contact creates the session and main agent. `SessionStart` begins in **Waiting**; `UserPromptSubmit` or `PreToolUse` moves it to **Working**; `PostToolUse` keeps it working.
    - `Stop` returns the main agent to **Waiting** while background agents continue. `stop_reason=error` marks the agent and session **Error**. Permission notifications also wait for input; only a new prompt or tool start recovers an error.
@@ -617,7 +617,7 @@ flowchart LR
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Express server port. |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Port used by the hook handler. |
+| `CLAUDE_DASHBOARD_PORT` | unset (discovery) | Explicit port override used by the hook handler; persist it during installation with `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Use `production` to serve the built client. |
 | `DASHBOARD_UPDATE_CHECK` | enabled | Set `0`, `false`, or `off` to disable scheduled upstream checks. |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` | Update interval, minimum 60,000 ms. Manual **Check now** remains available. |

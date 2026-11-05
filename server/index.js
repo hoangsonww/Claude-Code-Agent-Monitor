@@ -1579,8 +1579,8 @@ if (require.main === module) {
     } else if (isInsideContainer()) {
       console.log(
         "Claude Code hooks NOT auto-configured: running inside a container. " +
-          "Run `npm run install-hooks` on the host so hooks point at a host path and " +
-          "POST to http://localhost:4820 (this container's published port)."
+          "Run `npm run install-hooks -- --both --dashboard-port 4820` on the host " +
+          "so hooks use host paths and carry the verified published port."
       );
     }
   } catch {

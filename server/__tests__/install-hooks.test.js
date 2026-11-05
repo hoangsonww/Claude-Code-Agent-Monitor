@@ -1,9 +1,8 @@
 /**
- * @file Tests the host-only guard in scripts/install-hooks.js (issue #193):
- * the installer must refuse to write a container-internal handler path into a
- * (possibly bind-mounted) host ~/.claude/settings.json. Container detection is
- * driven deterministically via CCAM_FORCE_CONTAINER / CCAM_FORCE_HOST so these
- * tests pass whether or not the CI runner itself is containerized.
+ * @file Tests hook installation safety and targeting: the host-only guard must
+ * reject container-internal handler paths, provider entries remain idempotent,
+ * and an explicit Compose port is embedded for both Claude and Codex. Container
+ * detection uses deterministic force flags so the suite is environment-neutral.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -90,10 +89,16 @@ describe("install-hooks host-only guard (#193)", () => {
     process.env.CCAM_FORCE_CONTAINER = "1";
     const ok = installHooks(true);
     assert.equal(ok, false);
+    assert.equal(installCodexHooks({ silent: true }).ok, false);
     assert.equal(
       fs.existsSync(SETTINGS),
       false,
       "settings.json must not be created in a container"
+    );
+    assert.equal(
+      fs.existsSync(CODEX_HOOKS),
+      false,
+      "hooks.json must not be created in a container"
     );
   });
 
@@ -102,7 +107,9 @@ describe("install-hooks host-only guard (#193)", () => {
     process.env.CCAM_ALLOW_CONTAINER_HOOKS = "1";
     const ok = installHooks(true);
     assert.equal(ok, true);
+    assert.equal(installCodexHooks({ silent: true }).ok, true);
     assert.ok(fs.existsSync(SETTINGS));
+    assert.ok(fs.existsSync(CODEX_HOOKS));
     const settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
     for (const type of HOOK_TYPES) {
       assert.ok(Array.isArray(settings.hooks[type]), `missing hook list for ${type}`);
@@ -229,5 +236,31 @@ describe("install-hooks host-only guard (#193)", () => {
       );
       assert.equal(ours.length, 1, `${type} should contain one dashboard hook`);
     }
+  });
+
+  it("embeds an explicit dashboard port for host hooks targeting a container", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    assert.equal(installHooks(true, { dashboardPort: 4820 }), true);
+    assert.equal(installCodexHooks({ silent: true, dashboardPort: 4820 }).ok, true);
+
+    const claude = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
+    const codex = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8"));
+    const expected = "process.env.CLAUDE_DASHBOARD_PORT='4820'";
+    assert.match(claude.hooks.SessionStart[0].hooks[0].command, new RegExp(expected));
+    assert.match(codex.hooks.SessionStart[0].hooks[0].command, new RegExp(expected));
+  });
+
+  it("rejects invalid embedded ports before writing either provider config", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    assert.throws(
+      () => installHooks(true, { dashboardPort: "4820;touch /tmp/unsafe" }),
+      /integer between 1 and 65535/
+    );
+    assert.throws(
+      () => installCodexHooks({ silent: true, dashboardPort: 65536 }),
+      /integer between 1 and 65535/
+    );
+    assert.equal(fs.existsSync(SETTINGS), false);
+    assert.equal(fs.existsSync(CODEX_HOOKS), false);
   });
 });

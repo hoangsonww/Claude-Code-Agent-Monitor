@@ -158,6 +158,9 @@ graph TB
 ```bash
 # Install hooks
 npm run install-hooks
+
+# Host hooks feeding the default Compose port (persists the explicit target)
+npm run install-hooks -- --both --dashboard-port 4820
 ```
 
 The installer is interactive: use arrow keys, <kbd>Space</kbd>, then <kbd>Enter</kbd> to select Claude Code, Codex (beta), or both. It starts with Claude Code selected. Existing dashboard hook entries are detected and warned about before replacement; unrelated entries remain untouched. The same multi-select is available from **Settings → Hook Configuration → Install hooks**.
@@ -167,6 +170,11 @@ On a browser's first dashboard visit, select the provider data to display and th
 > [!IMPORTANT]
 > **Hooks are a host-side step.** Claude Code runs on your host, so the hook
 > command must reference a `hook-handler.js` path that exists on the **host**.
+> Compose mounts the Claude home read-only, so it cannot publish a discovery
+> entry the host can trust. Use `--dashboard-port` when installing host hooks;
+> replace `4820` if the container is published on another host port.
+> Existing Compose installations should rerun the command once after upgrading;
+> the installer updates only this dashboard's hook entries in place.
 
 The Claude home resolves from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then
 `~/.claude`. When either variable relocates Claude home, server discovery uses
@@ -271,8 +279,9 @@ implementation notes.
 > Run `npm run install-hooks` on the host — never inside a container. When run
 > inside Docker/Podman, the installer **refuses** and exits non-zero (issue
 > #193): a container-internal path written into a bind-mounted `~/.claude` would
-> break every host hook with `MODULE_NOT_FOUND`. The host handler POSTs to
-> `http://localhost:4820`, which a containerized dashboard already publishes.
+> break every host hook with `MODULE_NOT_FOUND`. Install with
+> `npm run install-hooks -- --both --dashboard-port 4820` so the host commands
+> carry the container's verified published port instead of relying on discovery.
 > (Escape hatch for running Claude Code *inside* the same container:
 > `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.)
 

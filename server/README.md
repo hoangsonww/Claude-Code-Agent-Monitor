@@ -1723,6 +1723,9 @@ and is read-only except for mounted data/config volumes and tmpfs.
 ```bash
 docker compose up -d --build
 
+# Run on the host so hooks can reach the container's published port
+npm run install-hooks -- --both --dashboard-port 4820
+
 # Complete authenticated stack
 npm run docker:full:up
 

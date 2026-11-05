@@ -1230,17 +1230,21 @@ get hooks; same database never double-ingests; unrelated homes stay isolated):
 ```mermaid
 flowchart TD
     START[Claude Code fires hook] --> STDIN[Read stdin to EOF]
-    STDIN --> RESOLVE["resolveHookIngestPorts()<br/>via server/lib/server-info.js"]
-    RESOLVE --> PARSE{Parse JSON?}
-    PARSE -->|Success| POST["POST to 127.0.0.1:{port}/api/hooks/event<br/>(one per unique dataDir, parallel)"]
+    STDIN --> PARSE{Parse JSON?}
+    PARSE -->|Success| URL{CCAM_DASHBOARD_URL set?}
     PARSE -->|Failure| WRAP["Wrap raw input as<br/>#123;raw: ...#125;"]
-    WRAP --> POST
-    POST --> AGG{Promise.all settled}
+    WRAP --> URL
+    URL -->|Yes| RESOLVE_URL[Use validated HTTP\(S\) URL]
+    URL -->|No| RESOLVE
+    RESOLVE["resolveHookIngestPorts()<br/>via server/lib/server-info.js"] --> POST_LOCAL["POST to 127.0.0.1:{port}/api/hooks/event<br/>(one per unique dataDir, parallel)"]
+    RESOLVE_URL --> POST_REMOTE[POST to configured /api/hooks/event]
+    POST_LOCAL --> AGG{Promise.all settled}
+    POST_REMOTE --> AGG
     AGG -->|All resolved or rejected| EXIT0[exit = 0]
-    AGG -->|Any single timeout 3s| DESTROY[Destroy that request only]
+    AGG -->|Any single timeout 2s| DESTROY[Destroy that request only]
     DESTROY --> AGG
 
-    SAFETY[Safety net: setTimeout 5s] --> EXIT0_SAFETY[exit = 0]
+    SAFETY[Safety net: setTimeout 2.5s] --> EXIT0_SAFETY[exit = 0]
 
     style EXIT0 fill:#10b981,stroke:#34d399,color:#fff
     style EXIT0_SAFETY fill:#10b981,stroke:#34d399,color:#fff
@@ -1249,12 +1253,13 @@ flowchart TD
 **Key design decisions:**
 
 - Always exits 0 — never blocks Claude Code regardless of any server's state.
-- 3-second HTTP timeout per target + 5-second process-wide safety net.
-- Uses Node.js `http` module directly — no dependencies.
-- Resolution order is **env override → verified discovery targets → no delivery**:
-  - `CLAUDE_DASHBOARD_PORT` forces a single target (no fan-out, no discovery).
+- 2-second HTTP(S) timeout per target + 2.5-second process-wide safety net.
+- Uses Node.js `http` / `https` modules directly — no dependencies.
+- Resolution order is **configured URL → explicit port → verified discovery targets → no delivery**:
+  - `CCAM_DASHBOARD_URL` takes precedence and sends to the validated HTTP(S) destination even when no local server is registered. Non-loopback URLs require HTTPS and hook authentication.
+  - `CLAUDE_DASHBOARD_PORT` forces a single loopback target (no fan-out, no discovery). `npm run install-hooks -- --both --dashboard-port 4820` persists that override in host hook commands for Compose, whose read-only Claude home cannot publish a host-visible discovery entry.
   - Otherwise `server/lib/server-info.js` reads the machine-local `.agent-dashboard.json` registry when either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` relocates Claude home (or the default `~/.claude` registry otherwise), prunes dead-PID entries, filters entries by canonical `claudeHome`, and returns one live `port` per unique `dataDir` (lowest port wins when two processes share one database). The handler POSTs to each returned port in parallel. Ambiguous legacy entries without `claudeHome` remain eligible only in the default home's private registry.
-  - If no registered server matches, the handler sends nowhere rather than inferring that port `4820` belongs to the current Claude home. `CLAUDE_DASHBOARD_PORT` remains the explicit override.
+  - Without a configured URL, explicit port, or matching registered server, the handler sends nowhere rather than inferring that port `4820` belongs to the current Claude home.
 - Per-target promises never reject — a dead listener can't starve the others, and the handler can wait on `Promise.all` for clean exit timing.
 
 ### Hook Installation
