@@ -5,9 +5,10 @@
  * The conventional port is 4820, and a plain `npm start` setup almost always
  * binds it. But more than one dashboard can run on a single machine — most
  * commonly the macOS desktop app side-by-side with `npm run dev`. The hook
- * handler fans out to every live dashboard that uses a **different** SQLite
- * data directory. Servers sharing the same `dataDir` receive hooks through a
- * single lowest-port ingest target so events are never duplicated.
+ * handler fans out to every live dashboard for the hook's resolved Claude home
+ * that uses a **different** SQLite data directory. Servers sharing the same
+ * `dataDir` receive hooks through a single lowest-port ingest target so events
+ * are never duplicated, while unrelated Claude homes never receive the event.
  *
  * The on-disk file is a JSON document under the default Claude Code home,
  * or under machine-local app data for a relocated Claude home.
@@ -69,6 +70,23 @@ function normalizeDataDir(dir) {
   } catch {
     return path.resolve(dir);
   }
+}
+
+/** Canonical absolute Claude home used to scope hook delivery. */
+function normalizeClaudeHome(dir) {
+  return normalizeDataDir(dir);
+}
+
+/**
+ * Whether a discovery entry belongs to the Claude home of this process.
+ * Legacy entries without `claudeHome` are safe only in the default home's
+ * private registry; the machine-local relocated-home registry is shared and
+ * cannot safely infer which home created an unscoped entry.
+ */
+function matchesCurrentClaudeHome(server) {
+  const current = normalizeClaudeHome(getClaudeHome());
+  if (server.claudeHome) return normalizeClaudeHome(server.claudeHome) === current;
+  return current === normalizeClaudeHome(path.join(os.homedir(), ".claude"));
 }
 
 /**
@@ -196,7 +214,7 @@ function readDataDirOwners() {
  * both the new array shape and the legacy single-record shape so a file
  * written by an older server is still understood.
  *
- * @returns {Array<{port: number, pid: number, startedAt: string}>}
+ * @returns {Array<{port: number, pid: number, startedAt: string, dataDir?: string, claudeHome?: string}>}
  */
 function readInfoFile() {
   try {
@@ -300,6 +318,7 @@ function writeServerInfo(port) {
       pid: process.pid,
       startedAt: new Date().toISOString(),
       dataDir: normalizeDataDir(getDataDir()),
+      claudeHome: normalizeClaudeHome(getClaudeHome()),
     };
     persist([...existing, ours]);
   } catch {
@@ -344,10 +363,10 @@ function resolveAllDashboardPorts() {
 }
 
 /**
- * Ports that should receive hook POSTs. When several live servers share the
- * same SQLite data directory, only the lowest port per directory is returned
- * so parallel instances (Docker + dev, two terminals on the same DB) never
- * double-ingest events.
+ * Ports that should receive hook POSTs. Only servers registered for this
+ * process's resolved Claude home are eligible. When several eligible servers
+ * share the same SQLite data directory, only the lowest port per directory is
+ * returned so parallel instances never double-ingest events.
  *
  * @returns {number[]}
  */
@@ -355,10 +374,16 @@ function resolveHookIngestPorts() {
   const envPort = parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
   if (Number.isInteger(envPort) && envPort > 0) return [envPort];
 
-  const live = readInfoFile().filter(
+  const allLive = readInfoFile().filter(
     (s) => Number.isInteger(s.port) && s.port > 0 && isPidAlive(s.pid)
   );
-  if (live.length === 0) return [DEFAULT_PORT];
+  if (allLive.length === 0) return [DEFAULT_PORT];
+
+  const live = allLive.filter(matchesCurrentClaudeHome);
+  // A live registry containing only other homes (or ambiguous legacy entries
+  // in the shared relocated-home registry) must not fall back to a port that
+  // may belong to one of those homes.
+  if (live.length === 0) return [];
 
   const byDataDir = new Map();
   for (const server of live) {
@@ -433,6 +458,7 @@ module.exports = {
   hasExclusiveDataDirOwnership,
   // Exported for tests.
   normalizeDataDir,
+  normalizeClaudeHome,
   ingestGroupKey,
   getOwnershipDataDir,
   getDataDirOwnerPath,

@@ -787,7 +787,7 @@ Reach it from the tray menu → **Show Logs**.
 | `hdiutil detach … exit code 1` in CI | Flaky GitHub runner; the CI step already retries with Spotlight disabled. Re-run the job if it still fails. |
 | Dashboard window is blank | The embedded server failed `/api/health` within 30 s — check `desktop.log`. |
 | Gatekeeper blocks the app | Ad-hoc DMG. `xattr -cr "/Applications/Claude Code Monitor.app"`. |
-| Hooks not firing | The app installs hooks on first owned-server boot unless `CCAM_NO_AUTO_HOOKS=1`; start a **new** Claude Code session afterwards. Verify entries in the resolved Claude home `settings.json`. Stale portable handler paths show as uninstalled. |
+| Hooks not firing | The app installs hooks on first owned-server boot unless `CCAM_NO_AUTO_HOOKS=1`; start a **new** Claude Code session afterwards. The opt-out leaves legacy entries unchanged, so reinstall or remove one whose handler is missing. Verify entries in the resolved Claude home `settings.json`; current-format stale portable paths show as uninstalled. |
 | "Run Claude" says `claude` isn't on your PATH | `shell-path.ts` recovers the login-shell PATH at startup. If `claude` is a shell _alias_ or _function_ (not a real binary), it cannot be spawned — install the `claude` CLI as an executable. Check `desktop.log` for the `user PATH resolved` line. |
 | `desktop:dev` / `desktop:test` fail with `ERR_DLOPEN_FAILED` | A prior DMG build left `better-sqlite3` built for the other CPU arch. `prebuild.js` auto-heals this on the next build; if needed, run `npm run desktop:install`. |
 | Imported history disappeared after reinstall | Check `DASHBOARD_DATA_DIR` first. With `CLAUDE_CONFIG_DIR`, an existing machine-local data directory takes precedence over `<CLAUDE_HOME>/agent-dashboard` and `~/.claude/agent-dashboard`; check those older directories for the previous database and snapshots. Run **Import History → Rescan** if needed. |
@@ -809,19 +809,21 @@ By design, changes outside `desktop/` are kept to a minimum:
   fixes that.) The server also publishes its live port on startup.
 - **`server/lib/server-info.js`** — multi-server discovery file in machine-local
   app data for a relocated Claude home, or in `~/.claude` for the default home. Every running dashboard appends its
-  `{port, pid, startedAt}` entry on startup, removes it on clean shutdown,
+  `{port, pid, startedAt, dataDir, claudeHome}` entry on startup, removes it on clean shutdown,
   and stale entries are pruned by a `process.kill(pid, 0)` liveness check on
   read. Exposes `writeServerInfo`, `removeServerInfo`,
-  `resolveAllDashboardPorts` (fan-out targets), and the legacy single-port
+  `resolveHookIngestPorts` (Claude-home-scoped fan-out targets),
+  `resolveAllDashboardPorts` (all-process safety probes), and the legacy single-port
   `resolveDashboardPort`. The file also carries legacy root-level
   `port`/`pid`/`startedAt` fields populated from the most recently started
   live server, so older hook handlers bundled inside an already-installed
   `.app` still resolve to a reachable port.
 - **`scripts/hook-handler.js`** — `Promise.all` fan-out of every hook
-  payload to every live server returned by `resolveAllDashboardPorts()`
-  (`CLAUDE_DASHBOARD_PORT` overrides to a single target). This is what lets
-  the desktop app coexist with `npm run dev` — both dashboards receive every
-  event and both stay real-time.
+  payload to the live servers returned by `resolveHookIngestPorts()`
+  (`CLAUDE_DASHBOARD_PORT` overrides to a single target). Targets must match
+  the hook process's resolved Claude home, and one target per unique database
+  is selected. This lets the desktop app coexist with `npm run dev` without
+  leaking events into a dashboard monitoring another Claude home.
 - **`server/lib/push.js`** — `sendPushToAll()` now also fires a **native
   Electron notification** when `process.versions.electron` is set, so the
   desktop app surfaces notifications via the OS API instead of relying on Web

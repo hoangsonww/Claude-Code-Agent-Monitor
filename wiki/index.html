@@ -5185,11 +5185,13 @@ ccam-export all --output backup.json</code></pre>
               <h3>Runs Alongside the Web Dashboard</h3>
               <p>
                 Launch the desktop app and <code>npm run dev</code> at the same time and both
-                stay real-time. Each server records its <code>{port, pid, startedAt}</code>
+                stay real-time. Each server records its
+                <code>{port, pid, startedAt, dataDir, claudeHome}</code>
                 in a local <code>.agent-dashboard.json</code> registry. When either
                 <code>CLAUDE_HOME</code> or <code>CLAUDE_CONFIG_DIR</code> relocates the Claude
-                home, that registry stays in machine-local app data. The hook handler sends events to each
-                live server, and stale entries are removed using local PID checks.
+                home, that registry stays in machine-local app data. The hook handler sends
+                events only to live servers whose canonical Claude home matches the hook process,
+                and stale entries are removed using local PID checks.
               </p>
             </div>
             <div class="feature-card">
@@ -5209,8 +5211,9 @@ ccam-export all --output backup.json</code></pre>
                 resolved Claude home (<code>CLAUDE_HOME</code>, then
                 <code>CLAUDE_CONFIG_DIR</code>, then <code>~/.claude</code>) and starts
                 background services. Set <code>CCAM_NO_AUTO_HOOKS=1</code> to skip startup
-                installation; manual installation remains available. A stale portable hook
-                path exits silently.
+                installation; manual installation remains available. The opt-out leaves legacy
+                hooks unchanged, so reinstall or remove an entry whose handler is missing. Hooks
+                installed by this version exit silently if their handler later disappears.
               </p>
             </div>
           </div>
@@ -7289,7 +7292,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=117" defer></script>
+    <script src="i18n-content.js?v=118" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

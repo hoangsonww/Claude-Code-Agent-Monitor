@@ -120,7 +120,7 @@ DASHBOARD_PORT=9000 npm run dev
 > [!NOTE]
 > You usually do **not** need to set `DASHBOARD_PORT` manually. `npm run dev` is wrapped by `scripts/dev.js`, which probes both `127.0.0.1` and `::1` (so an SSH `LocalForward` bound to one loopback can't slip past) and picks the first free port in `4820–4859` automatically. The chosen port is propagated to the Vite dev proxy via `DASHBOARD_PORT`, and the Express server writes it to `~/.claude/.agent-dashboard.json` so the Claude Code hook handler discovers it without any env var.
 >
-> Multiple dashboards can run side by side — for example `npm run dev` and the desktop app (macOS or Windows) at the same time. Each one appends its `{port, pid, startedAt}` entry to the discovery file, and `scripts/hook-handler.js` fan-outs every hook event to every live entry, so both UIs keep their real-time stream.
+> Multiple dashboards can run side by side — for example `npm run dev` and the desktop app (macOS or Windows) at the same time. Each one appends its `{port, pid, startedAt, dataDir, claudeHome}` entry to the discovery file, and `scripts/hook-handler.js` fans each hook event out to live entries for the same canonical Claude home, one target per database. Matching UIs keep their real-time stream without leaking events to dashboards monitoring another home.
 >
 > Setting `CLAUDE_DASHBOARD_PORT=N` overrides discovery entirely and forces the hook handler to a single port — useful for tests and container setups where the in-process discovery file isn't reachable from the host.
 >

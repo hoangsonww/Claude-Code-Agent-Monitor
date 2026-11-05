@@ -1223,13 +1223,14 @@ stateDiagram-v2
 ### Hook Handler Design
 
 `scripts/hook-handler.js` is designed to be a minimal, fail-safe forwarder
-that POSTs each hook to **one ingest target per unique SQLite data directory**
-(different databases still each get hooks; same database never double-ingests):
+that POSTs each hook to **one ingest target per unique SQLite data directory
+within the same resolved Claude home** (different databases for that home each
+get hooks; same database never double-ingests; unrelated homes stay isolated):
 
 ```mermaid
 flowchart TD
     START[Claude Code fires hook] --> STDIN[Read stdin to EOF]
-    STDIN --> RESOLVE["resolveAllDashboardPorts()<br/>via server/lib/server-info.js"]
+    STDIN --> RESOLVE["resolveHookIngestPorts()<br/>via server/lib/server-info.js"]
     RESOLVE --> PARSE{Parse JSON?}
     PARSE -->|Success| POST["POST to 127.0.0.1:{port}/api/hooks/event<br/>(one per unique dataDir, parallel)"]
     PARSE -->|Failure| WRAP["Wrap raw input as<br/>#123;raw: ...#125;"]
@@ -1252,7 +1253,7 @@ flowchart TD
 - Uses Node.js `http` module directly — no dependencies.
 - Resolution order is **env override → discovery file → default**:
   - `CLAUDE_DASHBOARD_PORT` forces a single target (no fan-out, no discovery).
-  - Otherwise `server/lib/server-info.js` reads the machine-local `.agent-dashboard.json` registry when either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` relocates Claude home (or the default `~/.claude` registry otherwise), prunes dead-PID entries, and returns one live `port` per unique `dataDir` (lowest port wins when two processes share one database). The handler POSTs to each returned port in parallel.
+  - Otherwise `server/lib/server-info.js` reads the machine-local `.agent-dashboard.json` registry when either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` relocates Claude home (or the default `~/.claude` registry otherwise), prunes dead-PID entries, filters entries by canonical `claudeHome`, and returns one live `port` per unique `dataDir` (lowest port wins when two processes share one database). The handler POSTs to each returned port in parallel. Ambiguous legacy entries without `claudeHome` remain eligible only in the default home's private registry.
   - If neither yields anything, the handler falls back to `4820`.
 - Per-target promises never reject — a dead listener can't starve the others, and the handler can wait on `Promise.all` for clean exit timing.
 
@@ -2585,7 +2586,7 @@ A packaged install directory is **read-only** in practice: on macOS a `.app` bun
 
 Packaged desktop builds also point `DASHBOARD_ENV_PATH` to Electron's per-user `userData/.env` unless explicitly configured. That file holds in-app Claude/Codex home overrides across portable extractions and app updates. The old desktop `userData/data/dashboard.db` remains a one-time migration source when no override is set.
 
-The standalone `node server/index.js` path keeps using the repository `.env` for Settings persistence. `CCAM_NO_AUTO_HOOKS=1` skips startup installation in both standalone and desktop modes; explicit installation still works. Installed Claude hook commands check whether their handler exists before loading it, so stale portable paths in synced `settings.json` exit without a hook error. Hook status marks those missing handlers as uninstalled, allowing the setup flow to repair them.
+The standalone `node server/index.js` path keeps using the repository `.env` for Settings persistence. `CCAM_NO_AUTO_HOOKS=1` skips startup installation in both standalone and desktop modes and leaves legacy entries unchanged; explicit installation still works, and users should reinstall or remove a legacy entry whose handler is missing. Claude hook commands installed by the current installer check whether their handler exists before loading it, so stale portable paths in synced `settings.json` exit without a hook error. Hook status marks those current-format missing handlers as uninstalled, allowing the setup flow to repair them.
 
 ### Shell `PATH` Recovery (macOS)
 

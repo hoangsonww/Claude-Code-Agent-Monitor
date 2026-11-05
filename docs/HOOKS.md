@@ -172,11 +172,13 @@ The Claude home resolves from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then
 `~/.claude`. When either variable relocates Claude home, server discovery uses
 machine-local app data so synced settings cannot mix ports and PIDs from different machines.
 Startup installation can be disabled with `CCAM_NO_AUTO_HOOKS=1`; an explicit
-`npm run install-hooks` or in-app installation still works. The installed
-command checks for its handler before loading it, so a stale path in a synced
-`settings.json` or a portable build exits successfully without disrupting
-Claude Code. Hook status reports a missing handler as not installed so setup
-can repair the entry. For monitoring on each machine, install hooks from that
+`npm run install-hooks` or in-app installation still works. The opt-out leaves
+legacy entries unchanged, so reinstall or remove an entry whose old handler is
+missing. Commands installed by the current installer check for their handler
+before loading it, so a stale path in a synced `settings.json` or a portable
+build exits successfully without disrupting Claude Code. Hook status reports a
+missing current-format handler as not installed so setup can repair the entry.
+For monitoring on each machine, install hooks from that
 machine's current dashboard build. New dashboard data defaults to machine-local
 app data with `CLAUDE_CONFIG_DIR`; an existing custom Claude home data directory
 or `~/.claude/agent-dashboard` is reused if machine-local data does not yet
@@ -595,7 +597,7 @@ flowchart LR
 The real handlers are intentionally small. `scripts/hook-handler.js` and
 `scripts/codex-hook-handler.js` parse stdin and delegate delivery to
 `scripts/hook-transport.js`. Local mode fans out to one live dashboard per
-unique SQLite data directory. Remote mode uses `CCAM_DASHBOARD_URL`, requires
+unique SQLite data directory for the same resolved Claude home. Remote mode uses `CCAM_DASHBOARD_URL`, requires
 HTTPS outside loopback, reads `CCAM_HOOK_TOKEN` or `CCAM_HOOK_TOKEN_FILE`, and
 sends `x-ccam-hook-token`. Requests resolve when the body is flushed, not when
 the dashboard replies, so a slow or unavailable server never delays the agent
@@ -610,16 +612,19 @@ fail silently with exit code 0.
 >    no discovery, no fan-out (useful for tests and container setups).
 > 2. Otherwise it reads the local `.agent-dashboard.json` registry, a JSON document
 >    that lists every dashboard server currently running on the machine.
->    Each server appends its `{port, pid, startedAt, dataDir}` entry on
+>    Each server appends its `{port, pid, startedAt, dataDir, claudeHome}` entry on
 >    startup and removes it on a clean shutdown. The handler **prunes any
->    entry whose PID is no longer alive** and POSTs the hook payload to one
+>    entry whose PID is no longer alive**, keeps only entries whose canonical
+>    `claudeHome` matches the hook process, and POSTs the hook payload to one
 >    port per **unique SQLite data directory** (lowest port wins when Docker
->    and `npm run dev` share `~/.claude/agent-dashboard`).
+>    and `npm run dev` share `~/.claude/agent-dashboard`). Legacy unscoped
+>    entries are accepted only in the default home's private registry.
 > 3. If neither yields a target, the handler falls back to `4820`.
 >
-> Dashboards with **different** databases (e.g. the packaged desktop app using
-> its own Application Support data dir alongside `npm run dev`) still each
-> receive hooks. Dashboards sharing one database never double-ingest events.
+> Dashboards for the same Claude home with **different** databases (e.g. the
+> packaged desktop app using its own Application Support data dir alongside
+> `npm run dev`) still each receive hooks. Dashboards sharing one database
+> never double-ingest events, and dashboards for another Claude home receive none.
 
 ---
 

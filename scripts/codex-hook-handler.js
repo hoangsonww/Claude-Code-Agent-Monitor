@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Forwards a Codex lifecycle hook to each live dashboard without waiting for a
-// response, so monitoring never delays the Codex CLI.
+// Forwards a Codex lifecycle hook to live dashboards for the same resolved
+// Claude home without waiting for a response, so monitoring never delays Codex.
 // @author Son Nguyen <hoangson091104@gmail.com>
 
 const { sendHook } = require("./hook-transport");
