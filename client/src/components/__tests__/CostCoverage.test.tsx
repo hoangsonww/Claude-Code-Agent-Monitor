@@ -53,6 +53,8 @@
  * - `marks missing tier rates incomplete without calling the known model unknown` — executable
  *   behavior named by this suite; preserve the observable contract or update the test with
  *   rationale.
+ * - `measures the info panel at a neutral origin before edge-aware placement` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
  * - `moves keyboard focus from the info trigger into its portaled pricing link` — executable
  *   behavior named by this suite; preserve the observable contract or update the test with
  *   rationale.
@@ -119,12 +121,14 @@
  * GENERATED_MAINTAINER_REFERENCE:END
  */
 
-import { it, expect } from "vitest";
+import { afterEach, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { CostCoverage, CostEstimateInfo } from "../CostCoverage";
 import { Tip } from "../Tip";
+
+afterEach(() => vi.restoreAllMocks());
 it("does not call a complete scoped estimate a subscription bill", () => {
   render(
     <MemoryRouter>
@@ -280,6 +284,43 @@ it("lets forward keyboard focus leave the portaled pricing links", async () => {
   secondLink.focus();
   await user.tab();
   expect(screen.getByRole("button", { name: "After cost information" })).toHaveFocus();
+});
+it("measures the info panel at a neutral origin before edge-aware placement", () => {
+  vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
+  vi.spyOn(window, "innerHeight", "get").mockReturnValue(768);
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+    this: HTMLElement
+  ) {
+    return this.style.left === "0px" ? 360 : 260;
+  });
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "codex" }}
+        unpriced={[
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+    left: 980,
+    width: 16,
+    bottom: 40,
+  } as DOMRect);
+
+  fireEvent.focus(trigger);
+
+  expect(screen.getByRole("tooltip")).toHaveStyle({ left: "616px", visibility: "visible" });
 });
 it("treats numeric zero as rich tooltip content", () => {
   render(

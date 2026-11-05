@@ -325,11 +325,17 @@ export function Tip({
     position: "fixed",
     zIndex: 99999,
     maxWidth,
+    maxHeight: variant === "info" && interactive ? "70vh" : undefined,
+    overflowY: variant === "info" && interactive ? "auto" : undefined,
     visibility: "hidden",
   };
-  if (show) {
-    const tipW = tipSize?.width ?? 0;
-    const tipH = tipSize?.height ?? 0;
+  if (show && !tipSize) {
+    // Measure at a neutral origin so fixed-position shrink-to-fit does not
+    // compress the panel against the viewport edge.
+    tipStyle = { ...tipStyle, left: 0, top: 0 };
+  } else if (show && tipSize) {
+    const tipW = tipSize.width;
+    const tipH = tipSize.height;
     const vw = document.documentElement.clientWidth;
     const vh = window.innerHeight;
     const pad = 12;
@@ -353,14 +359,10 @@ export function Tip({
     if (top < pad) top = pad;
 
     tipStyle = {
-      position: "fixed",
+      ...tipStyle,
       left,
       top,
-      zIndex: 99999,
-      maxWidth,
-      maxHeight: variant === "info" && interactive ? "70vh" : undefined,
-      overflowY: variant === "info" && interactive ? "auto" : undefined,
-      visibility: tipSize ? "visible" : "hidden",
+      visibility: "visible",
     };
   }
 
