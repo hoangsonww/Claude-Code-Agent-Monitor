@@ -432,7 +432,12 @@ describe("Cursor resume and cost ingestion", () => {
     fs.mkdirSync(chatDir, { recursive: true });
     fs.writeFileSync(
       path.join(chatDir, "prompt_history.json"),
-      JSON.stringify(["first prompt", "middle pending prompt", "[Image #1] Summarize the report"])
+      JSON.stringify([
+        "first prompt",
+        "first prompt",
+        "middle pending prompt",
+        "[Image #1] Summarize the report",
+      ])
     );
     await postHook("Stop", {
       conversation_id: sessionId,
@@ -447,7 +452,9 @@ describe("Cursor resume and cost ingestion", () => {
       .flatMap((message) => message.content || [])
       .map((block) => block.text)
       .filter(Boolean);
-    assert.ok(text.indexOf("first prompt") < text.indexOf("middle pending prompt"));
+    assert.equal(text.filter((entry) => entry === "first prompt").length, 2);
+    assert.ok(text.indexOf("first answer") < text.lastIndexOf("first prompt"));
+    assert.ok(text.lastIndexOf("first prompt") < text.indexOf("middle pending prompt"));
     assert.ok(
       text.indexOf("middle pending prompt") < text.indexOf("[Image #1] Summarize the report")
     );
@@ -519,7 +526,20 @@ describe("Cursor resume and cost ingestion", () => {
     for (let index = 0; index < 600; index++) {
       insert.run(sessionId, null, "PreToolUse", null, null, "{}");
     }
-    insert.run(sessionId, null, "Stop", null, null, duplicate);
+    insert.run(
+      sessionId,
+      null,
+      "Stop",
+      null,
+      null,
+      JSON.stringify({
+        generation_id: generationId,
+        status: "completed",
+        input_tokens: 10,
+        output_tokens: 2,
+        model: "grok-4.7",
+      })
+    );
     db.prepare("DELETE FROM cursor_repair_state WHERE repair_key = ?").run("resume-usage-v2");
     db.prepare("DELETE FROM cursor_repair_progress WHERE repair_key = ?").run("resume-usage-v2");
 

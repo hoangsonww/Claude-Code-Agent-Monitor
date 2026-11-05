@@ -333,8 +333,8 @@ async function repairHistoricalCursorData(dbModule) {
                json_extract(e.data, '$.stop_reason'), ''),
              json_extract(e.data, '$.input_tokens'),
              json_extract(e.data, '$.output_tokens'),
-             json_extract(e.data, '$.cache_read_tokens'),
-             json_extract(e.data, '$.cache_write_tokens')
+             COALESCE(json_extract(e.data, '$.cache_read_tokens'), 0),
+             COALESCE(json_extract(e.data, '$.cache_write_tokens'), 0)
            ) AS duplicate_key
          FROM events e JOIN sessions s ON s.id = e.session_id
          WHERE e.id > ? AND e.id <= ?

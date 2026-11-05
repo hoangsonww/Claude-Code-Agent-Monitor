@@ -1451,6 +1451,7 @@ async function readCursorConversation(
   });
   if (promptSources.length > 0) {
     const claimedPromptIndexes = new Set();
+    const claimedMessages = new Set();
     const promptAnchors = new Map();
     let untimedPromptInsertIndex = 0;
     for (const message of messages) {
@@ -1462,6 +1463,7 @@ async function readCursorConversation(
       );
       if (sourceIndex < 0) continue;
       claimedPromptIndexes.add(sourceIndex);
+      claimedMessages.add(message);
       message.id = promptSources[sourceIndex].id;
       promptAnchors.set(promptSources[sourceIndex].id, message.id);
     }
@@ -1472,7 +1474,7 @@ async function readCursorConversation(
         normalized
       );
       const representedMessage = messages.find((message) => {
-        if (message.sender !== "user") return false;
+        if (message.sender !== "user" || claimedMessages.has(message)) return false;
         const text = cursorMessageText(message);
         return (
           text === normalized ||
@@ -1481,6 +1483,7 @@ async function readCursorConversation(
         );
       });
       if (representedMessage) {
+        claimedMessages.add(representedMessage);
         promptAnchors.set(id, representedMessage.id);
         return;
       }
@@ -1507,7 +1510,18 @@ async function readCursorConversation(
         const previousIndex = previousAnchor
           ? messages.findIndex((message) => message.id === previousAnchor)
           : -1;
-        const insertIndex = previousIndex >= 0 ? previousIndex + 1 : untimedPromptInsertIndex;
+        const nextUserIndex =
+          previousIndex >= 0
+            ? messages.findIndex(
+                (message, index) => index > previousIndex && message.sender === "user"
+              )
+            : -1;
+        const insertIndex =
+          previousIndex >= 0
+            ? nextUserIndex >= 0
+              ? nextUserIndex
+              : messages.length
+            : untimedPromptInsertIndex;
         messages.splice(insertIndex, 0, promptMessage);
         if (previousIndex < 0 || insertIndex <= untimedPromptInsertIndex) {
           untimedPromptInsertIndex++;

@@ -34,6 +34,8 @@
  * ## Package dependency edges
  * - `@testing-library/react` — external package boundary; keep usage within the installed version
  *   and the repository's existing adapter patterns.
+ * - `@testing-library/user-event` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
  * - `react-router` — external package boundary; keep usage within the installed version and the
  *   repository's existing adapter patterns.
  * - `vitest` — external package boundary; keep usage within the installed version and the
@@ -119,6 +121,7 @@
 
 import { it, expect } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { CostCoverage, CostEstimateInfo } from "../CostCoverage";
 import { Tip } from "../Tip";
@@ -233,8 +236,14 @@ it("moves keyboard focus from the info trigger into its portaled pricing link", 
   expect(pricingLink).toHaveFocus();
   fireEvent.keyDown(pricingLink, { key: "Tab", shiftKey: true });
   expect(trigger).toHaveFocus();
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  expect(pricingLink).toHaveFocus();
+  fireEvent.keyDown(pricingLink, { key: "Escape" });
+  expect(trigger).toHaveFocus();
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
-it("lets forward keyboard focus leave the portaled pricing links", () => {
+it("lets forward keyboard focus leave the portaled pricing links", async () => {
+  const user = userEvent.setup();
   render(
     <MemoryRouter>
       <CostEstimateInfo
@@ -258,6 +267,7 @@ it("lets forward keyboard focus leave the portaled pricing links", () => {
           },
         ]}
       />
+      <button type="button">After cost information</button>
     </MemoryRouter>
   );
   const trigger = screen.getByLabelText("About API cost estimate");
@@ -268,8 +278,8 @@ it("lets forward keyboard focus leave the portaled pricing links", () => {
   const [firstLink, secondLink] = links as [HTMLAnchorElement, HTMLAnchorElement];
   expect(firstLink).toHaveFocus();
   secondLink.focus();
-  fireEvent.keyDown(secondLink, { key: "Tab" });
-  expect(secondLink).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "After cost information" })).toHaveFocus();
 });
 it("treats numeric zero as rich tooltip content", () => {
   render(

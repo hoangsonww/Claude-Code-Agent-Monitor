@@ -51,6 +51,14 @@
  *   name, shape, or timing.
  *
  * ## Top-level implementation landmarks
+ * - `enabledFocusableElements` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `FOCUSABLE_SELECTOR` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `focusableElements` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `isVisibleFocusable` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
  * - `Tip` (function) — top-level declaration that helps orient code review and focused test
  *   selection.
  * - `TipProps` (interface) — top-level declaration that helps orient code review and focused test
@@ -202,6 +210,36 @@ interface TipProps {
   interactive?: boolean;
 }
 
+const FOCUSABLE_SELECTOR = ["a[href]", "button", "input", "select", "textarea", "[tabindex]"].join(
+  ", "
+);
+
+function isVisibleFocusable(element: HTMLElement) {
+  if (element.tabIndex < 0 || element.matches(":disabled")) return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    if (node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(node);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse"
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function enabledFocusableElements(root: ParentNode) {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => element.tabIndex >= 0 && !element.matches(":disabled")
+  );
+}
+
+function focusableElements(root: ParentNode) {
+  return enabledFocusableElements(root).filter(isVisibleFocusable);
+}
+
 /**
  * Hover tooltip anchored to the mouse cursor.
  * @param props See {@link TipProps}.
@@ -349,10 +387,13 @@ export function Tip({
       }}
       onBlur={(event: React.FocusEvent) => {
         if (tipRef.current?.contains(event.relatedTarget as Node | null)) return;
-        hide();
+        scheduleHide();
       }}
       onKeyDown={(event: React.KeyboardEvent) => {
         if (event.key === "Escape") {
+          if (tipRef.current?.contains(document.activeElement)) {
+            triggerRef.current?.focus();
+          }
           hide();
           return;
         }
@@ -362,21 +403,37 @@ export function Tip({
           event.key === "Tab" &&
           !event.shiftKey
         ) {
-          const firstFocusable = tipRef.current?.querySelector<HTMLElement>(
-            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
+          const firstFocusable = tipRef.current
+            ? enabledFocusableElements(tipRef.current)[0]
+            : undefined;
           if (firstFocusable) {
             event.preventDefault();
             firstFocusable.focus();
           }
         }
         if (interactive && event.key === "Tab" && event.shiftKey) {
-          const firstFocusable = tipRef.current?.querySelector<HTMLElement>(
-            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
+          const firstFocusable = tipRef.current
+            ? enabledFocusableElements(tipRef.current)[0]
+            : undefined;
           if (firstFocusable && event.target === firstFocusable) {
             event.preventDefault();
             triggerRef.current?.focus();
+          }
+        }
+        if (interactive && event.key === "Tab" && !event.shiftKey && tipRef.current) {
+          const tipFocusable = enabledFocusableElements(tipRef.current);
+          const lastFocusable = tipFocusable[tipFocusable.length - 1];
+          if (lastFocusable && event.target === lastFocusable && triggerRef.current) {
+            const trigger = triggerRef.current;
+            const focusable = focusableElements(document);
+            const triggerIndex = focusable.indexOf(trigger);
+            const nextFocusable = focusable
+              .slice(triggerIndex + 1)
+              .find((element) => !trigger.contains(element) && !tipRef.current?.contains(element));
+            if (triggerIndex >= 0 && nextFocusable) {
+              nextFocusable.focus();
+              if (document.activeElement === nextFocusable) event.preventDefault();
+            }
           }
         }
       }}
@@ -399,7 +456,7 @@ export function Tip({
               ) {
                 return;
               }
-              hide();
+              scheduleHide();
             }}
             className={
               variant === "info"
