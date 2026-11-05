@@ -192,6 +192,12 @@ describe("server-info hook ingest deduplication", () => {
     assert.deepEqual(mod.resolveHookIngestPorts(), []);
   });
 
+  it("does not infer hook ownership from port 4820 when the registry is empty", () => {
+    const mod = freshModule(DATA_DIR_A);
+    assert.deepEqual(mod.resolveHookIngestPorts(), []);
+    assert.deepEqual(mod.resolveAllDashboardPorts(), [mod.DEFAULT_PORT]);
+  });
+
   it("records dataDir and the resolved Claude home when writing server info", () => {
     const mod = freshModule(DATA_DIR_A);
     mod.writeServerInfo(4999);

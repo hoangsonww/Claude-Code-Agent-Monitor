@@ -377,12 +377,12 @@ function resolveHookIngestPorts() {
   const allLive = readInfoFile().filter(
     (s) => Number.isInteger(s.port) && s.port > 0 && isPidAlive(s.pid)
   );
-  if (allLive.length === 0) return [DEFAULT_PORT];
+  if (allLive.length === 0) return [];
 
   const live = allLive.filter(matchesCurrentClaudeHome);
-  // A live registry containing only other homes (or ambiguous legacy entries
-  // in the shared relocated-home registry) must not fall back to a port that
-  // may belong to one of those homes.
+  // A registry containing only other homes (or ambiguous legacy entries in
+  // the shared relocated-home registry) must not fall back to a port that may
+  // belong to one of those homes. An empty registry is equally unverified.
   if (live.length === 0) return [];
 
   const byDataDir = new Map();

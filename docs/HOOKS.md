@@ -619,7 +619,9 @@ fail silently with exit code 0.
 >    port per **unique SQLite data directory** (lowest port wins when Docker
 >    and `npm run dev` share `~/.claude/agent-dashboard`). Legacy unscoped
 >    entries are accepted only in the default home's private registry.
-> 3. If neither yields a target, the handler falls back to `4820`.
+> 3. If no registered server matches, the handler sends nowhere rather than
+>    inferring that port `4820` belongs to the current Claude home. An explicit
+>    `CLAUDE_DASHBOARD_PORT` remains the opt-in override.
 >
 > Dashboards for the same Claude home with **different** databases (e.g. the
 > packaged desktop app using its own Application Support data dir alongside

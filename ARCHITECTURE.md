@@ -1251,10 +1251,10 @@ flowchart TD
 - Always exits 0 — never blocks Claude Code regardless of any server's state.
 - 3-second HTTP timeout per target + 5-second process-wide safety net.
 - Uses Node.js `http` module directly — no dependencies.
-- Resolution order is **env override → discovery file → default**:
+- Resolution order is **env override → verified discovery targets → no delivery**:
   - `CLAUDE_DASHBOARD_PORT` forces a single target (no fan-out, no discovery).
   - Otherwise `server/lib/server-info.js` reads the machine-local `.agent-dashboard.json` registry when either `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` relocates Claude home (or the default `~/.claude` registry otherwise), prunes dead-PID entries, filters entries by canonical `claudeHome`, and returns one live `port` per unique `dataDir` (lowest port wins when two processes share one database). The handler POSTs to each returned port in parallel. Ambiguous legacy entries without `claudeHome` remain eligible only in the default home's private registry.
-  - If neither yields anything, the handler falls back to `4820`.
+  - If no registered server matches, the handler sends nowhere rather than inferring that port `4820` belongs to the current Claude home. `CLAUDE_DASHBOARD_PORT` remains the explicit override.
 - Per-target promises never reject — a dead listener can't starve the others, and the handler can wait on `Promise.all` for clean exit timing.
 
 ### Hook Installation

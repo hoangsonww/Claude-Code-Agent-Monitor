@@ -24,16 +24,16 @@ const { sendHook } = require("./hook-transport");
 const hookType = process.argv[2] || "unknown";
 
 /**
- * Resolve eligible dashboard ports via the discovery file. Falls back to the
- * `CLAUDE_DASHBOARD_PORT` override or conventional 4820 if the discovery
- * module cannot load for any reason. Never throws.
+ * Resolve eligible dashboard ports via the discovery file. If the discovery
+ * module cannot load, only an explicit `CLAUDE_DASHBOARD_PORT` remains safe;
+ * an unverified conventional port could belong to another Claude home.
  */
 function resolvePorts() {
   try {
     return require("../server/lib/server-info").resolveHookIngestPorts();
   } catch {
     const envPort = parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
-    return [Number.isInteger(envPort) && envPort > 0 ? envPort : 4820];
+    return Number.isInteger(envPort) && envPort > 0 ? [envPort] : [];
   }
 }
 

@@ -12,7 +12,7 @@ function resolvePorts() {
     return require("../server/lib/server-info").resolveHookIngestPorts();
   } catch {
     const port = Number.parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
-    return [Number.isInteger(port) && port > 0 ? port : 4820];
+    return Number.isInteger(port) && port > 0 ? [port] : [];
   }
 }
 
