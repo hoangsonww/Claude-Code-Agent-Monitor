@@ -271,8 +271,9 @@ registry (`server/lib/server-info.js`); `scripts/hook-handler.js` reads that fil
 to target the running server. A relocated Claude home selected by either
 `CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` uses machine-local app data for the registry,
 so synced settings cannot mix ports from other machines.
-Without the registry, hooks fall back to port 4820. Claude home resolves from
-`CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then `~/.claude`.
+Without a live registry entry for the current Claude home, hooks send no events
+unless `CLAUDE_DASHBOARD_PORT` explicitly sets the port. Claude home resolves
+from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then `~/.claude`.
 
 ---
 

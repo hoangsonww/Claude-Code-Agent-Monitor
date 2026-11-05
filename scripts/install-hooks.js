@@ -96,7 +96,7 @@ const HOOKS_WITHOUT_MATCHER = ["SessionStart", "SessionEnd", "UserPromptSubmit"]
 const HOOK_TYPES = [...HOOKS_WITH_MATCHER, ...HOOKS_WITHOUT_MATCHER];
 
 function normalizeDashboardPort(value) {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null) return null;
   const raw = String(value).trim();
   if (!/^\d+$/.test(raw)) {
     throw new Error("--dashboard-port must be an integer between 1 and 65535.");

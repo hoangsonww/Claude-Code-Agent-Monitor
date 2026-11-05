@@ -48,7 +48,7 @@ function getCodexHookStatus() {
 }
 
 function normalizeDashboardPort(value) {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null) return null;
   const raw = String(value).trim();
   if (!/^\d+$/.test(raw)) {
     throw new Error("--dashboard-port must be an integer between 1 and 65535.");
@@ -65,9 +65,10 @@ function envFlag(name) {
 }
 
 function makeHookEntry(type, dashboardPort = null) {
-  const command = dashboardPort
-    ? `node -e "process.env.CLAUDE_DASHBOARD_PORT='${dashboardPort}';require(process.argv[1])" "${HOOK_HANDLER}" ${type}`
-    : `node "${HOOK_HANDLER}" ${type}`;
+  const portAssignment = dashboardPort
+    ? `process.env.CLAUDE_DASHBOARD_PORT='${dashboardPort}';`
+    : "";
+  const command = `node -e "${portAssignment}if(require('fs').existsSync(process.argv[1]))require(process.argv[1])" "${HOOK_HANDLER}" ${type}`;
   return {
     hooks: [
       {

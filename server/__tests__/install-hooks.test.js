@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 
 // Point the installer at a throwaway CLAUDE_HOME. (`node --test` isolates each
 // test file in its own process, so this does not leak into other suites.)
@@ -157,6 +157,26 @@ describe("install-hooks host-only guard (#193)", () => {
     assert.equal(getClaudeHookStatus().hooks.SessionStart, true);
   });
 
+  it("keeps missing Codex handlers fail-safe with and without an explicit port", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    const missing = path.join(TMP_HOME, "removed", "codex-hook-handler.js").replace(/\\/g, "/");
+
+    for (const dashboardPort of [null, 4820]) {
+      assert.equal(installCodexHooks({ silent: true, dashboardPort }).ok, true);
+      const command = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8")).hooks.SessionStart[0]
+        .hooks[0].command;
+      const match = command.match(/-e "([^"]+)" "([^"]+)" (\w+)$/);
+      assert.ok(match, "installed Codex hook must pass its handler as an argument");
+      assert.equal(
+        execFileSync(process.execPath, ["-e", match[1], missing, match[3]], {
+          input: "{}",
+          encoding: "utf8",
+        }),
+        ""
+      );
+    }
+  });
+
   it("is idempotent — re-running updates in place with no duplicate entries", () => {
     process.env.CCAM_FORCE_HOST = "1";
     installHooks(true);
@@ -262,5 +282,26 @@ describe("install-hooks host-only guard (#193)", () => {
     );
     assert.equal(fs.existsSync(SETTINGS), false);
     assert.equal(fs.existsSync(CODEX_HOOKS), false);
+  });
+
+  it("rejects explicitly empty dashboard-port CLI values before writing", () => {
+    const script = path.resolve(__dirname, "../../scripts/install-hooks.js");
+    const env = {
+      ...process.env,
+      CCAM_FORCE_HOST: "1",
+      CLAUDE_HOME: TMP_HOME,
+      DASHBOARD_CODEX_HOME: CODEX_HOME,
+    };
+
+    for (const args of [
+      ["--both", "--dashboard-port="],
+      ["--both", "--dashboard-port", ""],
+    ]) {
+      const result = spawnSync(process.execPath, [script, ...args], { env, encoding: "utf8" });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /integer between 1 and 65535/);
+      assert.equal(fs.existsSync(SETTINGS), false);
+      assert.equal(fs.existsSync(CODEX_HOOKS), false);
+    }
   });
 });
