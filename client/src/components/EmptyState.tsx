@@ -18,6 +18,111 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/EmptyState.tsx
+ * **Area:** client component
+ * **Responsibility:**
+ * Centered empty-state panel used whenever a page or section has nothing to render yet — no
+ * sessions, no events, no search hits, or a feature that has not been configured. Keeps the UI from
+ * looking broken by giving the user a clear icon, title, explanation, and an optional
+ * call-to-action slot. ## When to use Prefer this over ad-hoc "No data" paragraphs so every
+ * list/table page shares the same vertical rhythm, typography, and card chrome. The optional
+ * `action` slot accepts any React node (usually a `<Link>` or `<button>` ) without this component
+ * needing to know about routing. ## Accessibility The icon is decorative (no separate `aria-label`
+ * ); meaning comes from the visible `title` (`<h3>`) and `description` (`<p>`). Callers should pass
+ * translated strings via `useTranslation` .
+ *
+ * ## Architectural boundary
+ * - This component should express one reusable UI responsibility through typed props and observable
+ *   callbacks.
+ * - Network orchestration belongs in pages, hooks, or the typed API client unless this component
+ *   explicitly owns the workflow.
+ * - Visual state must remain a projection of props and local interaction state rather than a second
+ *   server truth.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `EmptyState` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `EmptyStateProps` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `EmptyState` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EmptyStateProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Keep prop meaning and callback timing stable; parent components often rely on both even when
+ *   types still compile.
+ * - Render valid semantic controls with accessible names, focus behavior, disabled states, and
+ *   keyboard operation.
+ * - Keep visible strings in the appropriate i18n namespace rather than embedding English-only
+ *   literals.
+ * - Use shared design tokens and existing primitives so light/dark styling and compact layouts
+ *   remain coherent.
+ * - Avoid mutating arrays or objects received through props; derived display data should be
+ *   computed immutably.
+ * - Make empty and unavailable values explicit instead of rendering misleading zeroes or
+ *   placeholder punctuation.
+ * - Keep event handlers narrow and prevent accidental bubbling only when the enclosing interaction
+ *   requires it.
+ * - Do not duplicate server validation or destructive gates as if client-side checks were
+ *   authoritative.
+ * - Preserve responsive behavior at narrow widths and avoid fixed dimensions that clip translated
+ *   copy.
+ * - Prefer stable keys derived from entity identity over array indexes for live, filtered, or
+ *   reordered collections.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/EmptyState.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

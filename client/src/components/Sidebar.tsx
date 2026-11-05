@@ -3,6 +3,196 @@
  * @description Defines the Sidebar component that provides navigation links to different sections of the application, displays the connection status, and includes a toggle button for collapsing or expanding the sidebar. The component uses React Router's NavLink for navigation and Lucide icons for visual representation, including a portal-backed language picker that stays usable when the sidebar is collapsed. The collapsed state of the sidebar is stored in localStorage to persist user preferences across sessions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/Sidebar.tsx
+ * **Area:** client component
+ * **Responsibility:**
+ * Defines the Sidebar component that provides navigation links to different sections of the
+ * application, displays the connection status, and includes a toggle button for collapsing or
+ * expanding the sidebar. The component uses React Router's NavLink for navigation and Lucide icons
+ * for visual representation, including a portal-backed language picker that stays usable when the
+ * sidebar is collapsed. The collapsed state of the sidebar is stored in localStorage to persist
+ * user preferences across sessions.
+ *
+ * ## Architectural boundary
+ * - This component should express one reusable UI responsibility through typed props and observable
+ *   callbacks.
+ * - Network orchestration belongs in pages, hooks, or the typed API client unless this component
+ *   explicitly owns the workflow.
+ * - Visual state must remain a projection of props and local interaction state rather than a second
+ *   server truth.
+ *
+ * ## Local dependency edges
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/appEvents` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./Select` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-dom` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `loadCollapsed` (function alias) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `Sidebar` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `SIDEBAR_STORAGE_KEY` (variable alias) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `bucketEventsPerSecond` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `COLLAPSED_LANGUAGE_MENU_WIDTH` (variable) — top-level declaration that helps orient code
+ *   review and focused test selection.
+ * - `CollapsedLanguagePicker` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CollapsedLanguagePickerProps` (interface) — top-level declaration that helps orient code
+ *   review and focused test selection.
+ * - `ConnectionStatusModal` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConnectionStatusModalProps` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `DetailRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `formatRelative` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `isUpdatePayload` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `KpiTile` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LANGUAGE_MENU_MAX_HEIGHT` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `loadCollapsed` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `loadStats` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `NAV_KEYS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `normalizeLanguage` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `PersistedStats` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RECENT_EVENTS_CAP` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Section` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Sidebar` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SidebarProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Sparkline` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `STATS_STORAGE_KEY` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `STORAGE_KEY` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SUPPORTED_LANGUAGES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SupportedLanguage` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TypeBar` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `VIEWPORT_GUTTER` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
+ *   cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Area invariants
+ * - Keep prop meaning and callback timing stable; parent components often rely on both even when
+ *   types still compile.
+ * - Render valid semantic controls with accessible names, focus behavior, disabled states, and
+ *   keyboard operation.
+ * - Keep visible strings in the appropriate i18n namespace rather than embedding English-only
+ *   literals.
+ * - Use shared design tokens and existing primitives so light/dark styling and compact layouts
+ *   remain coherent.
+ * - Avoid mutating arrays or objects received through props; derived display data should be
+ *   computed immutably.
+ * - Make empty and unavailable values explicit instead of rendering misleading zeroes or
+ *   placeholder punctuation.
+ * - Keep event handlers narrow and prevent accidental bubbling only when the enclosing interaction
+ *   requires it.
+ * - Do not duplicate server validation or destructive gates as if client-side checks were
+ *   authoritative.
+ * - Preserve responsive behavior at narrow widths and avoid fixed dimensions that clip translated
+ *   copy.
+ * - Prefer stable keys derived from entity identity over array indexes for live, filtered, or
+ *   reordered collections.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/Sidebar.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

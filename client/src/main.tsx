@@ -16,6 +16,113 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/main.tsx
+ * **Area:** client build or application entry
+ * **Responsibility:**
+ * Vite client entry point. Bootstraps React 19, loads global styles and i18n, registers the service
+ * worker for offline asset caching, and mounts {@link App} into `#root` . ## Fonts Only Latin
+ * subsets of Inter and JetBrains Mono are imported so Vite bundles lean WOFF2 files instead of
+ * every glyph subset Google Fonts would serve. ## Service worker reload policy On first visit there
+ * is no controlling SW yet — we must not reload when the initial SW activates (the page is already
+ * fresh). On subsequent deploys the page is controlled; when a new SW takes over we reload once so
+ * hashed bundle URLs update without a manual hard refresh.
+ *
+ * ## Architectural boundary
+ * - Owns a focused TypeScript responsibility within the repository and should remain loadable only
+ *   by its intended consumers.
+ * - Public exports are compatibility surfaces; internal declarations may change only while their
+ *   observable behavior remains stable.
+ * - Cross-package dependencies should point through established contracts rather than reaching into
+ *   build output or private state.
+ *
+ * ## Local dependency edges
+ * - `./App` — repository-local contract consumed by this module; review its exports before changing
+ *   assumptions here.
+ * - `./i18n` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./index.css` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `@fontsource/inter/latin-400.css` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
+ * - `@fontsource/inter/latin-500.css` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
+ * - `@fontsource/inter/latin-600.css` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
+ * - `@fontsource/inter/latin-700.css` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
+ * - `@fontsource/jetbrains-mono/latin-400.css` — external package boundary; keep usage within the
+ *   installed version and the repository's existing adapter patterns.
+ * - `@fontsource/jetbrains-mono/latin-500.css` — external package boundary; keep usage within the
+ *   installed version and the repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-dom/client` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Top-level implementation landmarks
+ * - `root` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Keep types narrower than the untrusted values they validate and avoid assertions that merely
+ *   silence the compiler.
+ * - Preserve deterministic output, ordering, and error behavior for identical inputs.
+ * - Do not create module-evaluation side effects unless startup ownership is the module's explicit
+ *   purpose.
+ * - Use explicit units for time, bytes, tokens, money, and percentages.
+ * - Keep nullable and optional fields distinct where absence carries meaning.
+ * - Avoid hidden mutation of arguments and imported singleton state.
+ * - Keep asynchronous work cancellable or safely ignorable after its consumer is gone.
+ * - Return actionable errors without leaking secrets or unrelated implementation details.
+ * - Document compatibility fallbacks beside the branch that implements them.
+ * - Add focused tests for new boundary and failure cases.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/main.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

@@ -43,6 +43,191 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/CommandPalette.tsx
+ * **Area:** client component
+ * **Responsibility:**
+ * Global keyboard-driven launcher, opened with Cmd/Ctrl+K from anywhere in the app. One query
+ * resolves the entire surface of the dashboard: • Recent - the last few commands run, so repeat
+ * work costs two keystrokes • Pages - every route in the sidebar, matched on its translated label •
+ * Sessions - live server-side search over /api/sessions (name, id, cwd) • Views - page sub-tabs and
+ * list filters, reachable directly by URL • Settings - every section of the Settings page, by its
+ * own anchor • Config - every Agent Config tab • Actions - preferences, scope, language, links, and
+ * page-level operations ## Scoping the query A leading sigil narrows the search the way a developer
+ * already expects: `>` actions and views, `@` pages, `#` sessions, `?` opens the shortcut sheet.
+ * Without one, everything is searched at once — the sigils are an accelerator, never a
+ * prerequisite. ## Ranking {@link fuzzyMatch} scores every candidate and the matched characters are
+ * underlined in the row. With a catalog this large a substring filter would make most commands
+ * unreachable without typing their exact wording; subsequence matching makes `sh` reach "Keyboard
+ * shortcuts" and `mcp` reach "MCP servers". ## Why server-side session search The dashboard
+ * routinely holds thousands of sessions, so the palette does not hold a client-side index. Typing
+ * issues a debounced `?q=` query — the same filter the Sessions page uses — which keeps results
+ * correct for the active data scope (machine + provider) without duplicating any filter logic here.
+ * ## Degradation A failed or slow session query never blocks the palette: every other group is
+ * computed locally and renders immediately, and the session group simply stays empty. That mirrors
+ * the app-wide rule that realtime/network delays must not make the UI unusable. ## Accessibility
+ * The panel is a modal dialog with a combobox input driving an aria-activedescendant listbox. Arrow
+ * keys move the active option (with scroll-into-view), Home/End and PageUp/PageDown jump, Tab moves
+ * between groups, Enter runs, Escape closes, and focus returns to the previously focused element on
+ * close.
+ *
+ * ## Architectural boundary
+ * - This component should express one reusable UI responsibility through typed props and observable
+ *   callbacks.
+ * - Network orchestration belongs in pages, hooks, or the typed API client unless this component
+ *   explicitly owns the workflow.
+ * - Visual state must remain a projection of props and local interaction state rather than a second
+ *   server truth.
+ *
+ * ## Local dependency edges
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/appEvents` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/dataScope` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/fuzzy` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/paletteCommands` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/paletteDiscovery` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/recentCommands` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/sound` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./PaletteActionProvider` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `./Tabby/prefs` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `COMMAND_PALETTE_EVENT` (re-export) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CommandPalette` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `openCommandPalette` (re-export) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `CommandPalette` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `NOTIF_KEY` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PAGE_JUMP` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PaletteItem` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `readNotificationsEnabled` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SEARCH_DEBOUNCE_MS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SESSION_RESULT_LIMIT` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `writeNotificationsEnabled` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
+ *   cleanup semantics.
+ * - `useLocation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `usePaletteActions` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Area invariants
+ * - Keep prop meaning and callback timing stable; parent components often rely on both even when
+ *   types still compile.
+ * - Render valid semantic controls with accessible names, focus behavior, disabled states, and
+ *   keyboard operation.
+ * - Keep visible strings in the appropriate i18n namespace rather than embedding English-only
+ *   literals.
+ * - Use shared design tokens and existing primitives so light/dark styling and compact layouts
+ *   remain coherent.
+ * - Avoid mutating arrays or objects received through props; derived display data should be
+ *   computed immutably.
+ * - Make empty and unavailable values explicit instead of rendering misleading zeroes or
+ *   placeholder punctuation.
+ * - Keep event handlers narrow and prevent accidental bubbling only when the enclosing interaction
+ *   requires it.
+ * - Do not duplicate server validation or destructive gates as if client-side checks were
+ *   authoritative.
+ * - Preserve responsive behavior at narrow widths and avoid fixed dimensions that clip translated
+ *   copy.
+ * - Prefer stable keys derived from entity identity over array indexes for live, filtered, or
+ *   reordered collections.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/CommandPalette.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

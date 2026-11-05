@@ -15,6 +15,7 @@ const {
   db,
   stmts,
   DB_PATH,
+  readCountQuery,
   DEFAULT_PRICING,
   DEFAULT_GPT_PRICING,
   DEFAULT_CURSOR_PRICING,
@@ -54,7 +55,6 @@ const APP_VERSION = (() => {
 
 const { getSettingsPath, getClaudeHome, setClaudeHome } = require("../lib/claude-home");
 const { getCodexHome, setCodexHome } = require("../lib/codex-home");
-const CLAUDE_SETTINGS_PATH = getSettingsPath();
 
 function getDbSize() {
   try {
@@ -65,7 +65,7 @@ function getDbSize() {
   }
 }
 
-function getTableCounts() {
+function getTableCounts(eventCount) {
   const tables = [
     "sessions",
     "agents",
@@ -76,7 +76,10 @@ function getTableCounts() {
   ];
   const counts = {};
   for (const t of tables) {
-    counts[t] = db.prepare(`SELECT COUNT(*) as c FROM ${t}`).get().c;
+    counts[t] =
+      t === "events" && Number.isInteger(eventCount)
+        ? eventCount
+        : db.prepare(`SELECT COUNT(*) as c FROM ${t}`).get().c;
   }
   counts.token_usage = db
     .prepare("SELECT COUNT(DISTINCT session_id) as c FROM token_usage")
@@ -91,65 +94,71 @@ function getHookStatus() {
     // Backward-compatible Claude fields; `providers` is the canonical product
     // status used by the chooser UI.
     installed: claude.installed || codex.installed,
-    path: claude.path || CLAUDE_SETTINGS_PATH,
+    path: claude.path || getSettingsPath(),
     hooks: claude.hooks,
     providers: { claude, codex },
   };
 }
 
 // GET /api/settings/info — system info, db stats, hook status
-router.get("/info", (req, res) => {
-  const dbSize = getDbSize();
-  const counts = getTableCounts();
-  const hookStatus = getHookStatus();
+router.get("/info", async (req, res, next) => {
+  try {
+    const dbSize = getDbSize();
+    const counts = getTableCounts(
+      (await readCountQuery("SELECT COUNT(*) as count FROM events")).count
+    );
+    const hookStatus = getHookStatus();
 
-  // Advanced SQLite info
-  const pragmas = {
-    journal_mode: db.pragma("journal_mode", { simple: true }),
-    synchronous: db.pragma("synchronous", { simple: true }),
-    auto_vacuum: db.pragma("auto_vacuum", { simple: true }),
-    encoding: db.pragma("encoding", { simple: true }),
-    foreign_keys: db.pragma("foreign_keys", { simple: true }),
-    busy_timeout: db.pragma("busy_timeout", { simple: true }),
-  };
+    // Advanced SQLite info
+    const pragmas = {
+      journal_mode: db.pragma("journal_mode", { simple: true }),
+      synchronous: db.pragma("synchronous", { simple: true }),
+      auto_vacuum: db.pragma("auto_vacuum", { simple: true }),
+      encoding: db.pragma("encoding", { simple: true }),
+      foreign_keys: db.pragma("foreign_keys", { simple: true }),
+      busy_timeout: db.pragma("busy_timeout", { simple: true }),
+    };
 
-  // Recent activity load (events in last 5, 15, 60 minutes)
-  const getCount = (ms) => {
-    const d = new Date(Date.now() - ms).toISOString();
-    return db.prepare("SELECT COUNT(*) as c FROM events WHERE created_at > ?").get(d).c;
-  };
+    // Recent activity load (events in last 5, 15, 60 minutes)
+    const getCount = (ms) => {
+      const d = new Date(Date.now() - ms).toISOString();
+      return db.prepare("SELECT COUNT(*) as c FROM events WHERE created_at > ?").get(d).c;
+    };
 
-  const load_stats = {
-    m5: getCount(5 * 60 * 1000),
-    m15: getCount(15 * 60 * 1000),
-    h1: getCount(60 * 60 * 1000),
-  };
+    const load_stats = {
+      m5: getCount(5 * 60 * 1000),
+      m15: getCount(15 * 60 * 1000),
+      h1: getCount(60 * 60 * 1000),
+    };
 
-  res.json({
-    db: {
-      path: DB_PATH,
-      size: dbSize,
-      counts,
-      pragmas,
-      load_stats,
-    },
-    hooks: hookStatus,
-    server: {
-      version: APP_VERSION,
-      uptime: process.uptime(),
-      node_version: process.version,
-      platform: process.platform,
-      ws_connections: getConnectionCount(),
-      memory: process.memoryUsage(),
-      cpu_load: os.loadavg(),
-      arch: os.arch(),
-      total_mem: os.totalmem(),
-      free_mem: os.freemem(),
-      cpus: os.cpus().length,
-    },
-    transcript_cache: transcriptCache.stats(),
-    snapshots: getSnapshotStorage(),
-  });
+    res.json({
+      db: {
+        path: DB_PATH,
+        size: dbSize,
+        counts,
+        pragmas,
+        load_stats,
+      },
+      hooks: hookStatus,
+      server: {
+        version: APP_VERSION,
+        uptime: process.uptime(),
+        node_version: process.version,
+        platform: process.platform,
+        ws_connections: getConnectionCount(),
+        memory: process.memoryUsage(),
+        cpu_load: os.loadavg(),
+        arch: os.arch(),
+        total_mem: os.totalmem(),
+        free_mem: os.freemem(),
+        cpus: os.cpus().length,
+      },
+      transcript_cache: transcriptCache.stats(),
+      snapshots: getSnapshotStorage(),
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // POST /api/settings/clear-data — delete all sessions, agents, events, tokens

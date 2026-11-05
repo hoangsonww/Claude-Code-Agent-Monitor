@@ -2,7 +2,7 @@
   "title": "Settings",
   "subtitle": "Manage pricing, notifications, data, and hooks",
   "exportData": "Export Data",
-  "acrossSessions": "Across all tracked sessions",
+  "acrossSessions": "Within the selected data scope",
   "basedOnUsage": "Based on per-model token usage",
   "tabby": {
     "title": "Tabby companion",
@@ -631,7 +631,8 @@
     "purgeData": "Also delete the sessions imported from this source (cannot be undone)",
     "deleteAndPurge": "Remove + delete data",
     "removeKeep": "Remove (keep data)",
-    "remoteSourceBadgeTitle": "Collected from a remote machine"
+    "remoteSourceBadgeTitle": "Collected from a remote machine",
+    "retryLastError": "Retrying. Last error:"
   },
   "cursorPathsNote": "Cursor is included with the Claude Code dashboard scope. Local history is discovered and snapshotted from ~/.cursor automatically; remote Cursor folders are not synced by Claude-only SSH imports."
 }

@@ -23,6 +23,123 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/lib/push.ts
+ * **Area:** client library
+ * **Responsibility:**
+ * Provides functions for managing push notifications in the agent dashboard application. It
+ * includes utilities for subscribing and unsubscribing to push notifications using the Push API and
+ * Service Workers. The module handles the conversion of VAPID public keys, manages push
+ * subscriptions, and communicates with the backend API to register or unregister push endpoints.
+ * This allows the application to send real-time notifications to users about important events or
+ * updates. ## Web Push in one paragraph Web Push lets the server deliver a notification to this
+ * browser even when the dashboard tab is closed, by going through the browser vendor's push
+ * service. Authentication uses VAPID (Voluntary Application Server Identification): the server
+ * holds a key pair and exposes its public key; the browser bakes that public key into the
+ * subscription so the push service will only accept notifications signed by the matching private
+ * key. ## Subscription lifecycle handled here 1. {@link subscribeToPush} - feature-detect Service
+ * Worker + Push support, wait for the active service worker, fetch the server's VAPID public key,
+ * ask the browser's `PushManager` to create a subscription bound to that key, then POST the
+ * resulting endpoint/keys to the backend so it can target this browser later. 2. {@link
+ * unsubscribeFromPush} - tear the subscription down in the browser and DELETE it on the backend so
+ * no further deliveries are attempted to a dead endpoint. Both entry points are idempotent and
+ * fail-soft: they no-op on unsupported browsers and on the "already in the desired state" case, so
+ * callers can invoke them freely (e.g. on every app load, or on a settings toggle) without tracking
+ * prior state themselves.
+ *
+ * ## Architectural boundary
+ * - Provides shared typed behavior or wire contracts consumed by multiple client screens and
+ *   components.
+ * - Keep functions deterministic and side effects explicit; central helpers amplify both correct
+ *   behavior and regressions.
+ * - Types mirroring server payloads must stay aligned with serializers, OpenAPI descriptions, and
+ *   WebSocket messages.
+ *
+ * ## Public surface
+ * - `subscribeToPush` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `unsubscribeFromPush` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `subscribeToPush` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `unsubscribeFromPush` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `urlBase64ToUint8Array` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## Literal API paths
+ * - `/api/push/subscribe` — route literal present in this source; keep request/response
+ *   expectations aligned with the server and API docs.
+ * - `/api/push/vapid-public-key` — route literal present in this source; keep request/response
+ *   expectations aligned with the server and API docs.
+ *
+ * ## Area invariants
+ * - Preserve null, undefined, zero, and empty distinctions when they carry different server or
+ *   presentation meaning.
+ * - Do not mutate caller-owned collections in formatters, mergers, grouping helpers, or selectors.
+ * - Keep stable sorting and tie-breakers explicit so live updates do not reorder equal records
+ *   unpredictably.
+ * - Use exhaustive checks for discriminated unions when new providers, messages, or statuses can be
+ *   added.
+ * - Keep URL construction encoded and route through shared auth/source-scope behavior.
+ * - Return errors with enough context for the UI to explain the failed action without leaking
+ *   secrets.
+ * - Avoid browser globals at module evaluation time unless the module is deliberately browser-only
+ *   and tested as such.
+ * - Keep formatting locale-aware where the chosen UI language, not the browser default, owns the
+ *   output.
+ * - Document non-obvious thresholds, unit conversions, and compatibility fallbacks beside their
+ *   definitions.
+ * - Add table-driven tests for boundary values because library helpers often serve many visually
+ *   unrelated screens.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/lib/push.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

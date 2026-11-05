@@ -3,6 +3,225 @@
  * @description Provides product-scoped dashboard display controls, Claude and GPT pricing editors, live hook setup, session storage locations, notification preferences, and system management actions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/pages/Settings.tsx
+ * **Area:** client page
+ * **Responsibility:**
+ * Provides product-scoped dashboard display controls, Claude and GPT pricing editors, live hook
+ * setup, session storage locations, notification preferences, and system management actions.
+ *
+ * ## Architectural boundary
+ * - Route-level orchestration belongs here: load scoped data, subscribe to live updates, and
+ *   compose reusable components.
+ * - Server authority remains on the API side; the page may explain or confirm actions but must not
+ *   invent authorization rules.
+ * - The global data-source scope must flow through shared API helpers so local, all-source, and
+ *   selected-source views agree.
+ *
+ * ## Local dependency edges
+ * - `../components/AlertsNotifications` — repository-local contract consumed by this module; review
+ *   its exports before changing assumptions here.
+ * - `../components/CostCoverage` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/ImportHistory` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../components/RemoteSources` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/Skeleton` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/SnapshotStorage` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/Tabby/prefs` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/Tip` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/dataScope` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/format` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/push` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/remoteDataEvents` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/sound` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `Settings` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `CURSOR_RATE_FIELDS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CursorDraft` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CursorPricingTable` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CursorRateField` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `defaultNotif` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `EditRow` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `emptyCursorDraft` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `emptyGptDraft` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `emptyRow` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `formatBytes` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `formatTimestamp` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `formatUptime` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `formatUsdRate` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `GPT_RATE_FIELDS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `GptDraft` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `GptPricingTable` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `GptRateField` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `HookInstallModal` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `HookProviderStatus` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `loadNotifPrefs` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `NOTIF_KEY` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `NotifPrefs` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PricingInfoTooltip` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `saveNotifPrefs` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Settings` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SETTINGS_SECTIONS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SystemInfo` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Toggle` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `VOLUME_PREVIEW_KEYS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useDataScope` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useLocation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useSyncExternalStore` — lifecycle/state dependency detected in this module; preserve
+ *   dependency freshness and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `settings` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ *
+ * ## Literal API paths
+ * - `/api/push/send` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ *
+ * ## Area invariants
+ * - Represent loading, empty, partial, error, and refreshed states deliberately; a blank panel is
+ *   not an error strategy.
+ * - Cancel or ignore stale asynchronous work when parameters, source scope, or component lifetime
+ *   changes.
+ * - Merge WebSocket deltas without duplicating entities already returned by the REST snapshot.
+ * - Keep query parameters and route state shareable when the surrounding router already exposes
+ *   that state in URLs.
+ * - Use translation keys for visible copy and preserve interpolation tokens across every supported
+ *   locale.
+ * - Keep expensive derivations memoized only when profiling or dependency stability justifies the
+ *   extra contract.
+ * - Preserve keyboard focus and useful headings when switching tabs, filters, drawers, or modal
+ *   states.
+ * - Do not make destructive requests without the confirmation and server-side gate required by the
+ *   underlying API.
+ * - Use canonical formatting helpers for timestamps, durations, token counts, costs, and provider
+ *   labels.
+ * - Keep page-level polling and event subscriptions bounded; cleanup must run on unmount and scope
+ *   changes.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/pages/Settings.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================
@@ -126,7 +345,8 @@ import {
   subscribeToSoundPrefs,
   type SoundPrefs,
 } from "../lib/sound";
-import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
+import { fmt, fmtCostFull, getCurrentLocale } from "../lib/format";
+import { CostCoverage } from "../components/CostCoverage";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
@@ -421,55 +641,6 @@ function formatUsdRate(rate: number): string {
   }).format(rate);
 }
 
-/**
- * Animate a number toward `end` with an ease-out curve over `durationMs`, starting from the
- * currently displayed value, using requestAnimationFrame. Used for the stat counters so a refresh
- * glides to the new value instead of jumping. Resets to 0 when `end` is null.
- *
- * @param end - Target value, or null to reset.
- * @param durationMs - Animation length; defaults to 1 second.
- * @returns The value to render for the current frame.
- */
-function useCountUp(end: number | null, durationMs = 1000) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (end === null) {
-      setCount(0);
-      return;
-    }
-
-    let startTimestamp: number | null = null;
-    let animationFrameId: number;
-    const startValue = count;
-
-    /**
-     * One animation frame: move toward the target along an ease-out-quart curve and schedule the
-     * next frame until done.
-     *
-     * @param timestamp - Frame time from `requestAnimationFrame`.
-     */
-    const step = (timestamp: number) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / durationMs, 1);
-      // easeOutQuart
-      const easeProgress = 1 - Math.pow(1 - progress, 4);
-      setCount(startValue + (end - startValue) * easeProgress);
-
-      if (progress < 1) {
-        animationFrameId = window.requestAnimationFrame(step);
-      } else {
-        setCount(end);
-      }
-    };
-
-    animationFrameId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(animationFrameId);
-  }, [end, durationMs]);
-
-  return count;
-}
-
 // ─── Toggle component ───
 
 /**
@@ -677,6 +848,7 @@ function GptPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -686,6 +858,8 @@ function GptPricingTable({
   resetLoading: boolean;
   /** Resets the GPT pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<GptModelPricing[]>([]);
@@ -765,6 +939,7 @@ function GptPricingTable({
         ),
       } as Omit<GptModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -782,6 +957,7 @@ function GptPricingTable({
     try {
       await api.pricing.deleteGpt(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1032,6 +1208,7 @@ function CursorPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -1041,6 +1218,8 @@ function CursorPricingTable({
   resetLoading: boolean;
   /** Resets the Cursor pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<CursorModelPricing[]>([]);
@@ -1102,6 +1281,7 @@ function CursorPricingTable({
         ),
       } as Omit<CursorModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -1119,6 +1299,7 @@ function CursorPricingTable({
     try {
       await api.pricing.deleteCursor(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1509,7 +1690,57 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [unpriced, setUnpriced] = useState<import("../lib/types").UnpricedModel[]>([]);
+  /** The exact-cost reader owns this failure so pricing and home settings stay available. */
+  const [costError, setCostError] = useState<string | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
+  /** The last system-info read failure ("" = no message); cleared by the next successful read. */
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const infoRequestRef = useRef<Promise<SystemInfo> | null>(null);
+  const infoGenerationRef = useRef(0);
+  const infoMountedRef = useRef(false);
+  /** Monotonic page-load generation: only the newest load may apply data, errors, or loading. */
+  const costLoadGeneration = useRef(0);
+  useEffect(() => {
+    infoMountedRef.current = true;
+    return () => {
+      infoMountedRef.current = false;
+      infoGenerationRef.current++;
+      infoRequestRef.current = null;
+    };
+  }, []);
+
+  /** Share expensive system-info reads; mutations wait for an older read before refreshing. */
+  const refreshInfo = useCallback(async (fresh = false): Promise<SystemInfo> => {
+    const generation = infoGenerationRef.current;
+    if (fresh && infoRequestRef.current) await infoRequestRef.current.catch(() => {});
+    if (!infoMountedRef.current || generation !== infoGenerationRef.current) {
+      throw new Error("Settings page is no longer active");
+    }
+    if (infoRequestRef.current) return infoRequestRef.current;
+    const request = api.settings
+      .info()
+      .then(
+        (result) => {
+          if (infoMountedRef.current && generation === infoGenerationRef.current) {
+            setSysInfo(result);
+            setInfoError(null);
+          }
+          return result;
+        },
+        (err: unknown) => {
+          // System info owns its failure: shown in its own section, never over the pricing table.
+          if (infoMountedRef.current && generation === infoGenerationRef.current)
+            setInfoError(err instanceof Error ? err.message : "");
+          throw err;
+        }
+      )
+      .finally(() => {
+        if (infoRequestRef.current === request) infoRequestRef.current = null;
+      });
+    infoRequestRef.current = request;
+    return request;
+  }, []);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<{
     key: string;
@@ -1552,7 +1783,6 @@ export function Settings() {
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   const [dataScope, setDataScope] = useDataScope();
-  const animatedTotalCost = useCountUp(totalCost);
 
   // Deep links (`/settings#alerts`) are how the command palette reaches an
   // individual section. React Router does not scroll to a hash on its own, and
@@ -1642,70 +1872,105 @@ export function Settings() {
   }, []);
 
   /**
-   * Load everything the page needs in parallel: Claude pricing, total cost, system info, and the
-   * Claude and Codex home directories.
+   * Load Claude pricing and the provider homes as the primary page lane. Exact cost and system
+   * info settle independently and report failures in their own sections, so neither expensive
+   * reader can discard or block the primary settings data.
    */
-  const load = useCallback(async () => {
-    try {
-      const [pricingRes, costRes, infoRes, claudeHomeRes, codexHomeRes] = await Promise.all([
-        api.pricing.list(),
-        api.pricing.totalCost(),
-        api.settings.info(),
-        api.settings.claudeHome.get(),
-        api.settings.codexHome.get(),
-      ]);
-      setPricing(pricingRes.pricing);
-      setTotalCost(costRes.total_cost);
-      setSysInfo(infoRes);
-      setClaudeHomeState(claudeHomeRes.claude_home);
-      setClaudeHomeInput(claudeHomeRes.claude_home);
-      setCodexHomeState(codexHomeRes.codex_home);
-      setCodexHomeInput(codexHomeRes.codex_home);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("messages.failedLoad"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t, dataScope]);
+  const load = useCallback(
+    async (freshInfo = false) => {
+      // Every load (mount, scope change, refresh, remote sync) takes a newer generation; only the
+      // newest may apply data, an error, or the end of loading.
+      const generation = ++costLoadGeneration.current;
+      const isCurrent = () => infoMountedRef.current && generation === costLoadGeneration.current;
+      try {
+        // The expensive readers own their result and error state. Do not let either one hold the
+        // pricing/home skeleton open or turn its local failure into a primary page failure.
+        void refreshInfo(freshInfo).catch(() => {});
+        setCostError(null);
+        void api.pricing.totalCost().then(
+          (costRes) => {
+            if (!isCurrent()) return;
+            setTotalCost(costRes.total_cost);
+            setUnpriced(costRes.unpriced_models || []);
+            setCostError(null);
+          },
+          (err: unknown) => {
+            if (isCurrent())
+              setCostError(err instanceof Error ? err.message : t("messages.failedLoad"));
+          }
+        );
+        const [pricingRes, claudeHomeRes, codexHomeRes] = await Promise.all([
+          api.pricing.list(),
+          api.settings.claudeHome.get(),
+          api.settings.codexHome.get(),
+        ]);
+        if (!isCurrent()) return;
+        setPricing(pricingRes.pricing);
+        setClaudeHomeState(claudeHomeRes.claude_home);
+        setClaudeHomeInput(claudeHomeRes.claude_home);
+        setCodexHomeState(codexHomeRes.codex_home);
+        setCodexHomeInput(codexHomeRes.codex_home);
+        setError(null);
+      } catch (err) {
+        if (isCurrent()) setError(err instanceof Error ? err.message : t("messages.failedLoad"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [t, dataScope, refreshInfo]
+  );
 
   usePaletteAction("page.refresh", () => {
     void load();
   });
 
   useEffect(() => {
+    setTotalCost(null);
+    setUnpriced([]);
+    setCostError(null);
     load();
   }, [load]);
 
   useEffect(() => {
-    /** Refresh system info only, used by the periodic poll. */
-    const refreshInfo = () =>
-      api.settings
-        .info()
-        .then(setSysInfo)
-        .catch(() => {});
-    const interval = setInterval(refreshInfo, 10000);
+    // Health counts need a bounded cadence, not a full DB scan for each hook event.
+    const interval = setInterval(() => {
+      void refreshInfo().catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshInfo]);
 
   useEffect(() => {
-    return eventBus.subscribe((msg: WSMessage) => {
-      if (
-        msg.type === "session_created" ||
-        msg.type === "session_updated" ||
-        msg.type === "agent_created" ||
-        msg.type === "agent_updated" ||
-        msg.type === "new_event"
-      ) {
-        api.settings
-          .info()
-          .then(setSysInfo)
-          .catch(() => {});
-      }
+    // One completed sync emits several notifications. Share the full reload,
+    // and retain one follow-up if another sync completes while it is running.
+    let active = true;
+    let running = false;
+    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (!active || running || timer !== null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!active || !pending) return;
+        pending = false;
+        running = true;
+        void load(true).finally(() => {
+          running = false;
+          if (pending) schedule();
+        });
+      }, 0);
+    };
+    const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
       if (isRemoteDataRefreshMessage(msg)) {
-        load();
+        pending = true;
+        schedule();
       }
     });
+    return () => {
+      active = false;
+      pending = false;
+      if (timer !== null) clearTimeout(timer);
+      unsubscribe();
+    };
   }, [load]);
 
   // Keep the panel honest if preferences are changed anywhere else in the tab.
@@ -1823,7 +2088,7 @@ export function Settings() {
       });
       setEditingPattern(null);
       setAdding(false);
-      await load();
+      await load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
     } finally {
@@ -1839,7 +2104,7 @@ export function Settings() {
   const deleteRule = async (pattern: string) => {
     try {
       await api.pricing.delete(pattern);
-      await load();
+      await load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1859,7 +2124,7 @@ export function Settings() {
     try {
       const message = await fn();
       setActionResult({ key, message, isError: false });
-      await load();
+      await load(true);
     } catch (err) {
       setActionResult({
         key,
@@ -1942,6 +2207,9 @@ export function Settings() {
       const res = await api.settings.claudeHome.set(claudeHomeInput);
       setClaudeHomeState(res.claude_home);
       setClaudeHomeInput(res.claude_home);
+      // Hook status follows the active Claude home. Keep refresh failures in
+      // the system-info panel so a successful home save remains successful.
+      void refreshInfo(true).catch(() => {});
     } catch (err) {
       setClaudeHomeError(err instanceof Error ? err.message : t("claudeHome.saveFailed"));
     } finally {
@@ -1963,8 +2231,9 @@ export function Settings() {
       setCodexHomeInput(res.codex_home);
       // Refresh hook paths/status immediately — they follow the active Codex
       // home, and the backend has simultaneously triggered a fresh rollout scan.
-      const info = await api.settings.info();
-      setSysInfo(info);
+      // System info owns its own failure state; a refresh failure must not make
+      // an already-successful home save look unsuccessful.
+      void refreshInfo(true).catch(() => {});
     } catch (err) {
       setCodexHomeError(err instanceof Error ? err.message : t("codexHome.saveFailed"));
     } finally {
@@ -2228,7 +2497,12 @@ export function Settings() {
             <FileDown className="w-3.5 h-3.5" />
             {t("exportData")}
           </a>
-          <button onClick={load} className="btn-ghost">
+          <button
+            onClick={() => {
+              void load();
+            }}
+            className="btn-ghost"
+          >
             <RefreshCw className="w-4 h-4" /> {t("common:refresh")}
           </button>
         </div>
@@ -2304,7 +2578,7 @@ export function Settings() {
                       : undefined
                   }
                 >
-                  {totalCost !== null ? fmtCost(animatedTotalCost) : "$-.--"}
+                  {totalCost !== null ? fmtCostFull(totalCost) : "$-.--"}
                 </Tip>
               </p>
             </div>
@@ -2314,8 +2588,14 @@ export function Settings() {
             <p>{t("basedOnUsage")}</p>
           </div>
         </div>
+        {costError && (
+          <p role="alert" className="mt-3 text-xs text-red-400">
+            {costError}
+          </p>
+        )}
       </div>
 
+      <CostCoverage scope={dataScope} unpriced={unpriced} />
       {/* ─── PRODUCT DATA DISPLAY ─── */}
       <section id="data-display" className="scroll-mt-24">
         <div className="mb-4">
@@ -2578,6 +2858,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-cursor"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-cursor"
               ? handleResetPricing("reset-pricing-cursor", "cursor")
@@ -2593,6 +2874,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-gpt"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-gpt"
               ? handleResetPricing("reset-pricing-gpt", "codex")
@@ -3213,12 +3495,9 @@ export function Settings() {
           {/* Transcript snapshot storage + retention (issue #358) */}
           <SnapshotStorage
             storage={sysInfo?.snapshots}
-            onChanged={() =>
-              api.settings
-                .info()
-                .then(setSysInfo)
-                .catch(() => {})
-            }
+            onChanged={() => {
+              void refreshInfo(true).catch(() => {});
+            }}
           />
 
           {/* Session Cleanup */}
@@ -3342,6 +3621,12 @@ export function Settings() {
         </h3>
         <p className="text-xs text-gray-500 mb-4">{t("about.description")}</p>
 
+        {infoError !== null && (
+          <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+            {infoError || t("messages.failedLoad")}
+          </div>
+        )}
+
         {sysInfo ? (
           <div className="card p-5">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -3414,10 +3699,7 @@ export function Settings() {
         status={sysInfo?.hooks}
         onClose={() => setHookModalOpen(false)}
         onInstalled={() => {
-          api.settings
-            .info()
-            .then(setSysInfo)
-            .catch(() => {});
+          void refreshInfo(true).catch(() => {});
         }}
       />
     </div>

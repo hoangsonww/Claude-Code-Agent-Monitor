@@ -6,6 +6,182 @@
  * base config stays explicitly edit-only.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/CodexConfigExplorer.tsx
+ * **Area:** client component
+ * **Responsibility:**
+ * Codex configuration workspace with a parity navigation model, live overview metrics, resilient
+ * copyable profile commands and artifact paths, redacted previews, and backup-backed edit/delete
+ * actions for Codex's user-maintained profiles, hooks, rules, skills, and instruction files. The
+ * base config stays explicitly edit-only.
+ *
+ * ## Architectural boundary
+ * - This component should express one reusable UI responsibility through typed props and observable
+ *   callbacks.
+ * - Network orchestration belongs in pages, hooks, or the typed API client unless this component
+ *   explicitly owns the workflow.
+ * - Visual state must remain a projection of props and local interaction state rather than a second
+ *   server truth.
+ *
+ * ## Local dependency edges
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `CodexConfigExplorer` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `CODEX_SUMMARY_TONES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CODEX_TONES` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CodexConfigExplorer` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexDefaultStat` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexRootCard` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexSummaryStat` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexTab` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CodexTabs` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CodexTone` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `copyText` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CreateProfileModal` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `DeleteFileModal` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `DeleteTarget` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `EditorModal` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EmptyState` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FileActions` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FileRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PreviewModal` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PreviewState` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ProfileLaunchCommand` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ProfileSetting` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Rows` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `StatusNotice` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SummaryTab` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Tab` (type) — top-level declaration that helps orient code review and focused test selection.
+ * - `TABS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `ccConfig` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ *
+ * ## Area invariants
+ * - Keep prop meaning and callback timing stable; parent components often rely on both even when
+ *   types still compile.
+ * - Render valid semantic controls with accessible names, focus behavior, disabled states, and
+ *   keyboard operation.
+ * - Keep visible strings in the appropriate i18n namespace rather than embedding English-only
+ *   literals.
+ * - Use shared design tokens and existing primitives so light/dark styling and compact layouts
+ *   remain coherent.
+ * - Avoid mutating arrays or objects received through props; derived display data should be
+ *   computed immutably.
+ * - Make empty and unavailable values explicit instead of rendering misleading zeroes or
+ *   placeholder punctuation.
+ * - Keep event handlers narrow and prevent accidental bubbling only when the enclosing interaction
+ *   requires it.
+ * - Do not duplicate server validation or destructive gates as if client-side checks were
+ *   authoritative.
+ * - Preserve responsive behavior at narrow widths and avoid fixed dimensions that clip translated
+ *   copy.
+ * - Prefer stable keys derived from entity identity over array indexes for live, filtered, or
+ *   reordered collections.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/CodexConfigExplorer.tsx`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

@@ -6,7 +6,7 @@
   "activeSubagents": "Subagent đang hoạt động",
   "eventsToday": "Sự kiện hôm nay",
   "totalEvents": "Tổng sự kiện",
-  "totalCost": "Tổng chi phí",
+  "totalCost": "Ước tính chi phí API",
   "viewBoard": "Xem bảng",
   "viewAll": "Xem tất cả",
   "activeAgentsSection": "Agent đang hoạt động",
@@ -22,5 +22,9 @@
   "tabs": {
     "monitor": "Giám sát",
     "health": "Tình trạng"
-  }
+  },
+  "costEstimate": "Ước tính chi phí tương đương API, không phải phí thuê bao.",
+  "costScope": "Nguồn: {{sources}} · Sản phẩm: {{providers}}",
+  "costIncomplete": "Ước tính chưa đầy đủ: một số mức sử dụng chưa có giá phù hợp ({{models}}).",
+  "reviewRates": "Xem giá"
 }

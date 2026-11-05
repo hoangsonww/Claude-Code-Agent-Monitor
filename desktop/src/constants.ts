@@ -7,6 +7,112 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** desktop/src/constants.ts
+ * **Area:** desktop shell
+ * **Responsibility:**
+ * Shared compile-time constants for the Electron desktop shell. Values here must stay aligned with
+ * `electron-builder.yml` (app ID), the documented default dashboard port, and the embedded server
+ * health probe in `server-host.ts` .
+ *
+ * ## Architectural boundary
+ * - Owns Electron main-process lifecycle, local server hosting, native integration, and the narrow
+ *   preload boundary.
+ * - Renderer code remains web-compatible; privileged filesystem, process, tray, menu, and window
+ *   operations stay here.
+ * - Startup and shutdown coordinate one dashboard server instance without corrupting discovery or
+ *   user data.
+ *
+ * ## Public surface
+ * - `APP_ID` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `APP_NAME` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `DEFAULT_WINDOW` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `FALLBACK_PORT_RANGE` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `HEALTH_TIMEOUT_MS` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `PREFERRED_PORT` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `APP_ID` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `APP_NAME` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `DEFAULT_WINDOW` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `FALLBACK_PORT_RANGE` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `HEALTH_TIMEOUT_MS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `PREFERRED_PORT` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Keep context isolation enabled and expose only the minimum typed preload surface required by
+ *   the renderer.
+ * - Do not enable arbitrary Node integration or pass unchecked renderer input into
+ *   filesystem/process operations.
+ * - Make window, tray, server, and app shutdown idempotent across quit, close, signal, and update
+ *   paths.
+ * - Resolve packaged and development resource paths explicitly for macOS, Windows, and Linux
+ *   layouts.
+ * - Use atomic writes for discovery and state files that another process may read during startup.
+ * - Remove stale discovery metadata only when it belongs to the process being stopped.
+ * - Keep single-instance and deep-link handling bounded to the intended application origin.
+ * - Preserve platform-specific menu and login-item semantics without assuming one operating system.
+ * - Avoid blocking the main process with synchronous work on hot lifecycle paths.
+ * - Test pure path/lifecycle decisions and run the desktop-specific suite for process integration
+ *   changes.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run desktop:test` and resolve failures before widening the verification scope.
+ * - Run `npm run desktop:build` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check desktop/src/constants.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

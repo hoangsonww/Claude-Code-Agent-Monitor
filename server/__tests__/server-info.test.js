@@ -13,17 +13,21 @@ const os = require("os");
 const STAMP = `server-info-${Date.now()}-${process.pid}`;
 const TMP = path.join(os.tmpdir(), STAMP);
 const CLAUDE_HOME = path.join(TMP, "home");
+const OTHER_CLAUDE_HOME = path.join(TMP, "other-home");
 const DATA_DIR_A = path.join(TMP, "data-a");
 const DATA_DIR_B = path.join(TMP, "data-b");
 const originalDashboardPort = process.env.CLAUDE_DASHBOARD_PORT;
+const originalDashboardDbPath = process.env.DASHBOARD_DB_PATH;
+const originalDashboardDataDir = process.env.DASHBOARD_DATA_DIR;
+const originalClaudeHomeEnv = process.env.CLAUDE_HOME;
 const originalLocalAppData = process.env.LOCALAPPDATA;
 const originalXdgDataHome = process.env.XDG_DATA_HOME;
 const originalHomedir = os.homedir;
 
-function freshModule(dataDir) {
+function freshModule(dataDir, claudeHome = CLAUDE_HOME) {
   delete require.cache[require.resolve("../lib/server-info")];
   delete require.cache[require.resolve("../lib/claude-home")];
-  process.env.CLAUDE_HOME = CLAUDE_HOME;
+  process.env.CLAUDE_HOME = claudeHome;
   process.env.DASHBOARD_DATA_DIR = dataDir;
   return require("../lib/server-info");
 }
@@ -43,6 +47,15 @@ function writeDiscovery(infoPath, servers) {
   );
 }
 
+function writeDataDirOwner(dataDir, pid) {
+  const ownerDir = path.join(dataDir, ".agent-dashboard-owners");
+  fs.mkdirSync(ownerDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(ownerDir, `${pid}.json`),
+    JSON.stringify({ pid, startedAt: "2026-01-01T00:00:00.000Z" })
+  );
+}
+
 describe("server-info hook ingest deduplication", () => {
   beforeEach(() => {
     delete process.env.CLAUDE_DASHBOARD_PORT;
@@ -57,6 +70,12 @@ describe("server-info hook ingest deduplication", () => {
   afterEach(() => {
     if (originalDashboardPort === undefined) delete process.env.CLAUDE_DASHBOARD_PORT;
     else process.env.CLAUDE_DASHBOARD_PORT = originalDashboardPort;
+    if (originalDashboardDbPath === undefined) delete process.env.DASHBOARD_DB_PATH;
+    else process.env.DASHBOARD_DB_PATH = originalDashboardDbPath;
+    if (originalDashboardDataDir === undefined) delete process.env.DASHBOARD_DATA_DIR;
+    else process.env.DASHBOARD_DATA_DIR = originalDashboardDataDir;
+    if (originalClaudeHomeEnv === undefined) delete process.env.CLAUDE_HOME;
+    else process.env.CLAUDE_HOME = originalClaudeHomeEnv;
     if (originalLocalAppData === undefined) delete process.env.LOCALAPPDATA;
     else process.env.LOCALAPPDATA = originalLocalAppData;
     if (originalXdgDataHome === undefined) delete process.env.XDG_DATA_HOME;
@@ -122,6 +141,96 @@ describe("server-info hook ingest deduplication", () => {
     const entry = raw.servers.find((s) => s.port === 4999);
     assert.ok(entry);
     assert.equal(mod.normalizeDataDir(entry.dataDir), mod.normalizeDataDir(DATA_DIR_A));
+  });
+
+  it("proves exclusive data ownership only from unambiguous shared markers", () => {
+    const mod = freshModule(DATA_DIR_A);
+    mod.writeServerInfo(4820);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+
+    writeDataDirOwner(DATA_DIR_A, process.ppid);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+    fs.unlinkSync(mod.getDataDirOwnerPath(process.ppid));
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+
+    writeDataDirOwner(DATA_DIR_B, process.ppid);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+
+    const malformed = path.join(DATA_DIR_A, ".agent-dashboard-owners", "malformed.json");
+    fs.writeFileSync(malformed, "not json");
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+    fs.unlinkSync(malformed);
+
+    fs.unlinkSync(mod.getDataDirOwnerPath());
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+  });
+
+  it("shares ownership signals across Claude homes that use the same data directory", () => {
+    const first = freshModule(DATA_DIR_A);
+    first.writeServerInfo(4820);
+    writeDataDirOwner(DATA_DIR_A, process.ppid);
+
+    const second = freshModule(DATA_DIR_A, OTHER_CLAUDE_HOME);
+    writeDiscovery(second.getServerInfoPath(), [
+      {
+        port: 4821,
+        pid: process.pid,
+        startedAt: "2026-01-02T00:00:00.000Z",
+        dataDir: DATA_DIR_A,
+      },
+    ]);
+
+    assert.equal(second.hasExclusiveDataDirOwnership(), false);
+  });
+
+  it("shares ownership signals across data dirs that point at one explicit database", () => {
+    const databasePath = path.join(TMP, "pinned-db", "dashboard.db");
+    process.env.DASHBOARD_DB_PATH = databasePath;
+    const first = freshModule(DATA_DIR_A);
+    first.writeServerInfo(4820);
+    writeDataDirOwner(path.dirname(databasePath), process.ppid);
+
+    const second = freshModule(DATA_DIR_B, OTHER_CLAUDE_HOME);
+    second.writeServerInfo(4821);
+
+    assert.equal(second.hasExclusiveDataDirOwnership(), false);
+  });
+
+  it(
+    "uses one ownership directory for symlink and target database paths",
+    { skip: process.platform === "win32" ? "file symlink creation is privilege-dependent" : false },
+    () => {
+      const targetDir = path.join(TMP, "real-db");
+      const databasePath = path.join(targetDir, "dashboard.db");
+      const linkedPath = path.join(TMP, "linked-dashboard.db");
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(databasePath, "");
+      fs.symlinkSync(databasePath, linkedPath, "file");
+
+      process.env.DASHBOARD_DB_PATH = databasePath;
+      const direct = freshModule(DATA_DIR_A);
+      const directOwner = direct.getDataDirOwnerPath();
+
+      process.env.DASHBOARD_DB_PATH = linkedPath;
+      const linked = freshModule(DATA_DIR_B, OTHER_CLAUDE_HOME);
+      assert.equal(linked.getDataDirOwnerPath(), directOwner);
+    }
+  );
+
+  it("keeps its marker through graceful drain and prunes dead owners", () => {
+    const mod = freshModule(DATA_DIR_A);
+    mod.writeServerInfo(4820);
+    assert.equal(fs.existsSync(mod.getDataDirOwnerPath()), true);
+
+    mod.removeServerInfo();
+
+    assert.equal(fs.existsSync(mod.getDataDirOwnerPath()), true);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+
+    const deadPid = 2_147_483_647;
+    writeDataDirOwner(DATA_DIR_A, deadPid);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+    assert.equal(fs.existsSync(mod.getDataDirOwnerPath(deadPid)), false);
   });
 
   it("honors CLAUDE_DASHBOARD_PORT for hook ingest", () => {

@@ -117,6 +117,7 @@ describe("CLAUDE_CONFIG_DIR path resolution (#393)", () => {
   });
 
   it("reuses data under an existing custom CLAUDE_HOME after config relocation", () => {
+    fs.rmSync(path.join(getMachineStateDir(), "data"), { recursive: true, force: true });
     process.env.CLAUDE_HOME = overrideDir;
     process.env.CLAUDE_CONFIG_DIR = configDir;
     delete process.env.DASHBOARD_DATA_DIR;
@@ -133,6 +134,7 @@ describe("CLAUDE_CONFIG_DIR path resolution (#393)", () => {
   });
 
   it("reuses a previous local data directory with its snapshots and keys", () => {
+    fs.rmSync(path.join(getMachineStateDir(), "data"), { recursive: true, force: true });
     delete process.env.CLAUDE_HOME;
     delete process.env.DASHBOARD_DATA_DIR;
     process.env.CLAUDE_CONFIG_DIR = configDir;

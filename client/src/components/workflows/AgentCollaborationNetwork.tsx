@@ -3,6 +3,148 @@
  * @description Defines the AgentCollaborationNetwork React component that visualizes the collaboration between different agent types in a directed graph format using D3.js. The component takes in effectiveness data and interaction edges, renders an interactive force-directed graph, and keeps data-driven legend labels bounded through pagination.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/workflows/AgentCollaborationNetwork.tsx
+ * **Area:** client workflow visualization
+ * **Responsibility:**
+ * Defines the AgentCollaborationNetwork React component that visualizes the collaboration between
+ * different agent types in a directed graph format using D3.js. The component takes in
+ * effectiveness data and interaction edges, renders an interactive force-directed graph, and keeps
+ * data-driven legend labels bounded through pagination.
+ *
+ * ## Architectural boundary
+ * - Transforms workflow analytics into an explanatory visualization without redefining the server's
+ *   aggregate semantics.
+ * - Layout geometry, interaction state, and rendering adapters stay local; canonical workflow types
+ *   stay in shared contracts.
+ * - Every graphical encoding needs a readable textual label or surrounding explanation for
+ *   accessibility and debugging.
+ *
+ * ## Local dependency edges
+ * - `../PaginatedLegend` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `d3` — external package boundary; keep usage within the installed version and the repository's
+ *   existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `AgentCollaborationNetwork` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `AgentCollaborationNetworkProps` (interface) — exported contract; search downstream imports and
+ *   tests before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `AgentCollaborationNetwork` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `AgentCollaborationNetworkProps` (interface) — top-level declaration that helps orient code
+ *   review and focused test selection.
+ * - `appendTooltipDescription` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `appendTooltipRow` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `describeNodeRole` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MAX_R` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MIN_R` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PALETTE` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PipelineLink` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PipelineNode` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `positionTooltipAt` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `showTooltip` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `STROKE_PALETTE` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TFn` (type) — top-level declaration that helps orient code review and focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `workflows` — visible copy resolves through this namespace; key and interpolation parity
+ *   applies to every supported locale.
+ *
+ * ## Area invariants
+ * - Use stable entity identifiers for nodes, links, colors, selections, legends, and React keys.
+ * - Treat missing timestamps, models, token values, parents, and terminal states as expected
+ *   partial-data cases.
+ * - Keep scales and domains deterministic so identical data does not jump between renders.
+ * - Bound SVG/canvas dimensions and event listeners; resize observers and D3 selections require
+ *   cleanup.
+ * - Do not silently discard filtered records when a visual limit is applied; explain truncation in
+ *   the UI.
+ * - Keep tooltip and legend values aligned with the exact encoding shown in the chart.
+ * - Preserve keyboard and screen-reader paths to information that is otherwise available only by
+ *   pointer hover.
+ * - Avoid mutating API-owned arrays while sorting, grouping, or assigning visualization
+ *   coordinates.
+ * - Keep provider and model labels canonical through shared formatting helpers.
+ * - Snapshot tests should assert stable structure, while focused unit tests own geometry and
+ *   derivation edge cases.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/workflows/AgentCollaborationNetwork.tsx`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

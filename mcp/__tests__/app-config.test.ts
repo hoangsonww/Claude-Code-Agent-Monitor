@@ -3,6 +3,170 @@
  * @description Unit tests for the app configuration loader, which reads environment variables and constructs a configuration object for the MCP server. The tests cover default values, parsing of different transport modes, HTTP port and host parsing with validation, boolean parsing for mutation/destructive flags, timeout and retry parsing with clamping, log level parsing with fallback, dashboard URL validation to ensure it targets a local host and uses http/https, and custom server name/version parsing. The tests use Node's built-in test runner and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/__tests__/app-config.test.ts
+ * **Area:** MCP test
+ * **Responsibility:**
+ * Unit tests for the app configuration loader, which reads environment variables and constructs a
+ * configuration object for the MCP server. The tests cover default values, parsing of different
+ * transport modes, HTTP port and host parsing with validation, boolean parsing for
+ * mutation/destructive flags, timeout and retry parsing with clamping, log level parsing with
+ * fallback, dashboard URL validation to ensure it targets a local host and uses http/https, and
+ * custom server name/version parsing. The tests use Node's built-in test runner and assert module
+ * for assertions.
+ *
+ * ## Architectural boundary
+ * - Protects MCP schema, policy, API-client, formatting, lifecycle, or transport behavior using
+ *   Node's test runner.
+ * - Tests should exercise public contracts with realistic SDK and HTTP boundaries while keeping
+ *   external state local.
+ * - Fixtures must not contain usable credentials or depend on the operator's real dashboard
+ *   configuration.
+ *
+ * ## Local dependency edges
+ * - `../src/config/app-config.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `node:assert/strict` — external package boundary; keep usage within the installed version and
+ *   the repository's existing adapter patterns.
+ * - `node:fs` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:os` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:path` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:test` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Top-level implementation landmarks
+ * - `env` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Named test contracts
+ * - `accepts host.docker.internal` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `accepts localhost` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ * - `accepts the isolated Compose dashboard service with a bearer token` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `clamps MCP_HTTP_PORT to valid range` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `defaults invalid log level to info` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `defaults the HTTP session timeout to 30 minutes` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `defaults unknown transport to stdio` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `falls back to default on invalid MCP_HTTP_PORT` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `is case-insensitive for transport` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `loadConfig` — executable behavior named by this suite; preserve the observable contract or
+ *   update the test with rationale.
+ * - `loads an optional dashboard bearer token` — executable behavior named by this suite; preserve
+ *   the observable contract or update the test with rationale.
+ * - `loads the dashboard bearer token from a mounted secret file` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `loads the MCP HTTP bearer token from a mounted secret file` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `parses allowDestructive` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses and clamps MCP_HTTP_SESSION_TIMEOUT_MS` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `parses custom server name and version` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `parses MCP_HTTP_HOST` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses MCP_HTTP_PORT` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses MCP_TRANSPORT=http` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses MCP_TRANSPORT=repl` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses MCP_TRANSPORT=stdio` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses retry count` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `parses timeout with clamping` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `parses valid log level` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `rejects invalid URLs` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `rejects non-http protocols` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `rejects non-local dashboard hosts` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `requires HTTPS for bearer tokens sent through container-host aliases` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `returns sane defaults when no env vars set` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `treats MCP_HTTP_SESSION_TIMEOUT_MS=0 as an explicit opt-out` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ *
+ * ## Area invariants
+ * - Name the exact protocol or policy contract in each test so a failure identifies the broken
+ *   boundary.
+ * - Use ephemeral ports, temporary directories, and isolated environment values for concurrent-safe
+ *   execution.
+ * - Restore process globals, environment variables, clocks, fetch stubs, and listeners after every
+ *   case.
+ * - Assert structured results and error shapes rather than only checking that a call throws.
+ * - Cover redaction and permission denial for every secret-bearing or state-changing path.
+ * - Avoid snapshotting unstable SDK internals when a focused schema or result assertion is clearer.
+ * - Test cleanup and idempotence because abandoned transports and timers can keep the process
+ *   alive.
+ * - Keep test doubles behaviorally faithful to the API client methods used by the subject.
+ * - Exercise malformed and boundary inputs at schema and direct-function layers where each owns
+ *   distinct validation.
+ * - Prove regression tests fail against the broken behavior before accepting a fix.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/__tests__/app-config.test.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
  * =============================================================================

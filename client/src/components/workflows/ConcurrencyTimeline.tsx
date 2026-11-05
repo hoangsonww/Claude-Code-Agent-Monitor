@@ -3,6 +3,141 @@
  * @description Defines the ConcurrencyTimeline component that visualizes concurrency data for agent sessions using horizontal bars. Each lane represents an agent type (main or subagent) with the bar width proportional to the number of sessions and timing indicated as a percentage of the session duration. The component handles empty states gracefully and assigns distinct colors to different agent types for clarity.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/workflows/ConcurrencyTimeline.tsx
+ * **Area:** client workflow visualization
+ * **Responsibility:**
+ * Defines the ConcurrencyTimeline component that visualizes concurrency data for agent sessions
+ * using horizontal bars. Each lane represents an agent type (main or subagent) with the bar width
+ * proportional to the number of sessions and timing indicated as a percentage of the session
+ * duration. The component handles empty states gracefully and assigns distinct colors to different
+ * agent types for clarity.
+ *
+ * ## Architectural boundary
+ * - Transforms workflow analytics into an explanatory visualization without redefining the server's
+ *   aggregate semantics.
+ * - Layout geometry, interaction state, and rendering adapters stay local; canonical workflow types
+ *   stay in shared contracts.
+ * - Every graphical encoding needs a readable textual label or surrounding explanation for
+ *   accessibility and debugging.
+ *
+ * ## Local dependency edges
+ * - `../../lib/types` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `ConcurrencyTimeline` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ConcurrencyTimelineProps` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `laneColor` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `buildLaneTooltip` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ConcurrencyTimeline` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConcurrencyTimelineProps` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `describeLaneTiming` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EmptyState` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `laneColor` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LaneRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LaneRowProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MAIN_COLOR` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SUBAGENT_PALETTE` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TFn` (type) — top-level declaration that helps orient code review and focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `workflows` — visible copy resolves through this namespace; key and interpolation parity
+ *   applies to every supported locale.
+ *
+ * ## Area invariants
+ * - Use stable entity identifiers for nodes, links, colors, selections, legends, and React keys.
+ * - Treat missing timestamps, models, token values, parents, and terminal states as expected
+ *   partial-data cases.
+ * - Keep scales and domains deterministic so identical data does not jump between renders.
+ * - Bound SVG/canvas dimensions and event listeners; resize observers and D3 selections require
+ *   cleanup.
+ * - Do not silently discard filtered records when a visual limit is applied; explain truncation in
+ *   the UI.
+ * - Keep tooltip and legend values aligned with the exact encoding shown in the chart.
+ * - Preserve keyboard and screen-reader paths to information that is otherwise available only by
+ *   pointer hover.
+ * - Avoid mutating API-owned arrays while sorting, grouping, or assigning visualization
+ *   coordinates.
+ * - Keep provider and model labels canonical through shared formatting helpers.
+ * - Snapshot tests should assert stable structure, while focused unit tests own geometry and
+ *   derivation edge cases.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/workflows/ConcurrencyTimeline.tsx`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

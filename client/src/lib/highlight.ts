@@ -44,6 +44,183 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/lib/highlight.ts
+ * **Area:** client library
+ * **Responsibility:**
+ * Lightweight, dependency-free syntax highlighter used by the conversation viewer. Tokenizes a
+ * string of source code into a flat list of {type, text} tokens for a handful of languages commonly
+ * seen in Claude Code transcripts (js/ts, python, json, bash, html, css, sql, yaml, diff). Output
+ * is consumed by CodeBlock.tsx which renders each token as a span with a colour class. The goal is
+ * "good enough to scan", not full lexical correctness - we accept the occasional mis-tokenization
+ * in favour of small bundle size and zero deps. ## Why a hand-rolled highlighter? Full-featured
+ * highlighters (Prism, highlight.js, Shiki) each pull in tens to hundreds of kilobytes and a
+ * grammar loader. The dashboard only ever renders short code fences pasted into a transcript, so
+ * absolute lexical fidelity is unnecessary; a compact, synchronous, allocation-light tokenizer
+ * keeps the bundle small and avoids async grammar loading on first paint. Mis-tokenizations (e.g. a
+ * JS label mistaken for a property) are acceptable because the reader still gets legible,
+ * colour-cued code. ## Pipeline / data flow `CodeBlock.tsx` -> {@link highlight}(source, lang) ->
+ * {@link Token}[] -> one <span> per token whose className comes from {@link tokenClass}. The
+ * language tag on the fence is first funnelled through {@link canonicalLang} to collapse aliases
+ * (jsx/mjs -> "js", yml -> "yaml", …) down to the ten canonical keys this module actually
+ * implements. ## Two tokenizer families 1. Rule-driven scanners (JS/TS, Python, JSON, shell, CSS,
+ * SQL) share {@link tokenizeWith}, a tiny engine that walks the source left-to-right and, at each
+ * cursor position, tries an ordered list of sticky (`/y`) regex {@link Rule}s. The first rule that
+ * matches at the cursor wins; unmatched characters accrete into "plain" tokens. Because identifier
+ * and keyword shapes overlap, these scanners first tag every identifier as "keyword" and then run a
+ * post-pass ({@link refineIdentifiers} for JS/Python, inline loops for shell and SQL) that
+ * re-classifies each word into keyword/builtin/boolean/plain using the per-language word sets
+ * below. 2. Hand-written scanners (HTML, YAML, diff) bypass {@link tokenizeWith} because their
+ * structure is line- or multi-group-oriented rather than a flat token stream: HTML needs grouped
+ * tag/attribute matches, while YAML and diff are line-prefix driven. ## Ordering matters Within
+ * every {@link Rule} list the order encodes precedence: comments and strings come first so that
+ * keyword/number/operator patterns can never "reach into" a comment or a quoted literal. Likewise
+ * the JSON scanner lists the key-string rule (a string followed by `:` ) before the plain
+ * value-string rule so object keys get their own colour.
+ *
+ * ## Architectural boundary
+ * - Provides shared typed behavior or wire contracts consumed by multiple client screens and
+ *   components.
+ * - Keep functions deterministic and side effects explicit; central helpers amplify both correct
+ *   behavior and regressions.
+ * - Types mirroring server payloads must stay aligned with serializers, OpenAPI descriptions, and
+ *   WebSocket messages.
+ *
+ * ## Public surface
+ * - `_escapeRegex` (function alias) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `canonicalLang` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `highlight` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `Token` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `tokenClass` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TokenType` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `canonicalLang` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `escapeRegex` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `highlight` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `JS_BUILTINS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `JS_KEYWORDS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `JS_LITERALS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PY_BUILTINS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PY_KEYWORDS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PY_LITERALS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `refineIdentifiers` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Rule` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SH_BUILTINS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SH_KEYWORDS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Token` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tokenClass` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tokenizeCSS` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tokenizeDiff` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizeHTML` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizeHTMLAttrs` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `tokenizeJS` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tokenizeJSON` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizePython` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizeShell` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizeSQL` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tokenizeWith` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `tokenizeYAML` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TokenType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Preserve null, undefined, zero, and empty distinctions when they carry different server or
+ *   presentation meaning.
+ * - Do not mutate caller-owned collections in formatters, mergers, grouping helpers, or selectors.
+ * - Keep stable sorting and tie-breakers explicit so live updates do not reorder equal records
+ *   unpredictably.
+ * - Use exhaustive checks for discriminated unions when new providers, messages, or statuses can be
+ *   added.
+ * - Keep URL construction encoded and route through shared auth/source-scope behavior.
+ * - Return errors with enough context for the UI to explain the failed action without leaking
+ *   secrets.
+ * - Avoid browser globals at module evaluation time unless the module is deliberately browser-only
+ *   and tested as such.
+ * - Keep formatting locale-aware where the chosen UI language, not the browser default, owns the
+ *   output.
+ * - Document non-obvious thresholds, unit conversions, and compatibility fallbacks beside their
+ *   definitions.
+ * - Add table-driven tests for boundary values because library helpers often serve many visually
+ *   unrelated screens.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/lib/highlight.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

@@ -3,6 +3,138 @@
  * @description Unit tests for the colors module, which provides functions for styling console output with ANSI escape codes. The tests cover the stripAnsi function for removing ANSI codes from strings, the existence and functionality of various style functions (e.g., bold, red, bgBlue), and the composable styles like success, error, warn, info, muted, highlight, label, and accent. The tests also verify that the fg256 and bg256 functions return functions that correctly wrap text with the specified 256-color codes. The tests use Node's built-in test framework and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/__tests__/colors.test.ts
+ * **Area:** MCP test
+ * **Responsibility:**
+ * Unit tests for the colors module, which provides functions for styling console output with ANSI
+ * escape codes. The tests cover the stripAnsi function for removing ANSI codes from strings, the
+ * existence and functionality of various style functions (e.g., bold, red, bgBlue), and the
+ * composable styles like success, error, warn, info, muted, highlight, label, and accent. The tests
+ * also verify that the fg256 and bg256 functions return functions that correctly wrap text with the
+ * specified 256-color codes. The tests use Node's built-in test framework and assert module for
+ * assertions.
+ *
+ * ## Architectural boundary
+ * - Protects MCP schema, policy, API-client, formatting, lifecycle, or transport behavior using
+ *   Node's test runner.
+ * - Tests should exercise public contracts with realistic SDK and HTTP boundaries while keeping
+ *   external state local.
+ * - Fixtures must not contain usable credentials or depend on the operator's real dashboard
+ *   configuration.
+ *
+ * ## Local dependency edges
+ * - `../src/ui/colors.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `node:assert/strict` — external package boundary; keep usage within the installed version and
+ *   the repository's existing adapter patterns.
+ * - `node:test` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Named test contracts
+ * - `accent() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `bg256 returns a function that wraps text` — executable behavior named by this suite; preserve
+ *   the observable contract or update the test with rationale.
+ * - `colors` — executable behavior named by this suite; preserve the observable contract or update
+ *   the test with rationale.
+ * - `composable styles` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ * - `error() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `fg256 and bg256` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ * - `fg256 returns a function that wraps text` — executable behavior named by this suite; preserve
+ *   the observable contract or update the test with rationale.
+ * - `handles empty string` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `handles multiple escape sequences` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `highlight() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `info() wraps text` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ * - `label() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `muted() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `removes ANSI escape codes` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `returns plain text unchanged` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `stripAnsi` — executable behavior named by this suite; preserve the observable contract or
+ *   update the test with rationale.
+ * - `style functions exist and are callable` — executable behavior named by this suite; preserve
+ *   the observable contract or update the test with rationale.
+ * - `success() wraps text` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `warn() wraps text` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ *
+ * ## Area invariants
+ * - Name the exact protocol or policy contract in each test so a failure identifies the broken
+ *   boundary.
+ * - Use ephemeral ports, temporary directories, and isolated environment values for concurrent-safe
+ *   execution.
+ * - Restore process globals, environment variables, clocks, fetch stubs, and listeners after every
+ *   case.
+ * - Assert structured results and error shapes rather than only checking that a call throws.
+ * - Cover redaction and permission denial for every secret-bearing or state-changing path.
+ * - Avoid snapshotting unstable SDK internals when a focused schema or result assertion is clearer.
+ * - Test cleanup and idempotence because abandoned transports and timers can keep the process
+ *   alive.
+ * - Keep test doubles behaviorally faithful to the API client methods used by the subject.
+ * - Exercise malformed and boundary inputs at schema and direct-function layers where each owns
+ *   distinct validation.
+ * - Prove regression tests fail against the broken behavior before accepting a fix.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/__tests__/colors.test.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
  * =============================================================================

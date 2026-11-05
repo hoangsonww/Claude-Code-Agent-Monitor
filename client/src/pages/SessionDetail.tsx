@@ -4,6 +4,191 @@
  * cost details with real-time updates and an expandable agent hierarchy.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/pages/SessionDetail.tsx
+ * **Area:** client page
+ * **Responsibility:**
+ * Displays session agents, owner-aware task progress, events, and cost details with real-time
+ * updates and an expandable agent hierarchy.
+ *
+ * ## Architectural boundary
+ * - Route-level orchestration belongs here: load scoped data, subscribe to live updates, and
+ *   compose reusable components.
+ * - Server authority remains on the API side; the page may explain or confirm actions but must not
+ *   invent authorization rules.
+ * - The global data-source scope must flow through shared API helpers so local, all-source, and
+ *   selected-source views agree.
+ *
+ * ## Local dependency edges
+ * - `../components/AgentCard` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/conversation/ConversationView` — repository-local contract consumed by this
+ *   module; review its exports before changing assumptions here.
+ * - `../components/event-views/primitives` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../components/EventDetail` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/EventFilters` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/EventFiltersInfo` — repository-local contract consumed by this module; review
+ *   its exports before changing assumptions here.
+ * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../components/SessionOverview` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/Skeleton` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/StatusBadge` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/TodoProgressPanel` — repository-local contract consumed by this module; review
+ *   its exports before changing assumptions here.
+ * - `../components/workflows/WorkflowRunsPanel` — repository-local contract consumed by this
+ *   module; review its exports before changing assumptions here.
+ * - `../hooks/usePageShortcuts` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/appEvents` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/dataScope` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/event-grouping` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/format` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/remoteDataEvents` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `SessionDetail` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `DETAIL_TABS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `DetailTab` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EVENTS_INITIAL_BATCH` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EVENTS_MAX_REFRESH` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EVENTS_MORE_BATCH` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EVENTS_REFRESH_DEBOUNCE_MS` (variable) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `SessionDetail` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useDataScope` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useParams` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useUrlTab` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `sessions` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ * - `workflows` — visible copy resolves through this namespace; key and interpolation parity
+ *   applies to every supported locale.
+ *
+ * ## Area invariants
+ * - Represent loading, empty, partial, error, and refreshed states deliberately; a blank panel is
+ *   not an error strategy.
+ * - Cancel or ignore stale asynchronous work when parameters, source scope, or component lifetime
+ *   changes.
+ * - Merge WebSocket deltas without duplicating entities already returned by the REST snapshot.
+ * - Keep query parameters and route state shareable when the surrounding router already exposes
+ *   that state in URLs.
+ * - Use translation keys for visible copy and preserve interpolation tokens across every supported
+ *   locale.
+ * - Keep expensive derivations memoized only when profiling or dependency stability justifies the
+ *   extra contract.
+ * - Preserve keyboard focus and useful headings when switching tabs, filters, drawers, or modal
+ *   states.
+ * - Do not make destructive requests without the confirmation and server-side gate required by the
+ *   underlying API.
+ * - Use canonical formatting helpers for timestamps, durations, token counts, costs, and provider
+ *   labels.
+ * - Keep page-level polling and event subscriptions bounded; cleanup must run on unmount and scope
+ *   changes.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/pages/SessionDetail.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

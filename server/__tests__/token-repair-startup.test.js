@@ -157,9 +157,9 @@ async function runRepairNow() {
   } finally {
     global.setTimeout = realSetTimeout;
   }
-  for (const fn of pending) fn();
-  // Let the async body inside the timer settle.
-  await new Promise((resolve) => realSetTimeout(resolve, 250));
+  // Await the scheduled operation itself; a fixed sleep can race the marker
+  // and the next test on an overloaded host.
+  for (const fn of pending) await fn();
 }
 
 describe("startup token repair", () => {
@@ -173,6 +173,45 @@ describe("startup token repair", () => {
     }
   });
 
+  it("the owned deferred token snapshot preserves a trusted global count without recounting", async () => {
+    const {
+      ensureGlobalEventCount,
+      trustedGlobalEventCount,
+    } = require("../lib/global-event-count");
+    ensureGlobalEventCount(db);
+    const before = trustedGlobalEventCount(db);
+    assert.notEqual(before, null);
+    const prepare = db.prepare;
+    db.prepare = function (sql) {
+      assert.doesNotMatch(
+        sql,
+        /^SELECT COUNT\(\*\) AS count FROM events$/i,
+        "known token-only DDL must not trigger another full event scan"
+      );
+      return prepare.call(this, sql);
+    };
+    try {
+      await runRepairNow();
+    } finally {
+      db.prepare = prepare;
+    }
+    assert.notEqual(trustedGlobalEventCount(db), null);
+    assert.equal(
+      trustedGlobalEventCount(db),
+      db.prepare("SELECT COUNT(*) AS count FROM events").get().count
+    );
+  });
+  it("the owned token snapshot never blesses an already invalid schema history", async () => {
+    const {
+      ensureGlobalEventCount,
+      trustedGlobalEventCount,
+    } = require("../lib/global-event-count");
+    ensureGlobalEventCount(db);
+    db.exec("CREATE TABLE unrelated_counter_ddl(id);DROP TABLE unrelated_counter_ddl;");
+    assert.equal(trustedGlobalEventCount(db), null);
+    await runRepairNow();
+    assert.equal(trustedGlobalEventCount(db), null);
+  });
   it("heals an inflated session without the user running anything", async () => {
     const SID = "repair-auto-1";
     seedSession(SID);

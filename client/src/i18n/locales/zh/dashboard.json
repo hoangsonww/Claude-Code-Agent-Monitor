@@ -6,7 +6,7 @@
   "activeSubagents": "活跃Subagent",
   "eventsToday": "今日事件",
   "totalEvents": "总事件数",
-  "totalCost": "总费用",
+  "totalCost": "API 费用估算",
   "viewBoard": "查看看板",
   "viewAll": "查看全部",
   "activeAgentsSection": "活跃Agent",
@@ -22,5 +22,9 @@
   "tabs": {
     "monitor": "监控",
     "health": "健康状态"
-  }
+  },
+  "costEstimate": "API 等价费用估算，并非订阅扣费。",
+  "costScope": "来源：{{sources}} · 产品：{{providers}}",
+  "costIncomplete": "估算不完整：部分用量没有适用费率（{{models}}）。",
+  "reviewRates": "查看定价"
 }

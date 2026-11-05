@@ -2,7 +2,7 @@
   "title": "설정",
   "subtitle": "가격 정책, 알림, 데이터, hooks를 관리합니다",
   "exportData": "데이터 내보내기",
-  "acrossSessions": "추적된 모든 세션 기준",
+  "acrossSessions": "선택한 데이터 범위 내",
   "basedOnUsage": "모델별 토큰 사용량 기준",
   "tabby": {
     "title": "Tabby 도우미",
@@ -631,7 +631,8 @@
     "purgeData": "이 소스에서 가져온 세션도 삭제합니다 (되돌릴 수 없음)",
     "deleteAndPurge": "제거 + 데이터 삭제",
     "removeKeep": "제거 (데이터 유지)",
-    "remoteSourceBadgeTitle": "원격 머신에서 수집됨"
+    "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
+    "retryLastError": "재시도 중. 마지막 오류:"
   },
   "cursorPathsNote": "Cursor는 Claude Code 대시보드 범위에 포함됩니다. 로컬 기록은 ~/.cursor에서 자동 검색 및 스냅샷되며 Claude 전용 SSH 가져오기는 원격 Cursor 폴더를 동기화하지 않습니다."
 }

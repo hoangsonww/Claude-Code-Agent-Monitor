@@ -25,6 +25,302 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/pages/Run.tsx
+ * **Area:** client page
+ * **Responsibility:**
+ * Lets the user run Claude Code or Codex interactively from the dashboard. Claude supports
+ * conversation and one-shot modes; Codex uses its native app-server thread protocol for multi-turn
+ * conversation, tool events, interruption, and session resumption. - Conversation: multi-turn,
+ * follow-up input box appears once running. Optionally resumes an existing session via
+ * `claude --resume <id>` . - One-shot (headless): single prompt, single response, stdin closes.
+ * Output is rendered as a chat-style stream: user turns, assistant text (markdown), tool uses +
+ * their results (collapsible), and a footer banner with cost / duration / session deep-link once
+ * the run completes. Includes an Active Runs switcher in the header so the user can attach to any
+ * in-flight run (e.g. when they leave one running and start another). Wire-up: - POST /api/run
+ * starts; the response is the initial handle. - WebSocket "run_stream" pushes parsed stream-json
+ * envelopes from the spawned `claude` . WebSocket "run_status" pushes status transitions. - POST
+ * /api/run/:id/message sends follow-up turns. - DELETE /api/run/:id stops with SIGTERM. - GET
+ * /api/run/:id?envelopes=1 fetches in-memory history when attaching.
+ *
+ * ## Architectural boundary
+ * - Route-level orchestration belongs here: load scoped data, subscribe to live updates, and
+ *   compose reusable components.
+ * - Server authority remains on the API side; the page may explain or confirm actions but must not
+ *   invent authorization rules.
+ * - The global data-source scope must flow through shared API helpers so local, all-source, and
+ *   selected-source views agree.
+ *
+ * ## Local dependency edges
+ * - `../components/conversation/MarkdownContent` — repository-local contract consumed by this
+ *   module; review its exports before changing assumptions here.
+ * - `../components/Select` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../lib/types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-dom` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `Run` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `ActiveRunsSwitcher` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `AssistantMessage` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `AssistantTurn` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `AutocompleteState` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Avatar` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BUILTIN_SLASH_COMMANDS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexAssistantTurn` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexEventEnvelope` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexToolEvent` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `commandSourceLabel` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `commandSourceTone` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `computeTokens` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ConfigCard` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ConfigCardProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ContentBlock` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CwdAutocomplete` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `DEFAULT_CONTEXT_WINDOW` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `describeToolInput` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `detectAutocomplete` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EmptyStream` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Envelope` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EnvelopeRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `extractText` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Field` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FilterChipGroup` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `findAssistantByMessageId` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `findLastCodexAssistant` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `findLastStreamingAssistant` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `formatNum` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Header` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LIMITATIONS_MINIMIZED_KEY` (variable) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `LimitationsBanner` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `maybeExpandSlashCommand` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `mergeEnvelope` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ModeBadge` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MODEL_CUSTOM` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ModelPicker` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ModeOption` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `mutateAssistantAt` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `PromptEditor` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PromptEditorProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ProviderChooser` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ResultEnvelope` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ResultFooter` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Run` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunModeFilter` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunProviderToggle` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RunSession` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunSessionProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RunsModal` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunStatusFilter` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `scoreSlashMatch` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionPicker` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SlashCommand` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Stat` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `StatusPill` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `StreamEventEnvelope` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `StreamingAssistantBlock` (type) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `StreamingAssistantMessage` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `subsequenceMatch` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SystemInit` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ThinkingBlock` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `TokenMeter` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TokenStats` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ToolResultBlock` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolUseBlock` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `transcriptToEnvelopes` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `UnifiedRunRow` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `UnifiedRunRowView` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `UnknownTurn` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `UserMessage` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `UserTurn` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `useTypewriterEnvelopes` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useSearchParams` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useSyncExternalStore` — lifecycle/state dependency detected in this module; preserve
+ *   dependency freshness and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useTypewriterEnvelopes` — lifecycle/state dependency detected in this module; preserve
+ *   dependency freshness and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `common` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ * - `run` — visible copy resolves through this namespace; key and interpolation parity applies to
+ *   every supported locale.
+ *
+ * ## Area invariants
+ * - Represent loading, empty, partial, error, and refreshed states deliberately; a blank panel is
+ *   not an error strategy.
+ * - Cancel or ignore stale asynchronous work when parameters, source scope, or component lifetime
+ *   changes.
+ * - Merge WebSocket deltas without duplicating entities already returned by the REST snapshot.
+ * - Keep query parameters and route state shareable when the surrounding router already exposes
+ *   that state in URLs.
+ * - Use translation keys for visible copy and preserve interpolation tokens across every supported
+ *   locale.
+ * - Keep expensive derivations memoized only when profiling or dependency stability justifies the
+ *   extra contract.
+ * - Preserve keyboard focus and useful headings when switching tabs, filters, drawers, or modal
+ *   states.
+ * - Do not make destructive requests without the confirmation and server-side gate required by the
+ *   underlying API.
+ * - Use canonical formatting helpers for timestamps, durations, token counts, costs, and provider
+ *   labels.
+ * - Keep page-level polling and event subscriptions bounded; cleanup must run on unmount and scope
+ *   changes.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/pages/Run.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

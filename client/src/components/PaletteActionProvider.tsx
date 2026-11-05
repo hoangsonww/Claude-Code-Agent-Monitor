@@ -25,6 +25,146 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/PaletteActionProvider.tsx
+ * **Area:** client component
+ * **Responsibility:**
+ * Registry of the actions a mounted page offers to the command palette. This is not a keyboard
+ * layer. The dashboard binds exactly one chord — ⌘/Ctrl+K to open the palette (plus Tabby's
+ * pre-existing ⌘/Ctrl+B) — and everything else is reached by opening the palette and typing. What
+ * this provider does is let a page say "while I am on screen, these commands exist", so the palette
+ * can list page-specific work like *Pause the live stream* or *Copy this session's id*. ## Why it
+ * exists at all The palette originally listed a fixed set of quick actions on every page and wired
+ * them on none: "Show active sessions" navigated to /sessions and applied no filter. A launcher
+ * that offers commands it cannot run teaches you to stop trusting it. Registration inverts that —
+ * the palette reads {@link boundIds}, so an action whose page is not mounted is not offered at all,
+ * and it is impossible to ship a row that does nothing. ## Precedence `register` pushes onto a
+ * per-id stack, so the most recently mounted handler wins and unmounting restores the one beneath
+ * it. That is what lets every page register `page.refresh` under its own reload without any of them
+ * knowing about the others.
+ *
+ * ## Architectural boundary
+ * - This component should express one reusable UI responsibility through typed props and observable
+ *   callbacks.
+ * - Network orchestration belongs in pages, hooks, or the typed API client unless this component
+ *   explicitly owns the workflow.
+ * - Visual state must remain a projection of props and local interaction state rather than a second
+ *   server truth.
+ *
+ * ## Package dependency edges
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `PaletteActionHandler` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `PaletteActionProvider` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `usePaletteAction` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `usePaletteActions` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `noopUnregister` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PaletteActionContext` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `PaletteActionContextValue` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `PaletteActionHandler` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PaletteActionProvider` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `usePaletteAction` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `usePaletteActions` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useContext` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `usePaletteActions` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ *
+ * ## Area invariants
+ * - Keep prop meaning and callback timing stable; parent components often rely on both even when
+ *   types still compile.
+ * - Render valid semantic controls with accessible names, focus behavior, disabled states, and
+ *   keyboard operation.
+ * - Keep visible strings in the appropriate i18n namespace rather than embedding English-only
+ *   literals.
+ * - Use shared design tokens and existing primitives so light/dark styling and compact layouts
+ *   remain coherent.
+ * - Avoid mutating arrays or objects received through props; derived display data should be
+ *   computed immutably.
+ * - Make empty and unavailable values explicit instead of rendering misleading zeroes or
+ *   placeholder punctuation.
+ * - Keep event handlers narrow and prevent accidental bubbling only when the enclosing interaction
+ *   requires it.
+ * - Do not duplicate server validation or destructive gates as if client-side checks were
+ *   authoritative.
+ * - Preserve responsive behavior at narrow widths and avoid fixed dimensions that clip translated
+ *   copy.
+ * - Prefer stable keys derived from entity identity over array indexes for live, filtered, or
+ *   reordered collections.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/PaletteActionProvider.tsx`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

@@ -5205,7 +5205,7 @@ exports[`screen snapshots > Dashboard 1`] = `
             <span
               class="text-xs font-medium text-gray-500 uppercase tracking-wider truncate"
             >
-              Total Cost
+              API Cost Estimate
             </span>
             <svg
               class="lucide lucide-dollar-sign w-5 h-5 flex-shrink-0 text-emerald-400"
@@ -5244,6 +5244,22 @@ exports[`screen snapshots > Dashboard 1`] = `
             </span>
           </div>
         </div>
+      </div>
+      <div
+        class="text-xs text-gray-400 mb-4 space-y-1"
+      >
+        <p>
+          API-equivalent estimate, not subscription charges.
+        </p>
+        <p>
+          <a
+            class="text-accent hover:underline"
+            data-discover="true"
+            href="/settings#remote-sources"
+          >
+            Sources: All sources · Products: Claude Code
+          </a>
+        </p>
       </div>
       <div
         class="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 min-w-0 flex-1 min-h-0"
@@ -6912,10 +6928,10 @@ exports[`screen snapshots > Sessions 1`] = `
       </button>
     </div>
     <div
-      class="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full"
+      class="mb-6 flex w-full min-w-0 flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-2/40 p-2 xl:flex-nowrap"
     >
       <div
-        class="relative flex-1 min-w-[260px] max-w-[340px]"
+        class="relative max-w-[340px] min-w-[min(260px,100%)] flex-1"
       >
         <svg
           class="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
@@ -6991,10 +7007,10 @@ exports[`screen snapshots > Sessions 1`] = `
         </div>
       </div>
       <div
-        class="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]"
+        class="flex h-[38px] w-max max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-1.5"
       >
         <div
-          class="flex-1"
+          class="min-w-0"
         >
           <div
             class="relative"
@@ -7003,11 +7019,11 @@ exports[`screen snapshots > Sessions 1`] = `
               aria-controls="_r_1_"
               aria-expanded="false"
               aria-haspopup="listbox"
-              class="w-full flex items-center justify-between gap-2 bg-surface-2 border border-border rounded-md px-3 py-1.5 text-[11px] text-gray-100 focus:outline-none focus:border-accent/50 hover:bg-surface-3 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              class="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-gray-100 transition-colors hover:bg-surface-3 focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
             >
               <span
-                class="truncate"
+                class="min-w-0 truncate"
               >
                 Last active: newest
               </span>
@@ -7031,12 +7047,12 @@ exports[`screen snapshots > Sessions 1`] = `
           </div>
         </div>
         <div
-          class="w-px h-4 bg-border mx-1"
+          class="mx-1 h-4 w-px shrink-0 bg-border"
         />
         <button
           aria-label="Descending order"
           aria-pressed="true"
-          class="p-1.5 rounded hover:bg-surface-3 text-gray-400 hover:text-gray-200 transition-colors shrink-0"
+          class="shrink-0 rounded p-1.5 text-gray-400 transition-colors hover:bg-surface-3 hover:text-gray-200"
           title="Descending order"
           type="button"
         >
@@ -7775,13 +7791,29 @@ exports[`screen snapshots > Settings 1`] = `
           class="text-right text-xs text-gray-500"
         >
           <p>
-            Across all tracked sessions
+            Within the selected data scope
           </p>
           <p>
             Based on per-model token usage
           </p>
         </div>
       </div>
+    </div>
+    <div
+      class="text-xs text-gray-400 mb-4 space-y-1"
+    >
+      <p>
+        API-equivalent estimate, not subscription charges.
+      </p>
+      <p>
+        <a
+          class="text-accent hover:underline"
+          data-discover="true"
+          href="/settings#remote-sources"
+        >
+          Sources: All sources · Products: Claude Code
+        </a>
+      </p>
     </div>
     <section
       class="scroll-mt-24"

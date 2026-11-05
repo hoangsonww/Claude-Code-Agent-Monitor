@@ -5,6 +5,105 @@
  * stdio and HTTP protocol transports.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/transports/tool-collector.ts
+ * **Area:** MCP transport
+ * **Responsibility:**
+ * Collects the canonical MCP domain registrations for direct REPL invocation, preserving the same
+ * input schemas and policy guards used by stdio and HTTP protocol transports.
+ *
+ * ## Architectural boundary
+ * - Owns protocol lifecycle and connection-specific state while keeping tool semantics in the
+ *   shared registry.
+ * - Transport code must not write non-protocol data to stdio stdout or retain resources after
+ *   disconnect.
+ * - Authentication, origin, session, timeout, and graceful-shutdown behavior are explicit security
+ *   boundaries.
+ *
+ * ## Local dependency edges
+ * - `../clients/dashboard-api-client.js` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../config/app-config.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../core/logger.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../core/tool-registry.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../tools/index.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Public surface
+ * - `collectAllTools` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `collectAllTools` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Keep stdout reserved for JSON-RPC in stdio mode; diagnostic output belongs through the
+ *   configured logger.
+ * - Create and dispose per-client server/session resources exactly once across normal close and
+ *   error paths.
+ * - Bound request bodies, idle sessions, connection counts, and retained event streams.
+ * - Validate authentication before allocating expensive state or exposing tool metadata.
+ * - Preserve compatibility between streamable HTTP and supported legacy transport behavior where
+ *   documented.
+ * - Make shutdown idempotent so signals, host disappearance, and transport close cannot race
+ *   teardown.
+ * - Do not trust forwarded host/origin information unless the server configuration explicitly
+ *   enables that topology.
+ * - Keep health endpoints lightweight and independent of long-lived MCP session initialization.
+ * - Surface protocol errors in the shape expected by the SDK without leaking internal stacks or
+ *   secrets.
+ * - Test disconnect, expiration, duplicate close, authentication failure, and concurrent-session
+ *   isolation.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/transports/tool-collector.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================
