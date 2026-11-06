@@ -21,7 +21,11 @@ const {
 const { createTranscriptLineReader, writeSnapshot } = require("./snapshot-store");
 const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
-const { cursorStoreSnapshotPending, snapshotCursorStore } = require("./cursor-store-transcript");
+const {
+  compactLegacyCursorStores,
+  cursorStoreSnapshotPending,
+  snapshotCursorStore,
+} = require("./cursor-store-transcript");
 const { mergeCursorSessions, resolveCursorSessionId } = require("./cursor-session-identity");
 const { parseCursorMessage } = require("./cursor-transcript");
 
@@ -807,6 +811,10 @@ async function syncCursorSessions(dbModule, options = {}) {
 }
 
 async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
+  // Older releases copied every native store.db in full. Migrate a bounded
+  // batch even when Cursor already removed the live chat; live sessions below
+  // compact immediately as they are enriched.
+  compactLegacyCursorStores({ limit: 4 });
   const transcripts = discoverCursorTranscripts(options.root);
   const chatDirs = indexCursorChatDirs();
   const transcriptsBySession = new Map();

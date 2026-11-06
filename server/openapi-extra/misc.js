@@ -33,16 +33,36 @@ const tags = [];
 
 const SNAPSHOT_ROOT_SUMMARY = {
   type: "object",
-  required: ["path", "files", "bytes", "compressed_files", "compressed_bytes", "sessions"],
+  required: [
+    "path",
+    "files",
+    "bytes",
+    "transcript_files",
+    "compressed_files",
+    "compressed_bytes",
+    "database_files",
+    "database_bytes",
+    "compact_database_files",
+    "compression_supported",
+    "sessions",
+  ],
   properties: {
     path: { type: "string", description: "Absolute snapshot directory." },
     files: { type: "integer" },
     bytes: { type: "integer" },
+    transcript_files: { type: "integer", description: "Plain or gzip JSONL snapshots." },
     compressed_files: {
       type: "integer",
       description: "Files stored as verified `.jsonl.gz` (original transcript gone).",
     },
     compressed_bytes: { type: "integer" },
+    database_files: { type: "integer", description: "Cursor native-store snapshots." },
+    database_bytes: { type: "integer" },
+    compact_database_files: {
+      type: "integer",
+      description: "Cursor stores migrated to the current-root-only compact format.",
+    },
+    compression_supported: { type: "boolean" },
     sessions: { type: "integer" },
   },
 };

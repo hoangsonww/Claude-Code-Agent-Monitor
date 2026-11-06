@@ -311,6 +311,7 @@ describe("inventory and deletes", () => {
     fs.writeFileSync(path.join(root, "a.jsonl"), "a\n");
     fs.mkdirSync(path.join(root, "a", "subagents"), { recursive: true });
     fs.writeFileSync(path.join(root, "a", "subagents", "agent-1.jsonl"), "sub\n");
+    fs.writeFileSync(path.join(root, "a", "store.compact.db"), "db");
     fs.writeFileSync(path.join(root, "b.jsonl.gz"), zlib.gzipSync(Buffer.from("b\n")));
     store.writeTombstone(root, "z");
     fs.writeFileSync(path.join(root, ".a.jsonl.123.abcd.tmp"), "partial");
@@ -322,10 +323,13 @@ describe("inventory and deletes", () => {
       acc[f.sessionId] = (acc[f.sessionId] || 0) + 1;
       return acc;
     }, {});
-    assert.deepEqual(bySession, { a: 2, b: 1 });
+    assert.deepEqual(bySession, { a: 3, b: 1 });
     const summary = store.summarizeSnapshotRoot(root);
-    assert.equal(summary.files, 3);
+    assert.equal(summary.files, 4);
+    assert.equal(summary.transcript_files, 3);
     assert.equal(summary.compressed_files, 1);
+    assert.equal(summary.database_files, 1);
+    assert.equal(summary.compact_database_files, 1);
     assert.equal(summary.sessions, 2);
     assert.deepEqual(store.listTombstones(root), ["z"]);
   });
@@ -342,7 +346,7 @@ describe("inventory and deletes", () => {
   it("deletes one session's files and tombstone, nothing else", () => {
     store.writeTombstone(root, "a");
     const removed = store.deleteSessionSnapshots(root, "a");
-    assert.equal(removed.files, 2);
+    assert.equal(removed.files, 3);
     assert.equal(removed.failed, 0);
     assert.equal(fs.existsSync(path.join(root, "a.jsonl")), false);
     assert.equal(fs.existsSync(path.join(root, "a")), false);

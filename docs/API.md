@@ -376,8 +376,11 @@ user records are returned as one human turn. Cursor main sessions merge the
 ordered native `store.db` conversation, including tool calls/results and the
 concrete response model, with any replies available only in JSONL.
 `prompt_history.json` fills submitted prompts that neither durable source has
-recorded yet. JSONL and native `store.db` sources are snapshotted; prompt history is read from the
-live Cursor chat directory only. Messages carry stable `id` values, and an
+recorded yet. JSONL sources are snapshotted directly; native stores are reduced
+to a verified `store.compact.db` containing the current root and its referenced
+raw blobs. Existing full-database snapshots migrate automatically and are
+removed only after the compact copy reproduces the same conversation. Prompt
+history is read from the live Cursor chat directory only. Messages carry stable `id` values, and an
 incremental result with `refresh: true` is a latest window that clients merge by
 `id`. A Cursor `/resume` shell ID is also accepted here and resolves to the
 canonical conversation before the transcript is read. The response does not
@@ -1403,9 +1406,9 @@ whichever of the live file and the snapshot is more complete.
   "total_bytes": 734003200,
   "total_files": 1840,
   "roots": {
-    "claude": { "path": "/Users/me/.claude/agent-dashboard/transcripts", "files": 1702, "bytes": 692060160, "compressed_files": 1210, "compressed_bytes": 211812352, "sessions": 512 },
-    "codex": { "path": "/Users/me/.claude/agent-dashboard/codex-transcripts", "files": 96, "bytes": 31457280, "compressed_files": 0, "compressed_bytes": 0, "sessions": 96 },
-    "cursor": { "path": "/Users/me/.claude/agent-dashboard/cursor-transcripts", "files": 42, "bytes": 10485760, "compressed_files": 18, "compressed_bytes": 2097152, "sessions": 21 }
+    "claude": { "path": "/Users/me/.claude/agent-dashboard/transcripts", "files": 1702, "bytes": 692060160, "transcript_files": 1702, "compressed_files": 1210, "compressed_bytes": 211812352, "database_files": 0, "database_bytes": 0, "compact_database_files": 0, "compression_supported": true, "sessions": 512 },
+    "codex": { "path": "/Users/me/.claude/agent-dashboard/codex-transcripts", "files": 96, "bytes": 31457280, "transcript_files": 96, "compressed_files": 0, "compressed_bytes": 0, "database_files": 0, "database_bytes": 0, "compact_database_files": 0, "compression_supported": false, "sessions": 96 },
+    "cursor": { "path": "/Users/me/.claude/agent-dashboard/cursor-transcripts", "files": 42, "bytes": 10485760, "transcript_files": 21, "compressed_files": 18, "compressed_bytes": 2097152, "database_files": 21, "database_bytes": 3145728, "compact_database_files": 21, "compression_supported": true, "sessions": 21 }
   },
   "policy": { "compress": true, "max_age_days": null, "max_bytes": null }
 }
@@ -1416,6 +1419,10 @@ original is gone and that has been idle for 24 h — the same lossless pass the
 server runs every 6 h. Each archive is decompressed and matched (SHA-256 +
 length) before the plain file is removed; a provider whose source tree is
 missing or unreadable is reported in `skipped_roots` and left untouched.
+`compressed_files` is therefore a share of `transcript_files`, not every file
+in a provider root. Cursor `database_files` are compact current-root stores;
+`compact_database_files < database_files` means a verified legacy migration is
+still pending.
 
 `POST /api/settings/snapshots/prune` takes at least one of `max_age_days`,
 `max_bytes` (bytes or a size such as `"5GB"`), and `orphans: true`. It selects

@@ -212,31 +212,46 @@ vi.mock("../../lib/api", () => ({
 import { SnapshotStorage, formatStorageBytes } from "../SnapshotStorage";
 
 const storage: Storage = {
-  total_bytes: 3 * 1024 ** 3,
-  total_files: 12,
+  total_bytes: 3 * 1024 ** 3 + 4096,
+  total_files: 14,
   roots: {
     claude: {
       path: "/d/transcripts",
       files: 10,
       bytes: 2 * 1024 ** 3,
+      transcript_files: 10,
       compressed_files: 4,
       compressed_bytes: 1024,
+      database_files: 0,
+      database_bytes: 0,
+      compact_database_files: 0,
+      compression_supported: true,
       sessions: 5,
     },
     codex: {
       path: "/d/codex-transcripts",
       files: 2,
       bytes: 1024 ** 3,
+      transcript_files: 2,
       compressed_files: 0,
       compressed_bytes: 0,
+      database_files: 0,
+      database_bytes: 0,
+      compact_database_files: 0,
+      compression_supported: false,
       sessions: 2,
     },
     cursor: {
       path: "/d/cursor-transcripts",
-      files: 0,
-      bytes: 0,
+      files: 2,
+      bytes: 4096,
+      transcript_files: 0,
       compressed_files: 0,
       compressed_bytes: 0,
+      database_files: 2,
+      database_bytes: 4096,
+      compact_database_files: 2,
+      compression_supported: true,
       sessions: 0,
     },
   },
@@ -292,7 +307,9 @@ describe("SnapshotStorage", () => {
     expect(screen.getByText("3.00 GB")).toBeInTheDocument();
     expect(screen.getByText("Claude Code")).toBeInTheDocument();
     expect(screen.getByText("2.00 GB")).toBeInTheDocument();
-    expect(screen.getByText(/4 of 10 files compressed/)).toBeInTheDocument();
+    expect(screen.getByText(/4 of 10 transcript files compressed/)).toBeInTheDocument();
+    expect(screen.getByText("Kept plain for incremental ingestion")).toBeInTheDocument();
+    expect(screen.getByText("2 compact chat stores · 4.0 KB")).toBeInTheDocument();
     expect(
       screen.getByText(/Compression: on · Age cap: none · Size cap: none/)
     ).toBeInTheDocument();

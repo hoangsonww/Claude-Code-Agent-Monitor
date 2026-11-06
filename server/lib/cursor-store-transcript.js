@@ -7,12 +7,16 @@
 
 const fs = require("fs");
 const path = require("path");
-const { findCursorChatDir, getCursorSnapshotDir } = require("./cursor-home");
+const crypto = require("crypto");
+const { findCursorChatDir, getCursorSnapshotDir, isSafeCursorId } = require("./cursor-home");
 
 const TEXT_LIMIT = 10240;
 const MODEL_SUFFIX_MATCH_MIN_LENGTH = 16;
 const STORE_SNAPSHOT_RETRY_LIMIT = 5;
 const STORE_CACHE_LIMIT = 64;
+const LIVE_STORE_NAME = "store.db";
+const COMPACT_STORE_NAME = "store.compact.db";
+const COMPACT_STORE_VERSION = "1";
 const lastStoreSnapshot = new Map();
 const lastStoreSnapshotStamp = new Map();
 const pendingStoreSnapshots = new Map();
@@ -194,8 +198,12 @@ function mapStoreBlob(blob, blobId) {
 
 function readMeta(db) {
   const row = db.prepare("SELECT value FROM meta WHERE key = '0'").get();
-  if (!row?.value) return null;
-  const value = String(row.value);
+  return parseMetaValue(row?.value);
+}
+
+function parseMetaValue(raw) {
+  if (!raw) return null;
+  const value = String(raw);
   try {
     return JSON.parse(value);
   } catch {
@@ -203,6 +211,27 @@ function readMeta(db) {
       return JSON.parse(Buffer.from(value, "hex").toString("utf8"));
     } catch {
       return null;
+    }
+  }
+}
+
+/** Read the CCAM metadata carried only by compact Cursor store snapshots. */
+function readCompactStoreMetadata(dbPath) {
+  if (!fs.existsSync(dbPath)) return null;
+  let db;
+  try {
+    const Database = getStoreDatabase();
+    db = new Database(dbPath, { readonly: true, fileMustExist: true, timeout: 250 });
+    const rows = db.prepare("SELECT key, value FROM ccam_snapshot").all();
+    const metadata = Object.fromEntries(rows.map((row) => [row.key, String(row.value)]));
+    return metadata.format_version === COMPACT_STORE_VERSION ? metadata : null;
+  } catch {
+    return null;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // A partially migrated snapshot is simply retried later.
     }
   }
 }
@@ -263,11 +292,14 @@ function readCursorStoreFile(dbPath) {
 function cursorStorePaths(sessionIds) {
   const ids = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
   return ids
+    .filter(isSafeCursorId)
     .flatMap((sessionId) => {
       const liveDir = findCursorChatDir(sessionId);
+      const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
       return [
-        liveDir && path.join(liveDir, "store.db"),
-        path.join(getCursorSnapshotDir(), sessionId, "store.db"),
+        liveDir && path.join(liveDir, LIVE_STORE_NAME),
+        path.join(snapshotDir, COMPACT_STORE_NAME),
+        path.join(snapshotDir, LIVE_STORE_NAME),
       ];
     })
     .filter(Boolean)
@@ -319,14 +351,22 @@ function resolveCursorStoreModel(sessionIds, responseText = null) {
 }
 
 function cursorStoreSnapshotPending(sessionId) {
-  const entry = snapshotFailures.get(sessionId);
+  if (!isSafeCursorId(sessionId)) return false;
   if (pendingStoreSnapshots.has(sessionId)) return true;
-  if (!entry || entry.count <= 0) return false;
-  const source = cursorStorePaths(sessionId)[0];
-  const currentStamp = source ? cursorStoreStamp(source) : null;
-  return (
-    entry.count < STORE_SNAPSHOT_RETRY_LIMIT || (!!currentStamp && currentStamp !== entry.stamp)
-  );
+  const liveDir = findCursorChatDir(sessionId);
+  const live = liveDir && path.join(liveDir, LIVE_STORE_NAME);
+  const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
+  const compact = path.join(snapshotDir, COMPACT_STORE_NAME);
+  const legacy = path.join(snapshotDir, LIVE_STORE_NAME);
+  const source = live && fs.existsSync(live) ? live : fs.existsSync(legacy) ? legacy : null;
+  if (!source) return false;
+  const currentStamp = cursorStoreStamp(source);
+  if (!currentStamp) return false;
+  const metadata = readCompactStoreMetadata(compact);
+  const needsSnapshot = metadata?.source_stamp !== currentStamp || fs.existsSync(legacy);
+  if (!needsSnapshot) return false;
+  const failure = snapshotFailures.get(sessionId);
+  return !failure || failure.stamp !== currentStamp || failure.count < STORE_SNAPSHOT_RETRY_LIMIT;
 }
 
 function noteSnapshotFailure(sessionId, stamp) {
@@ -338,70 +378,213 @@ function noteSnapshotFailure(sessionId, stamp) {
   });
 }
 
-/** Create a consistent backup so conversation details survive Cursor cleanup. */
+function tempCompactStorePath(destination) {
+  return path.join(
+    path.dirname(destination),
+    `.${COMPACT_STORE_NAME}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`
+  );
+}
+
+function removeStoreFile(filePath) {
+  try {
+    fs.rmSync(filePath, { force: true, maxRetries: 4, retryDelay: 50 });
+    storeMessageCache.delete(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function messagesMatch(left, right) {
+  return JSON.stringify(left || null) === JSON.stringify(right || null);
+}
+
+/**
+ * Copy only Cursor's current root and the blobs it references into a compact
+ * SQLite database. Cursor stores obsolete content-addressed roots in the live
+ * database; retaining those unreachable blobs made a few dozen snapshots use
+ * gigabytes. The compact database keeps the exact raw current blobs, so the
+ * existing reader and future parsers lose no current-conversation detail.
+ */
+function writeCompactStore(source, destination, sourceStamp) {
+  const Database = getStoreDatabase();
+  const temp = tempCompactStorePath(destination);
+  let sourceDb;
+  let compactDb;
+  let expectedMessages = null;
+  try {
+    sourceDb = new Database(source, { readonly: true, fileMustExist: true, timeout: 250 });
+    const extracted = sourceDb.transaction(() => {
+      const metaRow = sourceDb.prepare("SELECT value FROM meta WHERE key = '0'").get();
+      const rootId = parseMetaValue(metaRow?.value)?.latestRootBlobId;
+      if (!metaRow?.value || typeof rootId !== "string" || !rootId) return null;
+      const load = sourceDb.prepare("SELECT data FROM blobs WHERE id = ?");
+      const rootRow = load.get(rootId);
+      if (!rootRow?.data) return null;
+      const rootData = Buffer.from(rootRow.data);
+      const ids = [...new Set(rootBlobIds(rootData))];
+      if (!ids.length) return null;
+      const blobs = [];
+      const messages = [];
+      for (const id of ids) {
+        const row = load.get(id);
+        if (!row?.data) continue;
+        const data = Buffer.from(row.data);
+        blobs.push({ id, data });
+        if (data[0] !== 0x7b) continue;
+        try {
+          const message = mapStoreBlob(JSON.parse(data.toString("utf8")), id);
+          if (message) messages.push(message);
+        } catch {
+          // Keep the raw blob even when a live write is not parseable yet.
+        }
+      }
+      return {
+        metaValue: metaRow.value,
+        rootId,
+        rootData,
+        blobs,
+        messages: messages.length ? messages : null,
+      };
+    })();
+    sourceDb.close();
+    sourceDb = null;
+    if (!extracted?.messages) return { ok: false, reason: "no-readable-messages" };
+    if (cursorStoreStamp(source) !== sourceStamp) {
+      return { ok: false, reason: "source-changed" };
+    }
+    expectedMessages = extracted.messages;
+
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    compactDb = new Database(temp);
+    compactDb.exec(
+      "PRAGMA journal_mode = DELETE; " +
+        "PRAGMA synchronous = FULL; " +
+        "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT); " +
+        "CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB); " +
+        "CREATE TABLE ccam_snapshot (key TEXT PRIMARY KEY, value TEXT)"
+    );
+    const insertBlob = compactDb.prepare("INSERT INTO blobs (id, data) VALUES (?, ?)");
+    compactDb.transaction(() => {
+      compactDb.prepare("INSERT INTO meta (key, value) VALUES ('0', ?)").run(extracted.metaValue);
+      insertBlob.run(extracted.rootId, extracted.rootData);
+      for (const blob of extracted.blobs) {
+        if (blob.id !== extracted.rootId) insertBlob.run(blob.id, blob.data);
+      }
+      compactDb
+        .prepare("INSERT INTO ccam_snapshot (key, value) VALUES (?, ?)")
+        .run("format_version", COMPACT_STORE_VERSION);
+      compactDb
+        .prepare("INSERT INTO ccam_snapshot (key, value) VALUES (?, ?)")
+        .run("source_stamp", sourceStamp);
+    })();
+    compactDb.exec("PRAGMA optimize");
+    compactDb.close();
+    compactDb = null;
+
+    storeMessageCache.delete(temp);
+    if (!messagesMatch(readCursorStoreFile(temp), expectedMessages)) {
+      return { ok: false, reason: "verify-failed" };
+    }
+    if (cursorStoreStamp(source) !== sourceStamp) {
+      return { ok: false, reason: "source-changed" };
+    }
+    fs.renameSync(temp, destination);
+    storeMessageCache.delete(temp);
+    storeMessageCache.delete(destination);
+    if (
+      readCompactStoreMetadata(destination)?.source_stamp !== sourceStamp ||
+      !messagesMatch(readCursorStoreFile(destination), expectedMessages)
+    ) {
+      return { ok: false, reason: "installed-verify-failed" };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: `error:${(err && err.code) || "unknown"}` };
+  } finally {
+    try {
+      sourceDb?.close();
+    } catch {
+      // Best effort around a live Cursor database.
+    }
+    try {
+      compactDb?.close();
+    } catch {
+      // Best effort around a failed compact snapshot.
+    }
+    removeStoreFile(temp);
+  }
+}
+
+/** Create a compact, verified backup so conversation details survive Cursor cleanup. */
 function snapshotCursorStore(sessionId) {
+  if (!isSafeCursorId(sessionId)) return false;
   const now = Date.now();
-  const source = cursorStorePaths(sessionId)[0];
-  if (!source || !fs.existsSync(source)) return false;
+  const liveDir = findCursorChatDir(sessionId);
+  const live = liveDir && path.join(liveDir, LIVE_STORE_NAME);
+  const destinationDir = path.join(getCursorSnapshotDir(), sessionId);
+  const destination = path.join(destinationDir, COMPACT_STORE_NAME);
+  const legacy = path.join(destinationDir, LIVE_STORE_NAME);
+  const source = live && fs.existsSync(live) ? live : fs.existsSync(legacy) ? legacy : null;
+  if (!source) return false;
   const stamp = cursorStoreStamp(source);
   if (!stamp) return false;
+  const metadata = readCompactStoreMetadata(destination);
+  if (metadata?.source_stamp === stamp && readCursorStoreFile(destination)) {
+    if (fs.existsSync(legacy)) removeStoreFile(legacy);
+    snapshotFailures.delete(sessionId);
+    pendingStoreSnapshots.delete(sessionId);
+    lastStoreSnapshotStamp.set(sessionId, stamp);
+    return false;
+  }
+  const failure = snapshotFailures.get(sessionId);
+  if (failure?.stamp === stamp && failure.count >= STORE_SNAPSHOT_RETRY_LIMIT) return false;
   if (now - (lastStoreSnapshot.get(sessionId) || 0) < 60_000) {
     if (lastStoreSnapshotStamp.get(sessionId) !== stamp) {
       pendingStoreSnapshots.set(sessionId, stamp);
     }
     return false;
   }
-  let db;
-  try {
-    const destinationDir = path.join(getCursorSnapshotDir(), sessionId);
-    fs.mkdirSync(destinationDir, { recursive: true });
-    const destination = path.join(destinationDir, "store.db");
-    lastStoreSnapshot.set(sessionId, now);
-    const Database = getStoreDatabase();
-    db = new Database(source, { readonly: true, fileMustExist: true, timeout: 250 });
-    if (typeof db.backup !== "function") {
-      throw new Error("The active SQLite driver does not support online backup");
-    }
-    const backup = db.backup(destination);
-    const close = () => {
-      try {
-        db.close();
-      } catch {
-        // Already closed.
-      }
-    };
-    if (backup && typeof backup.then === "function") {
-      backup.then(
-        () => {
-          snapshotFailures.delete(sessionId);
-          pendingStoreSnapshots.delete(sessionId);
-          lastStoreSnapshotStamp.set(sessionId, stamp);
-          close();
-        },
-        () => {
-          noteSnapshotFailure(sessionId, stamp);
-          close();
-        }
-      );
-    } else {
-      snapshotFailures.delete(sessionId);
-      pendingStoreSnapshots.delete(sessionId);
-      lastStoreSnapshotStamp.set(sessionId, stamp);
-      close();
-    }
-    return true;
-  } catch {
+  lastStoreSnapshot.set(sessionId, now);
+  const result = writeCompactStore(source, destination, stamp);
+  if (!result.ok) {
     noteSnapshotFailure(sessionId, stamp);
-    try {
-      db?.close();
-    } catch {
-      // Best effort around a live store.
-    }
     return false;
   }
+  snapshotFailures.delete(sessionId);
+  pendingStoreSnapshots.delete(sessionId);
+  lastStoreSnapshotStamp.set(sessionId, stamp);
+  if (fs.existsSync(legacy)) removeStoreFile(legacy);
+  return true;
+}
+
+/** Migrate legacy full-store snapshots even after Cursor removed the live chat. */
+function compactLegacyCursorStores({ limit = Infinity } = {}) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(getCursorSnapshotDir(), { withFileTypes: true });
+  } catch {
+    return { scanned: 0, compacted: 0, remaining: 0 };
+  }
+  const legacy = entries.filter(
+    (entry) =>
+      entry.isDirectory() &&
+      isSafeCursorId(entry.name) &&
+      fs.existsSync(path.join(getCursorSnapshotDir(), entry.name, LIVE_STORE_NAME))
+  );
+  const pending = legacy.filter((entry) => cursorStoreSnapshotPending(entry.name));
+  let scanned = 0;
+  let compacted = 0;
+  for (const entry of pending.slice(0, Math.max(0, limit))) {
+    scanned++;
+    if (snapshotCursorStore(entry.name)) compacted++;
+  }
+  return { scanned, compacted, remaining: Math.max(0, pending.length - scanned) };
 }
 
 module.exports = {
+  COMPACT_STORE_NAME,
+  compactLegacyCursorStores,
   cursorStoreSnapshotPending,
   cursorVisibleTexts,
   readCursorStoreFile,

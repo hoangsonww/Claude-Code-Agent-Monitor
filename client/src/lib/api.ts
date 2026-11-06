@@ -2618,6 +2618,8 @@ export interface SnapshotRootSummary {
    * size).
    */
   bytes: number;
+  /** Plain or gzip JSONL transcript files; database snapshots are excluded. */
+  transcript_files: number;
   /**
    * How many of `files` are lossless `.jsonl.gz` copies written by background compression. Always 0
    * for the Codex root, which is never compressed because its ingest cursors read it in place.
@@ -2625,6 +2627,14 @@ export interface SnapshotRootSummary {
   compressed_files: number;
   /** Bytes held by the compressed files alone - a subset of `bytes`. */
   compressed_bytes: number;
+  /** Cursor native-store snapshots (legacy full copies or compact current-root copies). */
+  database_files: number;
+  /** Bytes held by database snapshots alone. */
+  database_bytes: number;
+  /** Database snapshots already migrated to the compact current-root format. */
+  compact_database_files: number;
+  /** Whether this provider's transcript snapshots support background gzip compression. */
+  compression_supported: boolean;
   /** Distinct session ids that own at least one file in this root. */
   sessions: number;
 }
