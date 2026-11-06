@@ -12,7 +12,7 @@ Claude Code  →  hook fires  →  hook-handler.js  →  POST /api/hooks/event
 Browser  ←  WebSocket broadcast  ←  Express server  ←  SQLite
 ```
 
-No extra Claude Code configuration is required in the normal host-run path — when you start the dashboard with `npm run dev` or `npm start`, the server configures the hooks automatically on startup. Container deployments are the exception: after the container is up, run `npm run install-hooks` on the host so Claude Code points at `http://localhost:4820`.
+No extra Claude Code configuration is required in the normal host-run path — when you start the dashboard with `npm run dev` or `npm start`, the server configures the hooks automatically on startup. Container deployments are the exception: after the container is up, run `npm run install-hooks -- --both --dashboard-port 4820` on the host. The installer embeds that explicit target because the read-only container cannot publish a host-visible discovery entry.
 
 ---
 
@@ -48,7 +48,7 @@ npm run install-hooks
 ```
 
 > [!TIP]
-> Container note: do not rely on hook auto-install from inside Docker or Podman. The hook path written by a container would point at the container filesystem, not the host. Start the container first, then run `npm run install-hooks` on the host. As a safeguard (issue #193), the installer now **detects container execution and refuses to run** (exiting non-zero) so it can never poison a bind-mounted host `~/.claude`; the containerized server logs the same guidance instead of silently writing a bad path. If you genuinely run Claude Code inside the same container, override with `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.
+> Container note: do not rely on hook auto-install from inside Docker or Podman. The hook path written by a container would point at the container filesystem, not the host. Start the container first, then run `npm run install-hooks -- --both --dashboard-port 4820` on the host (replace `4820` for a custom published port). The flag persists the explicit target in each hook command. As a safeguard (issue #193), the installer now **detects container execution and refuses to run** (exiting non-zero) so it can never poison a bind-mounted host `~/.claude`; the containerized server logs the same guidance instead of silently writing a bad path. If you genuinely run Claude Code inside the same container, override with `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.
 
 > [!NOTE]
 > Prefer a ready-made dev environment? This repo ships an **optional** Dev Container (`.devcontainer/`) for VS Code / GitHub Codespaces — Node 24 LTS, native build tools for `better-sqlite3`, Python, and ports `4820`/`5173` preconfigured. It's purely opt-in and changes nothing for host-based development. See [`.devcontainer/README.md`](.devcontainer/README.md). (Hooks remain host-side there too.)
@@ -82,7 +82,7 @@ Container behavior:
 - the root filesystem is read-only, all capabilities are dropped, and `no-new-privileges` is enabled
 - Git, OpenSSH, and SQLite CLI are installed for updates, Remote Data Sources, backup, and restore
 - MCP HTTP/SSE requires `mcp-token`; Nginx blocks hooks, metrics, and MCP unless an explicit proxy policy is mounted
-- host hooks are still installed from the host with `npm run install-hooks`
+- host hooks are installed with `npm run install-hooks -- --both --dashboard-port 4820`, using the actual published host port
 
 For cloud deployment, Run Agent containers, remote hooks, Kubernetes, Terraform, backup, and restore, see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
@@ -91,7 +91,7 @@ For cloud deployment, Run Agent containers, remote hooks, Kubernetes, Terraform,
 | Variable | Default | Description |
 |---|---|---|
 | `DASHBOARD_PORT` | `4820` | Port the Express server listens on |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Port the hook handler uses when posting events to the dashboard |
+| `CLAUDE_DASHBOARD_PORT` | unset (discovery) | Explicit port override for the hook handler; the installer can persist it with `--dashboard-port N` |
 | `DASHBOARD_DB_PATH` | `data/dashboard.db` | Path to the SQLite database file |
 | `NODE_ENV` | `development` | Set to `production` to serve built client |
 | `CCAM_IMPORT_MAX_BYTES` | `1073741824` (1 GB) | Maximum size per uploaded file on `/api/import/upload` |
@@ -120,7 +120,7 @@ DASHBOARD_PORT=9000 npm run dev
 > [!NOTE]
 > You usually do **not** need to set `DASHBOARD_PORT` manually. `npm run dev` is wrapped by `scripts/dev.js`, which probes both `127.0.0.1` and `::1` (so an SSH `LocalForward` bound to one loopback can't slip past) and picks the first free port in `4820–4859` automatically. The chosen port is propagated to the Vite dev proxy via `DASHBOARD_PORT`, and the Express server writes it to `~/.claude/.agent-dashboard.json` so the Claude Code hook handler discovers it without any env var.
 >
-> Multiple dashboards can run side by side — for example `npm run dev` and the desktop app (macOS or Windows) at the same time. Each one appends its `{port, pid, startedAt}` entry to the discovery file, and `scripts/hook-handler.js` fan-outs every hook event to every live entry, so both UIs keep their real-time stream.
+> Multiple dashboards can run side by side — for example `npm run dev` and the desktop app (macOS or Windows) at the same time. Each one appends its `{port, pid, startedAt, dataDir, claudeHome}` entry to the discovery file, and `scripts/hook-handler.js` fans each hook event out to live entries for the same canonical Claude home, one target per database. Matching UIs keep their real-time stream without leaking events to dashboards monitoring another home.
 >
 > Setting `CLAUDE_DASHBOARD_PORT=N` overrides discovery entirely and forces the hook handler to a single port — useful for tests and container setups where the in-process discovery file isn't reachable from the host.
 >
@@ -275,7 +275,7 @@ This section covers the parts of running the desktop app that matter for setup.
 
 The chosen port is shown in the tray menu. The embedded server also honors the dashboard env vars in [Environment variables](#environment-variables) (`DASHBOARD_PORT` is set automatically by the desktop host).
 
-**Data directory.** The packaged app stores its SQLite database and VAPID keys in a per-user app-data directory — `~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%APPDATA%\Claude Code Monitor\data\` on Windows — **outside** the app bundle / install dir. The desktop host sets `DASHBOARD_DATA_DIR` to this per-user location automatically. Keeping writable state out of the bundle means a packaged, code-signed (and therefore read-only) `.app` never tries to write inside itself, and your imported history and events **survive app reinstalls and updates** (the Windows NSIS uninstaller keeps this data by default). (Older macOS builds kept the database inside the bundle, which broke History Import; after upgrading from a pre-fix build, re-run **Settings → Import History → Rescan** once to close the one-time data gap.)
+**Data directory.** With `CLAUDE_CONFIG_DIR`, new dashboard data defaults to machine-local app data — `~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%LOCALAPPDATA%\Claude Code Monitor\data\` on Windows, or `$XDG_DATA_HOME/claude-code-monitor/data` on Linux. An existing machine-local directory wins; otherwise an existing `<CLAUDE_HOME>/agent-dashboard` or `~/.claude/agent-dashboard` is reused, in that order, to preserve its database, snapshots, VAPID keys, and import marker. Without `CLAUDE_CONFIG_DIR`, the default remains `<Claude home>/agent-dashboard`. `DASHBOARD_DATA_DIR` can choose another local path. Never sync a live SQLite database or its WAL files. Packaged desktop builds save in-app home overrides to Electron `userData/.env` when they start their own server; an adopted server uses its own environment file. Desktop development continues to use the repository `.env`.
 
 **`claude` CLI resolution.** A Finder/Dock-launched macOS app inherits only launchd's minimal `PATH`, not your login-shell `PATH`. So the app can find and spawn the `claude` CLI for the "Run Claude" feature, the desktop host recovers your login-shell `PATH` at startup. (On Windows the process already inherits the user `PATH`, so no recovery is needed.) If "Run Claude" still reports that `claude` is not on `PATH`, make sure `claude` is a real executable on your shell `PATH` — a shell alias or function cannot be spawned.
 
@@ -631,11 +631,10 @@ proxy: {
 }
 ```
 
-And make sure Claude Code posts hooks to the new port:
+Reinstall the hooks with the new explicit port:
 
 ```bash
-CLAUDE_DASHBOARD_PORT=4821 claude
-# or edit scripts/hook-handler.js and change the default port
+npm run install-hooks -- --both --dashboard-port 4821
 ```
 
 ---
@@ -654,12 +653,12 @@ curl http://localhost:4820/api/health
 Hooks run on the host machine, not inside the container. After the container is up:
 
 ```bash
-npm run install-hooks
+npm run install-hooks -- --both --dashboard-port 4820
 ```
 
 **Check 3 — Are hooks pointing to the right port?**
 
-Open `~/.claude/settings.json` and verify the hook commands reference `localhost:4820` (or whatever port the container is mapped to). If you changed the port mapping, update hooks accordingly.
+Open `~/.claude/settings.json` (and `~/.codex/hooks.json` when selected) and verify the dashboard commands embed `CLAUDE_DASHBOARD_PORT='4820'`, or the actual host port you published. Re-run the installer with the correct `--dashboard-port` value after changing the mapping.
 
 ---
 

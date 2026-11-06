@@ -2,12 +2,12 @@
 
 /**
  * Claude Code hook handler.
- * Receives hook event JSON on stdin and forwards it to every live Agent
- * Dashboard server. Designed to fail silently so it never blocks Claude
- * Code, and to fan out across multiple dashboards that use **different**
- * SQLite data directories (e.g. the macOS desktop app alongside `npm run dev`
- * when each has its own DB). Servers sharing one database receive hooks through
- * a single ingest port so events are never duplicated.
+ * Receives hook event JSON on stdin and forwards it to live Agent Dashboard
+ * servers registered for the same resolved Claude home. Designed to fail
+ * silently so it never blocks Claude Code, and to fan out across matching
+ * dashboards that use **different** SQLite data directories. Servers sharing
+ * one database receive hooks through a single ingest port so events are never
+ * duplicated.
  *
  * Delivery is fire-and-forget: we exit as soon as the request body is on the
  * wire, WITHOUT waiting for the dashboard's HTTP response. The hook only needs
@@ -24,16 +24,16 @@ const { sendHook } = require("./hook-transport");
 const hookType = process.argv[2] || "unknown";
 
 /**
- * Resolve every live dashboard server's port via the discovery file. Falls
- * back to the `CLAUDE_DASHBOARD_PORT` override or the conventional 4820 if
- * the discovery module can't load for any reason. Never throws.
+ * Resolve eligible dashboard ports via the discovery file. If the discovery
+ * module cannot load, only an explicit `CLAUDE_DASHBOARD_PORT` remains safe;
+ * an unverified conventional port could belong to another Claude home.
  */
 function resolvePorts() {
   try {
     return require("../server/lib/server-info").resolveHookIngestPorts();
   } catch {
     const envPort = parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
-    return [Number.isInteger(envPort) && envPort > 0 ? envPort : 4820];
+    return Number.isInteger(envPort) && envPort > 0 ? [envPort] : [];
   }
 }
 

@@ -90,7 +90,7 @@ async function pickPort() {
     );
     // If the thing on the conventional port is itself a healthy dashboard, this
     // dev server will run alongside it on the SAME shared database. Claude Code
-    // hooks fan out to every live dashboard, so each live event would be written
+    // hooks fan out to every matching live dashboard, so each live event would be written
     // twice — inflating counts. Warn so the developer can stop the other one.
     if (await healthyDashboardOn(START)) {
       console.log(

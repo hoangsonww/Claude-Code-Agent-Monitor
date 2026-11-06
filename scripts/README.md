@@ -15,9 +15,9 @@ Node (and one Python) utilities for development, hook delivery, data management,
 
 | Script                    | npm script              | Purpose |
 | ------------------------- | ----------------------- | ------- |
-| `install-hooks.js`        | `npm run install-hooks` | Writes the dashboard's hook entries into Claude Code `settings.json`, and optionally the Codex hook set. Pass `--claude`, `--codex`, or `--both` to skip the interactive chooser. |
+| `install-hooks.js`        | `npm run install-hooks` | Writes the dashboard's hook entries into Claude Code `settings.json`, and optionally the Codex hook set. Pass `--claude`, `--codex`, or `--both` to skip the interactive chooser; `--dashboard-port N` embeds a verified explicit hook target for host hooks feeding a container. |
 | `install-codex-hooks.js`  | —                       | Installs the supported Codex lifecycle hooks into `~/.codex/hooks.json` without touching unrelated user hooks. |
-| `hook-handler.js`         | invoked by Claude Code  | Reads hook JSON from stdin and forwards it to every live dashboard. Fire-and-forget and fail-silent — it must never block Claude Code. |
+| `hook-handler.js`         | invoked by Claude Code  | Reads hook JSON from stdin and forwards it to live dashboards for the same resolved Claude home. Fire-and-forget and fail-silent — it must never block Claude Code. |
 | `codex-hook-handler.js`   | invoked by Codex        | Same contract for Codex lifecycle hooks. |
 | `hook-transport.js`       | (library)               | Shared fail-safe transport: loopback fan-out by default, opt-in HTTPS remote dashboard via `CCAM_DASHBOARD_URL` plus `CCAM_HOOK_TOKEN` / `CCAM_HOOK_TOKEN_FILE`. |
 

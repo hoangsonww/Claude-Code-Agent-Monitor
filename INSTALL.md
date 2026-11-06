@@ -63,7 +63,7 @@ This starts two processes concurrently:
 Open **http://localhost:5173** in your browser.
 
 > [!TIP]
-> When you run the dashboard directly on the host with `npm run dev` or `npm start`, the server automatically writes the Claude Code hook configuration to `~/.claude/settings.json`. If you run the dashboard in Docker or Podman, install hooks from the host with `npm run install-hooks` after the container is up.
+> When you run the dashboard directly on the host with `npm run dev` or `npm start`, the server automatically writes the Claude Code hook configuration to `~/.claude/settings.json`. If you run the dashboard in Docker or Podman, install hooks from the host with `npm run install-hooks -- --both --dashboard-port 4820` after the container is up. Replace `4820` if you publish a different host port.
 
 ---
 
@@ -421,7 +421,10 @@ read-only at `/home/node/.claude` and `/home/node/.codex`. Named volumes retain
 SQLite and dashboard-owned config.
 
 > [!IMPORTANT]
-> Install hooks on the host. For remote cloud hooks, use
+> Install hooks on the host with
+> `npm run install-hooks -- --both --dashboard-port 4820`; the explicit target
+> is required because the read-only container cannot publish a host-visible
+> discovery entry. For remote cloud hooks, use
 > `CCAM_DASHBOARD_URL=https://...` and `CCAM_HOOK_TOKEN`; non-loopback targets
 > require HTTPS. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the full stack,
 > Kubernetes, Terraform, backup, restore, and rollback.

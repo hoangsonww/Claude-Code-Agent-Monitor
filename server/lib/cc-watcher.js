@@ -1,8 +1,9 @@
 /**
  * @file cc-watcher.js
  * @description Best-effort file watcher for the Claude Code config surfaces
- * surfaced by the Config Explorer page. Watches ~/.claude/ recursively (if
- * the platform supports it) plus ~/.claude.json and emits a debounced
+ * surfaced by the Config Explorer page. Watches the resolved Claude home
+ * recursively (if the platform supports it) plus the relocated .claude.json
+ * file and emits a debounced
  * `cc_config_changed` over the dashboard websocket so the UI can refetch
  * without polling.
  *
@@ -21,8 +22,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
-const { getClaudeHome } = require("./claude-home");
+const { getClaudeHome, getClaudeJsonPath } = require("./claude-home");
 
 const DEBOUNCE_MS = 500;
 
@@ -187,8 +187,7 @@ function startCcWatcher({ broadcast }) {
   installWatchCrashGuard();
   const home = getClaudeHome();
   safeWatchHome({ home, broadcast });
-  // ~/.claude.json sits beside ~/.claude/, not inside it.
-  safeWatchFile({ target: path.join(os.homedir(), ".claude.json"), broadcast });
+  safeWatchFile({ target: getClaudeJsonPath(), broadcast });
 }
 
 function stopCcWatcher() {

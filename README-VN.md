@@ -385,7 +385,9 @@ npm run setup
 npm run install-hooks
 ```
 
-Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Theo mặc định, hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+
+Thư mục Claude được xác định theo `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, nên hook và bản ghi hội thoại dùng thư mục đã di chuyển. Khi đặt `CLAUDE_CONFIG_DIR`, Cấu hình Agent đọc `$CLAUDE_CONFIG_DIR/.claude.json`. Tệp khám phá dùng thư mục ứng dụng cục bộ khi thư mục Claude được di chuyển. Với dữ liệu dashboard, thư mục cục bộ hiện có được ưu tiên; nếu không, thư mục `<CLAUDE_HOME>/agent-dashboard` hoặc `~/.claude/agent-dashboard` hiện có được tái sử dụng theo thứ tự đó, còn dữ liệu mới dùng thư mục ứng dụng cục bộ. `DASHBOARD_DATA_DIR` có thể chọn đường dẫn cục bộ khác. `CCAM_NO_AUTO_HOOKS=1` bỏ qua cài hook tự động lúc khởi động và giữ nguyên các mục hook cũ; cài thủ công vẫn hoạt động, còn mục cũ bị thiếu trình xử lý cần được cài lại hoặc xóa. Đường dẫn hook do phiên bản hiện tại cài sẽ thoát im lặng và được báo là chưa cài nếu trình xử lý biến mất. Desktop đã đóng gói lưu đường dẫn Claude ghi đè trong `userData/.env` của Electron khi tự khởi động máy chủ; nếu dùng máy chủ có sẵn, nó dùng tệp môi trường của máy chủ đó. Chế độ phát triển tiếp tục dùng `.env` trong kho mã.
 
 Trong lần khởi chạy đầu tiên, CCAM chỉ kiểm tra những nhà cung cấp đã chọn cho phạm vi dữ liệu hiện tại và đề nghị cài hook còn thiếu. Nếu kiểm tra mức sẵn sàng thất bại, ứng dụng chuyển sang thiết lập thủ công thay vì chặn dashboard.
 
@@ -479,7 +481,7 @@ npm run docker:full:up
 Mọi cổng host mặc định chỉ bind vào loopback: dashboard `4820`, MCP `8819`, Nginx `8080`, Prometheus `9090` và Grafana `3000`. Thư mục Claude và Codex được mount chỉ đọc; named volume lưu bền SQLite và cấu hình do dashboard sở hữu. Nginx proxy UI, REST API có xác thực và WebSocket, còn hook, metrics và MCP bị chặn ở edge trừ khi được bật rõ ràng. Docker target `agent-runtime` tùy chọn bổ sung Claude Code và Codex CLI được ghim phiên bản cho quy trình Run Agent gốc trong container.
 
 > [!IMPORTANT]
-> Cài hook Claude Code/Codex trên host sau khi container khởi động. Với hook đám mây từ xa, đặt `CCAM_DASHBOARD_URL=https://...` và một `CCAM_HOOK_TOKEN` riêng; URL hook không phải loopback bắt buộc dùng HTTPS. Xem [DEPLOYMENT.md](DEPLOYMENT.md).
+> Sau khi container khởi động, cài hook Claude Code/Codex trên host bằng `npm run install-hooks -- --both --dashboard-port 4820` (thay `4820` nếu publish một cổng host khác). Trình cài đặt nhúng đích đã xác minh này vì container chỉ đọc không thể publish mục discovery mà host nhìn thấy. Người dùng Compose hiện tại nên chạy lại lệnh này một lần sau khi nâng cấp để các mục hook do dashboard sở hữu trước đây nhận đích tường minh. Với hook đám mây từ xa, đặt `CCAM_DASHBOARD_URL=https://...` và một `CCAM_HOOK_TOKEN` riêng; URL hook không phải loopback bắt buộc dùng HTTPS. Xem [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -514,7 +516,7 @@ sequenceDiagram
 ### Vòng đời hook
 
 1. **Claude Code** phát hook cho phiên, lời nhắc, công cụ, thông báo, Subagent, lượt và thoát.
-2. **`scripts/hook-handler.js`** đọc từng sự kiện từ stdin và phát hiện dashboard đang chạy qua `~/.claude/.agent-dashboard.json` hoặc `CLAUDE_DASHBOARD_PORT`. Trình xử lý gửi một lần cho mỗi thư mục dữ liệu SQLite duy nhất, chọn cổng thấp nhất cho listener trùng lặp nhưng vẫn cấp dữ liệu cho dashboard dùng cơ sở dữ liệu riêng. Mỗi đích được cô lập để gửi an toàn khi lỗi, và trình xử lý thoát trong 5 giây.
+2. **`scripts/hook-handler.js`** đọc từng sự kiện từ stdin và chọn `CCAM_DASHBOARD_URL` trước, sau đó là `CLAUDE_DASHBOARD_PORT` tường minh, rồi mới đến dashboard đang chạy trong tệp đăng ký `.agent-dashboard.json` cục bộ. Khi `CLAUDE_HOME` hoặc `CLAUDE_CONFIG_DIR` di chuyển thư mục Claude, tệp đăng ký nằm trong thư mục ứng dụng cục bộ; với thư mục mặc định, nó nằm dưới `~/.claude`. Trình xử lý lọc theo thư mục Claude chuẩn hóa rồi gửi một lần cho mỗi thư mục dữ liệu SQLite duy nhất, chọn cổng thấp nhất cho listener trùng lặp nhưng vẫn cấp dữ liệu cho dashboard có thư mục Claude khớp và dùng cơ sở dữ liệu riêng. Mỗi đích được cô lập để gửi an toàn khi lỗi, và trình xử lý thoát trong 2,5 giây.
 3. **Máy chủ** commit sự kiện và trạng thái liên quan trong một giao dịch SQLite:
    - Lần liên hệ đầu tạo phiên và Agent chính. `SessionStart` bắt đầu ở trạng thái **Đang chờ**; `UserPromptSubmit` hoặc `PreToolUse` chuyển sang **Đang làm việc**; `PostToolUse` giữ trạng thái làm việc.
    - `Stop` đưa Agent chính về **Đang chờ** trong khi Agent nền tiếp tục. `stop_reason=error` đánh dấu Agent và phiên là **Lỗi**. Thông báo quyền cũng chờ input; chỉ lời nhắc mới hoặc lúc bắt đầu công cụ mới khôi phục lỗi.
@@ -615,7 +617,7 @@ flowchart LR
 | Biến môi trường | Mặc định | Mục đích |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Cổng máy chủ Express. |
-| `CLAUDE_DASHBOARD_PORT` | `4820` | Cổng trình xử lý hook sử dụng. |
+| `CLAUDE_DASHBOARD_PORT` | chưa đặt (discovery) | Ghi đè cổng tường minh cho trình xử lý hook; lưu bền khi cài đặt bằng `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Dùng `production` để phục vụ client đã build. |
 | `DASHBOARD_UPDATE_CHECK` | bật | Đặt `0`, `false` hoặc `off` để tắt kiểm tra upstream theo lịch. |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` | Khoảng thời gian cập nhật, tối thiểu 60,000 ms. **Check now** thủ công vẫn dùng được. |

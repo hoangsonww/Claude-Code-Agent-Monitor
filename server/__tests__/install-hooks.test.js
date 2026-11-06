@@ -1,9 +1,8 @@
 /**
- * @file Tests the host-only guard in scripts/install-hooks.js (issue #193):
- * the installer must refuse to write a container-internal handler path into a
- * (possibly bind-mounted) host ~/.claude/settings.json. Container detection is
- * driven deterministically via CCAM_FORCE_CONTAINER / CCAM_FORCE_HOST so these
- * tests pass whether or not the CI runner itself is containerized.
+ * @file Tests hook installation safety and targeting: the host-only guard must
+ * reject container-internal handler paths, provider entries remain idempotent,
+ * and an explicit Compose port is embedded for both Claude and Codex. Container
+ * detection uses deterministic force flags so the suite is environment-neutral.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -12,6 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { execFileSync, spawnSync } = require("node:child_process");
 
 // Point the installer at a throwaway CLAUDE_HOME. (`node --test` isolates each
 // test file in its own process, so this does not leak into other suites.)
@@ -49,6 +49,7 @@ function clearEnv() {
   delete process.env.CCAM_FORCE_CONTAINER;
   delete process.env.CCAM_FORCE_HOST;
   delete process.env.CCAM_ALLOW_CONTAINER_HOOKS;
+  delete process.env.CCAM_NO_AUTO_HOOKS;
 }
 
 function rmSettings() {
@@ -88,10 +89,16 @@ describe("install-hooks host-only guard (#193)", () => {
     process.env.CCAM_FORCE_CONTAINER = "1";
     const ok = installHooks(true);
     assert.equal(ok, false);
+    assert.equal(installCodexHooks({ silent: true }).ok, false);
     assert.equal(
       fs.existsSync(SETTINGS),
       false,
       "settings.json must not be created in a container"
+    );
+    assert.equal(
+      fs.existsSync(CODEX_HOOKS),
+      false,
+      "hooks.json must not be created in a container"
     );
   });
 
@@ -100,7 +107,9 @@ describe("install-hooks host-only guard (#193)", () => {
     process.env.CCAM_ALLOW_CONTAINER_HOOKS = "1";
     const ok = installHooks(true);
     assert.equal(ok, true);
+    assert.equal(installCodexHooks({ silent: true }).ok, true);
     assert.ok(fs.existsSync(SETTINGS));
+    assert.ok(fs.existsSync(CODEX_HOOKS));
     const settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
     for (const type of HOOK_TYPES) {
       assert.ok(Array.isArray(settings.hooks[type]), `missing hook list for ${type}`);
@@ -113,6 +122,71 @@ describe("install-hooks host-only guard (#193)", () => {
     const ok = installHooks(true);
     assert.equal(ok, true);
     assert.ok(fs.existsSync(SETTINGS));
+  });
+
+  it("skips only automatic installation when opted out", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    process.env.CCAM_NO_AUTO_HOOKS = "1";
+    assert.equal(installHooks(true, { automatic: true }), false);
+    assert.equal(fs.existsSync(SETTINGS), false);
+    assert.equal(installHooks(true), true);
+    assert.equal(fs.existsSync(SETTINGS), true);
+  });
+
+  it("returns silently when a synced hook points at a missing portable handler", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    installHooks(true);
+    const command = JSON.parse(fs.readFileSync(SETTINGS, "utf8")).hooks.SessionStart[0].hooks[0]
+      .command;
+    const missing = path.join(TMP_HOME, "removed", "hook-handler.js").replace(/\\/g, "/");
+    const match = command.match(/-e "([^"]+)" "([^"]+)" (\w+)$/);
+    assert.ok(match, "installed hook must pass its handler as an argument");
+    assert.equal(
+      execFileSync(process.execPath, ["-e", match[1], missing, match[3]], {
+        input: "{}",
+        encoding: "utf8",
+      }),
+      ""
+    );
+    const settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
+    settings.hooks.SessionStart[0].hooks[0].command = command.replace(match[2], missing);
+    fs.writeFileSync(SETTINGS, JSON.stringify(settings));
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, false);
+    assert.equal(getClaudeHookStatus().has_dashboard_hooks, true);
+    installHooks(true);
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, true);
+  });
+
+  it("keeps missing Codex handlers fail-safe with and without an explicit port", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    const missing = path.join(TMP_HOME, "removed", "codex-hook-handler.js").replace(/\\/g, "/");
+
+    for (const dashboardPort of [null, 4820]) {
+      assert.equal(installCodexHooks({ silent: true, dashboardPort }).ok, true);
+      const command = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8")).hooks.SessionStart[0]
+        .hooks[0].command;
+      const match = command.match(/-e "([^"]+)" "([^"]+)" (\w+)$/);
+      assert.ok(match, "installed Codex hook must pass its handler as an argument");
+      assert.equal(
+        execFileSync(process.execPath, ["-e", match[1], missing, match[3]], {
+          input: "{}",
+          encoding: "utf8",
+        }),
+        ""
+      );
+    }
+
+    const config = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8"));
+    const command = config.hooks.SessionStart[0].hooks[0].command;
+    const installedHandler = command.match(/"([^"]*codex-hook-handler\.js)"/)?.[1];
+    assert.ok(installedHandler);
+    config.hooks.SessionStart[0].hooks[0].command = command.replace(installedHandler, missing);
+    fs.writeFileSync(CODEX_HOOKS, JSON.stringify(config));
+    assert.equal(getCodexHookStatus().hooks.SessionStart, false);
+    assert.equal(getCodexHookStatus().installed, false);
+    assert.equal(getCodexHookStatus().has_dashboard_hooks, true);
+    assert.equal(installCodexHooks({ silent: true }).ok, true);
+    assert.equal(getCodexHookStatus().hooks.SessionStart, true);
   });
 
   it("is idempotent — re-running updates in place with no duplicate entries", () => {
@@ -193,6 +267,53 @@ describe("install-hooks host-only guard (#193)", () => {
         JSON.stringify(entry).includes("codex-hook-handler.js")
       );
       assert.equal(ours.length, 1, `${type} should contain one dashboard hook`);
+    }
+  });
+
+  it("embeds an explicit dashboard port for host hooks targeting a container", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    assert.equal(installHooks(true, { dashboardPort: 4820 }), true);
+    assert.equal(installCodexHooks({ silent: true, dashboardPort: 4820 }).ok, true);
+
+    const claude = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
+    const codex = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8"));
+    const expected = "process.env.CLAUDE_DASHBOARD_PORT='4820'";
+    assert.match(claude.hooks.SessionStart[0].hooks[0].command, new RegExp(expected));
+    assert.match(codex.hooks.SessionStart[0].hooks[0].command, new RegExp(expected));
+  });
+
+  it("rejects invalid embedded ports before writing either provider config", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    assert.throws(
+      () => installHooks(true, { dashboardPort: "4820;touch /tmp/unsafe" }),
+      /integer between 1 and 65535/
+    );
+    assert.throws(
+      () => installCodexHooks({ silent: true, dashboardPort: 65536 }),
+      /integer between 1 and 65535/
+    );
+    assert.equal(fs.existsSync(SETTINGS), false);
+    assert.equal(fs.existsSync(CODEX_HOOKS), false);
+  });
+
+  it("rejects explicitly empty dashboard-port CLI values before writing", () => {
+    const script = path.resolve(__dirname, "../../scripts/install-hooks.js");
+    const env = {
+      ...process.env,
+      CCAM_FORCE_HOST: "1",
+      CLAUDE_HOME: TMP_HOME,
+      DASHBOARD_CODEX_HOME: CODEX_HOME,
+    };
+
+    for (const args of [
+      ["--both", "--dashboard-port="],
+      ["--both", "--dashboard-port", ""],
+    ]) {
+      const result = spawnSync(process.execPath, [script, ...args], { env, encoding: "utf8" });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /integer between 1 and 65535/);
+      assert.equal(fs.existsSync(SETTINGS), false);
+      assert.equal(fs.existsSync(CODEX_HOOKS), false);
     }
   });
 });

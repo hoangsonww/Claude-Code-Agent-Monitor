@@ -158,6 +158,9 @@ graph TB
 ```bash
 # Install hooks
 npm run install-hooks
+
+# Host hooks feeding the default Compose port (persists the explicit target)
+npm run install-hooks -- --both --dashboard-port 4820
 ```
 
 The installer is interactive: use arrow keys, <kbd>Space</kbd>, then <kbd>Enter</kbd> to select Claude Code, Codex (beta), or both. It starts with Claude Code selected. Existing dashboard hook entries are detected and warned about before replacement; unrelated entries remain untouched. The same multi-select is available from **Settings → Hook Configuration → Install hooks**.
@@ -167,6 +170,27 @@ On a browser's first dashboard visit, select the provider data to display and th
 > [!IMPORTANT]
 > **Hooks are a host-side step.** Claude Code runs on your host, so the hook
 > command must reference a `hook-handler.js` path that exists on the **host**.
+> Compose mounts the Claude home read-only, so it cannot publish a discovery
+> entry the host can trust. Use `--dashboard-port` when installing host hooks;
+> replace `4820` if the container is published on another host port.
+> Existing Compose installations should rerun the command once after upgrading;
+> the installer updates only this dashboard's hook entries in place.
+
+The Claude home resolves from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then
+`~/.claude`. When either variable relocates Claude home, server discovery uses
+machine-local app data so synced settings cannot mix ports and PIDs from different machines.
+Startup installation can be disabled with `CCAM_NO_AUTO_HOOKS=1`; an explicit
+`npm run install-hooks` or in-app installation still works. The opt-out leaves
+legacy entries unchanged, so reinstall or remove an entry whose old handler is
+missing. Commands installed by the current installer check for their handler
+before loading it, so a stale path in a synced `settings.json` or a portable
+build exits successfully without disrupting Claude Code. Hook status reports a
+missing current-format handler as not installed so setup can repair the entry.
+For monitoring on each machine, install hooks from that
+machine's current dashboard build. New dashboard data defaults to machine-local
+app data with `CLAUDE_CONFIG_DIR`; an existing custom Claude home data directory
+or `~/.claude/agent-dashboard` is reused if machine-local data does not yet
+exist. SQLite and its WAL files must not be synced.
 
 ### Remote and cloud hook delivery
 
@@ -255,8 +279,9 @@ implementation notes.
 > Run `npm run install-hooks` on the host — never inside a container. When run
 > inside Docker/Podman, the installer **refuses** and exits non-zero (issue
 > #193): a container-internal path written into a bind-mounted `~/.claude` would
-> break every host hook with `MODULE_NOT_FOUND`. The host handler POSTs to
-> `http://localhost:4820`, which a containerized dashboard already publishes.
+> break every host hook with `MODULE_NOT_FOUND`. Install with
+> `npm run install-hooks -- --both --dashboard-port 4820` so the host commands
+> carry the container's verified published port instead of relying on discovery.
 > (Escape hatch for running Claude Code *inside* the same container:
 > `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.)
 
@@ -581,7 +606,7 @@ flowchart LR
 The real handlers are intentionally small. `scripts/hook-handler.js` and
 `scripts/codex-hook-handler.js` parse stdin and delegate delivery to
 `scripts/hook-transport.js`. Local mode fans out to one live dashboard per
-unique SQLite data directory. Remote mode uses `CCAM_DASHBOARD_URL`, requires
+unique SQLite data directory for the same resolved Claude home. Remote mode uses `CCAM_DASHBOARD_URL`, requires
 HTTPS outside loopback, reads `CCAM_HOOK_TOKEN` or `CCAM_HOOK_TOKEN_FILE`, and
 sends `x-ccam-hook-token`. Requests resolve when the body is flushed, not when
 the dashboard replies, so a slow or unavailable server never delays the agent
@@ -594,18 +619,23 @@ fail silently with exit code 0.
 > 1. If `CLAUDE_DASHBOARD_PORT` is set in the environment, the handler treats
 >    it as an explicit operator override and POSTs to that single port —
 >    no discovery, no fan-out (useful for tests and container setups).
-> 2. Otherwise it reads `~/.claude/.agent-dashboard.json`, a JSON document
+> 2. Otherwise it reads the local `.agent-dashboard.json` registry, a JSON document
 >    that lists every dashboard server currently running on the machine.
->    Each server appends its `{port, pid, startedAt, dataDir}` entry on
+>    Each server appends its `{port, pid, startedAt, dataDir, claudeHome}` entry on
 >    startup and removes it on a clean shutdown. The handler **prunes any
->    entry whose PID is no longer alive** and POSTs the hook payload to one
+>    entry whose PID is no longer alive**, keeps only entries whose canonical
+>    `claudeHome` matches the hook process, and POSTs the hook payload to one
 >    port per **unique SQLite data directory** (lowest port wins when Docker
->    and `npm run dev` share `~/.claude/agent-dashboard`).
-> 3. If neither yields a target, the handler falls back to `4820`.
+>    and `npm run dev` share `~/.claude/agent-dashboard`). Legacy unscoped
+>    entries are accepted only in the default home's private registry.
+> 3. If no registered server matches, the handler sends nowhere rather than
+>    inferring that port `4820` belongs to the current Claude home. An explicit
+>    `CLAUDE_DASHBOARD_PORT` remains the opt-in override.
 >
-> Dashboards with **different** databases (e.g. the packaged desktop app using
-> its own Application Support data dir alongside `npm run dev`) still each
-> receive hooks. Dashboards sharing one database never double-ingest events.
+> Dashboards for the same Claude home with **different** databases (e.g. the
+> packaged desktop app using its own Application Support data dir alongside
+> `npm run dev`) still each receive hooks. Dashboards sharing one database
+> never double-ingest events, and dashboards for another Claude home receive none.
 
 ---
 

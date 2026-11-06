@@ -2,7 +2,8 @@
 
 /**
  * Installs dashboard hooks. The exported installer writes Claude Code entries;
- * the CLI chooser can also install the matching Codex hook set.
+ * the CLI chooser can also install the matching Codex hook set. Automatic
+ * installs can be disabled, and stale portable handler paths exit silently.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -71,12 +72,12 @@ function containerRefusalMessage() {
     "  container-internal handler path does not exist on the host, so every host",
     "  hook fails with MODULE_NOT_FOUND (e.g. the SessionEnd hook). See issue #193.",
     "",
-    "  → Install hooks ON THE HOST instead:",
-    "        npm run install-hooks",
-    "        # or: node /path/to/Claude-Code-Agent-Monitor/scripts/install-hooks.js",
+    "  → Install hooks ON THE HOST with the published container port embedded:",
+    "        npm run install-hooks -- --both --dashboard-port 4820",
+    "        # or: node /path/to/Claude-Code-Agent-Monitor/scripts/install-hooks.js --both --dashboard-port 4820",
     "",
-    "  The host handler POSTs to http://localhost:4820, which the container already",
-    "  publishes — so a host-installed hook reaches the containerized dashboard.",
+    "  Replace 4820 if Compose publishes a different host port. The explicit target",
+    "  avoids relying on a discovery file the read-only container cannot publish.",
     "",
     "  If you genuinely run Claude Code inside this same container, override with:",
     "        CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks",
@@ -94,12 +95,30 @@ const HOOKS_WITH_MATCHER = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop",
 const HOOKS_WITHOUT_MATCHER = ["SessionStart", "SessionEnd", "UserPromptSubmit"];
 const HOOK_TYPES = [...HOOKS_WITH_MATCHER, ...HOOKS_WITHOUT_MATCHER];
 
-function makeHookEntry(hookType) {
+function normalizeDashboardPort(value) {
+  if (value === undefined || value === null) return null;
+  const raw = String(value).trim();
+  if (!/^\d+$/.test(raw)) {
+    throw new Error("--dashboard-port must be an integer between 1 and 65535.");
+  }
+  const port = Number.parseInt(raw, 10);
+  if (port < 1 || port > 65535) {
+    throw new Error("--dashboard-port must be an integer between 1 and 65535.");
+  }
+  return port;
+}
+
+function makeHookEntry(hookType, dashboardPort = null) {
+  const portAssignment = dashboardPort
+    ? `process.env.CLAUDE_DASHBOARD_PORT='${dashboardPort}';`
+    : "";
   const entry = {
     hooks: [
       {
         type: "command",
-        command: `node "${HOOK_HANDLER}" ${hookType}`,
+        // A synced settings.json can outlive a portable app's extraction path
+        // or be read on another machine. A missing handler is a silent no-op.
+        command: `node -e "${portAssignment}if(require('fs').existsSync(process.argv[1]))require(process.argv[1])" "${HOOK_HANDLER}" ${hookType}`,
       },
     ],
   };
@@ -118,18 +137,38 @@ function isOurEntry(entry) {
   return false;
 }
 
+/** Only a reachable handler makes a dashboard hook operational. */
+function hasUsableHandler(entry) {
+  const commands = [
+    entry.command,
+    ...(Array.isArray(entry.hooks) ? entry.hooks.map((h) => h.command) : []),
+  ];
+  return commands.some((command) => {
+    if (typeof command !== "string" || !command.includes("hook-handler.js")) return false;
+    const quoted = command.match(/"([^"]*hook-handler\.js)"/);
+    const unquoted = command.match(/(?:^|\s)([^\s"']*hook-handler\.js)(?=\s|$)/);
+    const handler = quoted?.[1] || unquoted?.[1];
+    return Boolean(handler && fs.existsSync(handler));
+  });
+}
+
 function getClaudeHookStatus() {
   const settingsPath = getSettingsPath();
   try {
     if (!fs.existsSync(settingsPath)) return { installed: false, path: settingsPath, hooks: {} };
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     const hooks = Object.fromEntries(
-      HOOK_TYPES.map((type) => [type, (settings.hooks?.[type] || []).some(isOurEntry)])
+      HOOK_TYPES.map((type) => [
+        type,
+        (settings.hooks?.[type] || []).some(
+          (entry) => isOurEntry(entry) && hasUsableHandler(entry)
+        ),
+      ])
     );
     const hookLists = Object.values(settings.hooks || {}).filter(Array.isArray);
     return {
       installed: Object.values(hooks).every(Boolean),
-      has_dashboard_hooks: Object.values(hooks).some(Boolean),
+      has_dashboard_hooks: hookLists.some((entries) => entries.some(isOurEntry)),
       has_existing_hooks: hookLists.some((entries) => entries.length > 0),
       path: settingsPath,
       hooks,
@@ -139,7 +178,9 @@ function getClaudeHookStatus() {
   }
 }
 
-function installHooks(silent = false) {
+function installHooks(silent = false, { automatic = false, dashboardPort = null } = {}) {
+  if (automatic && envFlag("CCAM_NO_AUTO_HOOKS")) return false;
+  const resolvedDashboardPort = normalizeDashboardPort(dashboardPort);
   // Host-only guard (issue #193): never write a container-internal handler path
   // into a (potentially bind-mounted) host settings file. Honors an explicit
   // opt-out for the rare case of running Claude Code inside this same container.
@@ -169,7 +210,7 @@ function installHooks(silent = false) {
     if (!settings.hooks[hookType]) settings.hooks[hookType] = [];
 
     const existing = settings.hooks[hookType].findIndex(isOurEntry);
-    const entry = makeHookEntry(hookType);
+    const entry = makeHookEntry(hookType, resolvedDashboardPort);
 
     if (existing >= 0) {
       settings.hooks[hookType][existing] = entry;
@@ -188,6 +229,11 @@ function installHooks(silent = false) {
     console.log(`Hook handler: ${HOOK_HANDLER}`);
     console.log(`Settings file: ${settingsPath}`);
     console.log(`Installed: ${installed} new, updated: ${updated} existing`);
+    if (resolvedDashboardPort) {
+      console.log(
+        `Hook target: http://127.0.0.1:${resolvedDashboardPort} (embedded explicit override)`
+      );
+    }
     console.log("Claude Code hooks configured. Start a new Claude Code session to begin tracking.");
   }
 
@@ -199,6 +245,20 @@ function selectedFromArgs(args) {
   if (args.includes("--codex")) return ["codex"];
   if (args.includes("--claude")) return ["claude"];
   return null;
+}
+
+function dashboardPortFromArgs(args) {
+  const equalsArg = args.find((arg) => arg.startsWith("--dashboard-port="));
+  const valueIndex = args.indexOf("--dashboard-port");
+  if (equalsArg && valueIndex >= 0) {
+    throw new Error("Pass --dashboard-port only once.");
+  }
+  if (equalsArg) return normalizeDashboardPort(equalsArg.slice("--dashboard-port=".length));
+  if (valueIndex < 0) return null;
+  if (valueIndex === args.length - 1 || args[valueIndex + 1].startsWith("--")) {
+    throw new Error("--dashboard-port requires a port number.");
+  }
+  return normalizeDashboardPort(args[valueIndex + 1]);
 }
 
 function chooseHookProviders() {
@@ -290,15 +350,22 @@ function confirmOverwrite(selected) {
 }
 
 async function runInteractiveInstall() {
-  const selected = selectedFromArgs(process.argv.slice(2)) || (await chooseHookProviders());
+  const args = process.argv.slice(2);
+  const selected = selectedFromArgs(args) || (await chooseHookProviders());
+  const dashboardPort = dashboardPortFromArgs(args);
   if (!(await confirmOverwrite(selected))) {
     console.log("Hook installation cancelled. No configuration was changed.");
     return false;
   }
   const results = [];
-  if (selected.includes("claude")) results.push({ provider: "claude", ok: installHooks(false) });
+  if (selected.includes("claude")) {
+    results.push({ provider: "claude", ok: installHooks(false, { dashboardPort }) });
+  }
   if (selected.includes("codex")) {
-    const result = require("./install-codex-hooks").installCodexHooks({ silent: false });
+    const result = require("./install-codex-hooks").installCodexHooks({
+      silent: false,
+      dashboardPort,
+    });
     results.push({ provider: "codex", ok: result.ok });
   }
   return results.every((result) => result.ok);

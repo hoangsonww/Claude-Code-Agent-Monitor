@@ -17,7 +17,6 @@
 
 const path = require("node:path");
 const fs = require("node:fs");
-const os = require("node:os");
 const { spawn } = require("node:child_process");
 const { Argument } = require("commander");
 const {
@@ -194,10 +193,8 @@ function offlineDoctor() {
     checks.push({ name: "Database", status: "fail", detail: `not found at ${file}` });
   }
   try {
-    const settingsPath = path.join(
-      process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"),
-      "settings.json"
-    );
+    const { getSettingsPath } = require("../../server/lib/claude-home");
+    const settingsPath = getSettingsPath();
     const installed =
       fs.existsSync(settingsPath) &&
       fs.readFileSync(settingsPath, "utf8").includes("hook-handler.js");

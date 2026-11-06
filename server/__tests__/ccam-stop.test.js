@@ -21,6 +21,13 @@ const { spawn } = require("child_process");
 const STAMP = `ccam-stop-${Date.now()}-${process.pid}`;
 const TMP = path.join(os.tmpdir(), STAMP);
 const CLAUDE_HOME = path.join(TMP, "home");
+const MACHINE_STATE_DIR =
+  process.platform === "win32"
+    ? path.join(TMP, "local-app-data", "Claude Code Monitor")
+    : process.platform === "darwin"
+      ? path.join(TMP, "Library", "Application Support", "Claude Code Monitor")
+      : path.join(TMP, "xdg-data", "claude-code-monitor");
+const DISCOVERY_PATH = path.join(MACHINE_STATE_DIR, ".agent-dashboard.json");
 
 const CLI = path.resolve(__dirname, "..", "..", "bin", "ccam.js");
 
@@ -32,7 +39,16 @@ const CLI = path.resolve(__dirname, "..", "..", "bin", "ccam.js");
 function ccamStop(envOverrides = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, "stop"], {
-      env: { ...process.env, CLAUDE_HOME, ...envOverrides },
+      env: {
+        ...process.env,
+        HOME: TMP,
+        USERPROFILE: TMP,
+        LOCALAPPDATA: path.join(TMP, "local-app-data"),
+        XDG_DATA_HOME: path.join(TMP, "xdg-data"),
+        CLAUDE_DASHBOARD_PORT: undefined,
+        CLAUDE_HOME,
+        ...envOverrides,
+      },
     });
     let out = "";
     let err = "";
@@ -52,11 +68,10 @@ function ccamStop(envOverrides = {}) {
  * @param {number} pid
  */
 function writeDiscovery(port, pid) {
-  const infoPath = path.join(CLAUDE_HOME, ".agent-dashboard.json");
-  fs.mkdirSync(CLAUDE_HOME, { recursive: true });
+  fs.mkdirSync(MACHINE_STATE_DIR, { recursive: true });
   const entry = { port, pid, startedAt: new Date().toISOString(), dataDir: TMP };
   fs.writeFileSync(
-    infoPath,
+    DISCOVERY_PATH,
     JSON.stringify({ port, pid, startedAt: entry.startedAt, servers: [entry] }, null, 2)
   );
 }
@@ -315,8 +330,9 @@ describe("ccam stop — ambiguous discovery", () => {
       startedAt: new Date().toISOString(),
       dataDir: TMP,
     });
+    fs.mkdirSync(MACHINE_STATE_DIR, { recursive: true });
     fs.writeFileSync(
-      path.join(CLAUDE_HOME, ".agent-dashboard.json"),
+      DISCOVERY_PATH,
       JSON.stringify({ servers: [entry(1111), entry(2222)] }, null, 2)
     );
   });

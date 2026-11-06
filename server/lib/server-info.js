@@ -5,11 +5,13 @@
  * The conventional port is 4820, and a plain `npm start` setup almost always
  * binds it. But more than one dashboard can run on a single machine — most
  * commonly the macOS desktop app side-by-side with `npm run dev`. The hook
- * handler fans out to every live dashboard that uses a **different** SQLite
- * data directory. Servers sharing the same `dataDir` receive hooks through a
- * single lowest-port ingest target so events are never duplicated.
+ * handler fans out to every live dashboard for the hook's resolved Claude home
+ * that uses a **different** SQLite data directory. Servers sharing the same
+ * `dataDir` receive hooks through a single lowest-port ingest target so events
+ * are never duplicated, while unrelated Claude homes never receive the event.
  *
- * The on-disk file is a JSON document under the Claude Code home directory.
+ * The on-disk file is a JSON document under the default Claude Code home,
+ * or under machine-local app data for a relocated Claude home.
  * Every server writes its own entry on startup, prunes any stale entries it
  * finds, and the hook handler reads the file and fans out one POST per live
  * entry. Stale entries (process gone) are dropped on every read.
@@ -34,8 +36,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
-const { getClaudeHome, getDataDir } = require("./claude-home");
+const { getClaudeHome, getDataDir, getMachineStateDir } = require("./claude-home");
 
 /** Conventional dashboard port — used when discovery yields nothing. */
 const DEFAULT_PORT = 4820;
@@ -45,7 +48,12 @@ const DATA_DIR_OWNER_DIRECTORY = ".agent-dashboard-owners";
 
 /** Absolute path of the discovery file. */
 function getServerInfoPath() {
-  return path.join(getClaudeHome(), ".agent-dashboard.json");
+  const claudeHome = path.resolve(getClaudeHome());
+  const defaultHome = path.join(os.homedir(), ".claude");
+  return path.join(
+    claudeHome === defaultHome ? defaultHome : getMachineStateDir(),
+    ".agent-dashboard.json"
+  );
 }
 
 /**
@@ -62,6 +70,23 @@ function normalizeDataDir(dir) {
   } catch {
     return path.resolve(dir);
   }
+}
+
+/** Canonical absolute Claude home used to scope hook delivery. */
+function normalizeClaudeHome(dir) {
+  return normalizeDataDir(dir);
+}
+
+/**
+ * Whether a discovery entry belongs to the Claude home of this process.
+ * Legacy entries without `claudeHome` are safe only in the default home's
+ * private registry; the machine-local relocated-home registry is shared and
+ * cannot safely infer which home created an unscoped entry.
+ */
+function matchesCurrentClaudeHome(server) {
+  const current = normalizeClaudeHome(getClaudeHome());
+  if (server.claudeHome) return normalizeClaudeHome(server.claudeHome) === current;
+  return current === normalizeClaudeHome(path.join(os.homedir(), ".claude"));
 }
 
 /**
@@ -189,7 +214,7 @@ function readDataDirOwners() {
  * both the new array shape and the legacy single-record shape so a file
  * written by an older server is still understood.
  *
- * @returns {Array<{port: number, pid: number, startedAt: string}>}
+ * @returns {Array<{port: number, pid: number, startedAt: string, dataDir?: string, claudeHome?: string}>}
  */
 function readInfoFile() {
   try {
@@ -283,7 +308,7 @@ function writeServerInfo(port) {
   if (!Number.isInteger(port) || port <= 0) return;
   writeDataDirOwner();
   try {
-    const dir = getClaudeHome();
+    const dir = path.dirname(getServerInfoPath());
     fs.mkdirSync(dir, { recursive: true });
     const existing = readInfoFile().filter(
       (s) => Number.isInteger(s.port) && s.port > 0 && s.pid !== process.pid && isPidAlive(s.pid)
@@ -293,6 +318,7 @@ function writeServerInfo(port) {
       pid: process.pid,
       startedAt: new Date().toISOString(),
       dataDir: normalizeDataDir(getDataDir()),
+      claudeHome: normalizeClaudeHome(getClaudeHome()),
     };
     persist([...existing, ours]);
   } catch {
@@ -337,10 +363,10 @@ function resolveAllDashboardPorts() {
 }
 
 /**
- * Ports that should receive hook POSTs. When several live servers share the
- * same SQLite data directory, only the lowest port per directory is returned
- * so parallel instances (Docker + dev, two terminals on the same DB) never
- * double-ingest events.
+ * Ports that should receive hook POSTs. Only servers registered for this
+ * process's resolved Claude home are eligible. When several eligible servers
+ * share the same SQLite data directory, only the lowest port per directory is
+ * returned so parallel instances never double-ingest events.
  *
  * @returns {number[]}
  */
@@ -348,10 +374,16 @@ function resolveHookIngestPorts() {
   const envPort = parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
   if (Number.isInteger(envPort) && envPort > 0) return [envPort];
 
-  const live = readInfoFile().filter(
+  const allLive = readInfoFile().filter(
     (s) => Number.isInteger(s.port) && s.port > 0 && isPidAlive(s.pid)
   );
-  if (live.length === 0) return [DEFAULT_PORT];
+  if (allLive.length === 0) return [];
+
+  const live = allLive.filter(matchesCurrentClaudeHome);
+  // A registry containing only other homes (or ambiguous legacy entries in
+  // the shared relocated-home registry) must not fall back to a port that may
+  // belong to one of those homes. An empty registry is equally unverified.
+  if (live.length === 0) return [];
 
   const byDataDir = new Map();
   for (const server of live) {
@@ -426,6 +458,7 @@ module.exports = {
   hasExclusiveDataDirOwnership,
   // Exported for tests.
   normalizeDataDir,
+  normalizeClaudeHome,
   ingestGroupKey,
   getOwnershipDataDir,
   getDataDirOwnerPath,

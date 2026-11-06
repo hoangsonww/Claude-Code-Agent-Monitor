@@ -93,9 +93,12 @@ docker compose up -d --build
 
 # Podman
 podman compose up -d --build
+
+# On the host: persist the verified published port in Claude/Codex hooks
+npm run install-hooks -- --both --dashboard-port 4820
 ```
 
-The dashboard is published on `127.0.0.1:4820`. Claude, Codex, and Cursor homes are mounted read-only (set host-side `CURSOR_HOME` when Cursor is not at `~/.cursor`). Cursor IDE chat titles come from `state.vscdb` outside that home; to use them in a container, mount Cursor's whole `User/globalStorage` directory read-only (not the single file — the store runs in WAL mode) and point `DASHBOARD_CURSOR_STATE_DB` at `state.vscdb` inside it. SQLite and persisted Settings overrides live in named volumes. The image runs as UID/GID 1000, uses a read-only root filesystem through Compose, drops all Linux capabilities, enables `no-new-privileges`, includes Git/OpenSSH/SQLite CLI, and uses Tini as PID 1.
+The dashboard is published on `127.0.0.1:4820`. Claude, Codex, and Cursor homes are mounted read-only (set host-side `CURSOR_HOME` when Cursor is not at `~/.cursor`). Because the container cannot write a host-visible discovery entry, host-installed hooks must embed the published port through `--dashboard-port` (replace `4820` when the mapping differs). Cursor IDE chat titles come from `state.vscdb` outside that home; to use them in a container, mount Cursor's whole `User/globalStorage` directory read-only (not the single file — the store runs in WAL mode) and point `DASHBOARD_CURSOR_STATE_DB` at `state.vscdb` inside it. SQLite and persisted Settings overrides live in named volumes. The image runs as UID/GID 1000, uses a read-only root filesystem through Compose, drops all Linux capabilities, enables `no-new-privileges`, includes Git/OpenSSH/SQLite CLI, and uses Tini as PID 1.
 
 ### Complete stack
 

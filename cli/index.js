@@ -43,7 +43,7 @@ ${c.bold("Examples:")}
   ${c.cyan("ccam sessions --json | jq '.total'")}  ${c.dim("# script it")}
 
 ${c.bold("Server discovery:")} --server / CCAM_URL, then CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT,
-otherwise the live server is found via ~/.claude/.agent-dashboard.json,
+otherwise the live server is found via the local .agent-dashboard.json registry,
 falling back to http://127.0.0.1:4820.
 
 ${c.bold("Output:")} colors auto-enable on a TTY and turn off when piped.
