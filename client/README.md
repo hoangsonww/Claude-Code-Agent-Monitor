@@ -681,7 +681,7 @@ The catalog is built by `lib/paletteCommands.ts` as a pure function of one conte
 | Sessions | `GET /api/sessions?q=` — debounced 180 ms, minimum 2 characters, capped at 6 results |
 | This page | Whatever the mounted page registered via `usePaletteAction` — listed only where it is bound |
 | Projects | `GET /api/sessions/facets` — jumps to `/sessions?cwd=…` |
-| Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=&provider=`) |
+| Views | Page sub-tabs and Sessions status filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
 | Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
 | Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
 | Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |

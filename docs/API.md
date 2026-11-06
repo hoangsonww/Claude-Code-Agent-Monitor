@@ -378,9 +378,12 @@ ordered native `store.db` conversation, including tool calls/results and the
 concrete response model, with any replies available only in JSONL.
 `prompt_history.json` fills submitted prompts that neither durable source has
 recorded yet. JSONL sources are snapshotted directly; native stores are reduced
-to a verified `store.compact.db` containing the current root and its referenced
-raw blobs. Existing full-database snapshots migrate automatically and are
-removed only after the compact copy reproduces the same conversation. Prompt
+to a verified `store.compact.db` that reconciles the current root with
+legacy-only references and preserves every selected raw blob byte-for-byte.
+Repeated and parser-opaque references remain intact. Legacy-only stores migrate
+in isolated batches of at most four per sync and are removed only after raw
+verification; an unchanged source stops retrying after five failures in one
+process and remains on disk. Prompt
 history is read from the live Cursor chat directory only. Messages carry stable `id` values, and an
 incremental result with `refresh: true` is a latest window that clients merge by
 `id`. A Cursor `/resume` shell ID is also accepted here and resolves to the

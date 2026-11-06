@@ -59,6 +59,8 @@
  * ## Named test contracts
  * - `compresses on demand and reports the saving` — executable behavior named by this suite;
  *   preserve the observable contract or update the test with rationale.
+ * - `distinguishes mixed and legacy-only Cursor stores from compact storage` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
  * - `formats sizes up to terabytes` — executable behavior named by this suite; preserve the
  *   observable contract or update the test with rationale.
  * - `keeps Prune disabled when the preview matches nothing` — executable behavior named by this
@@ -313,6 +315,41 @@ describe("SnapshotStorage", () => {
     expect(
       screen.getByText(/Compression: on · Age cap: none · Size cap: none/)
     ).toBeInTheDocument();
+  });
+
+  it("distinguishes mixed and legacy-only Cursor stores from compact storage", () => {
+    const mixed: Storage = {
+      ...storage,
+      roots: {
+        ...storage.roots,
+        cursor: {
+          ...storage.roots.cursor,
+          database_files: 3,
+          compact_database_files: 2,
+        },
+      },
+    };
+    const { rerender } = render(<SnapshotStorage storage={mixed} onChanged={() => {}} />);
+    expect(screen.getByText("1 legacy chat store pending compaction")).toBeInTheDocument();
+
+    rerender(
+      <SnapshotStorage
+        storage={{
+          ...mixed,
+          roots: {
+            ...mixed.roots,
+            cursor: {
+              ...mixed.roots.cursor,
+              database_files: 2,
+              compact_database_files: 0,
+            },
+          },
+        }}
+        onChanged={() => {}}
+      />
+    );
+    expect(screen.getByText("2 legacy chat stores pending compaction")).toBeInTheDocument();
+    expect(screen.queryByText(/compact chat stores/)).not.toBeInTheDocument();
   });
 
   it("requires a matching preview before pruning, then a confirming click", async () => {
