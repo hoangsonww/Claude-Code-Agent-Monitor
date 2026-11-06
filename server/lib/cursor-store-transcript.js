@@ -604,16 +604,24 @@ function encodeRootReferences(references) {
 }
 
 /**
- * Reconcile a source root with another root that must be preserved. The chosen
- * first root keeps its order; only occurrences beyond its multiset are appended.
- * Repeated references inside either root therefore survive.
+ * Reconcile a source root with every earlier root that must be preserved. The
+ * chosen first root keeps its order; each later root contributes only occurrences
+ * beyond the merged multiset. Repeated references therefore survive.
  */
-function buildCompactPlan(sourcePath, preservePath = null, { preserveFirst = true } = {}) {
+function buildCompactPlan(sourcePath, preservePaths = [], { preserveFirst = true } = {}) {
   const source = readStoreRoot(sourcePath);
   if (!source) return null;
-  const preserved = preservePath ? readStoreRoot(preservePath) : null;
-  if (preservePath && !preserved) return null;
-  if (!preserved) {
+  const preserved = preservePaths.map((preservePath, index) => {
+    const root = readStoreRoot(preservePath);
+    return {
+      alias: `preserve_store_${index}`,
+      path: preservePath,
+      root,
+      ids: new Set(root?.references || []),
+    };
+  });
+  if (preserved.some((store) => !store.root)) return null;
+  if (!preserved.length) {
     return {
       metaValue: source.metaValue,
       rootId: source.rootId,
@@ -621,30 +629,33 @@ function buildCompactPlan(sourcePath, preservePath = null, { preserveFirst = tru
       references: source.references,
       origins: new Map([...new Set(source.references)].map((id) => [id, "source_store"])),
       sourcePath,
-      preservePath: null,
+      preserveStores: [],
     };
   }
 
-  const first = preserveFirst ? preserved.references : source.references;
-  const second = preserveFirst ? source.references : preserved.references;
-  const firstRemaining = new Map();
-  for (const id of first) {
-    firstRemaining.set(id, (firstRemaining.get(id) || 0) + 1);
+  const sourceStore = { alias: "source_store", path: sourcePath, root: source };
+  const orderedStores = preserveFirst ? [...preserved, sourceStore] : [sourceStore, ...preserved];
+  const references = [];
+  const included = new Map();
+  for (const store of orderedStores) {
+    const available = new Map(included);
+    for (const id of store.root.references) {
+      const remaining = available.get(id) || 0;
+      if (remaining > 0) available.set(id, remaining - 1);
+      else {
+        references.push(id);
+        included.set(id, (included.get(id) || 0) + 1);
+      }
+    }
   }
-  const extras = [];
-  for (const id of second) {
-    const remaining = firstRemaining.get(id) || 0;
-    if (remaining > 0) firstRemaining.set(id, remaining - 1);
-    else extras.push(id);
-  }
-  const references = [...first, ...extras];
   const rootData = encodeRootReferences(references);
   if (!rootData || rootData.length > MAX_ROOT_BYTES) return null;
   const rootId = crypto.createHash("sha256").update(rootData).digest("hex");
   const sourceIds = new Set(source.references);
   const origins = new Map();
   for (const id of new Set(references)) {
-    origins.set(id, sourceIds.has(id) ? "source_store" : "preserve_store");
+    const preservedOrigin = preserved.find((store) => store.ids.has(id));
+    origins.set(id, sourceIds.has(id) ? "source_store" : preservedOrigin.alias);
   }
   return {
     metaValue: encodeMetaValue(source.metaValue, {
@@ -656,7 +667,10 @@ function buildCompactPlan(sourcePath, preservePath = null, { preserveFirst = tru
     references,
     origins,
     sourcePath,
-    preservePath,
+    preserveStores: preserved.map(({ alias, path: preservePath }) => ({
+      alias,
+      path: preservePath,
+    })),
   };
 }
 
@@ -681,8 +695,7 @@ function prepareExpectedBlobs(db, plan) {
 
 /** Copy every referenced BLOB in SQLite so large opaque values never enter JS. */
 function copyExpectedBlobs(db, plan) {
-  for (const alias of ["source_store", "preserve_store"]) {
-    if (alias === "preserve_store" && !plan.preservePath) continue;
+  for (const alias of ["source_store", ...plan.preserveStores.map((store) => store.alias)]) {
     db.exec(`INSERT OR IGNORE INTO blobs (id, data)
       SELECT source.id, source.data
       FROM ${alias}.blobs source
@@ -695,8 +708,7 @@ function copyExpectedBlobs(db, plan) {
 function rawBlobsMatch(db, plan) {
   const root = db.prepare("SELECT data FROM blobs WHERE id = ?").get(plan.rootId);
   if (!root?.data || !Buffer.from(root.data).equals(plan.rootData)) return false;
-  for (const alias of ["source_store", "preserve_store"]) {
-    if (alias === "preserve_store" && !plan.preservePath) continue;
+  for (const alias of ["source_store", ...plan.preserveStores.map((store) => store.alias)]) {
     const row = db
       .prepare(
         `SELECT COUNT(*) AS expected,
@@ -722,7 +734,9 @@ function verifyCompactStore(dbPath, plan) {
     const Database = getCompactionDatabase();
     db = new Database(dbPath, { fileMustExist: true, timeout: 250 });
     attachReadonlyStore(db, "source_store", plan.sourcePath);
-    if (plan.preservePath) attachReadonlyStore(db, "preserve_store", plan.preservePath);
+    for (const store of plan.preserveStores) {
+      attachReadonlyStore(db, store.alias, store.path);
+    }
     prepareExpectedBlobs(db, plan);
     return rawBlobsMatch(db, plan);
   } catch {
@@ -747,17 +761,21 @@ function writeCompactStore(
   source,
   destination,
   sourceStamp,
-  { preserve = null, preserveStamp = null, preserveFirst = true, metadataLegacyStamp = null } = {}
+  { preserves = [], preserveFirst = true, metadataLegacyStamp = null } = {}
 ) {
   const Database = getCompactionDatabase();
   const temp = tempCompactStorePath(destination);
   let compactDb;
   try {
-    const plan = buildCompactPlan(source, preserve, { preserveFirst });
-    if (!plan) return { ok: false, reason: preserve ? "preserved-unreadable" : "no-root" };
+    const plan = buildCompactPlan(
+      source,
+      preserves.map((store) => store.path),
+      { preserveFirst }
+    );
+    if (!plan) return { ok: false, reason: preserves.length ? "preserved-unreadable" : "no-root" };
     if (
       cursorStoreStamp(source) !== sourceStamp ||
-      (preserve && cursorStoreStamp(preserve) !== preserveStamp)
+      preserves.some((store) => cursorStoreStamp(store.path) !== store.stamp)
     ) {
       return { ok: false, reason: "source-changed" };
     }
@@ -772,7 +790,9 @@ function writeCompactStore(
         "CREATE TABLE ccam_snapshot (key TEXT PRIMARY KEY, value TEXT)"
     );
     attachReadonlyStore(compactDb, "source_store", source);
-    if (preserve) attachReadonlyStore(compactDb, "preserve_store", preserve);
+    for (const store of plan.preserveStores) {
+      attachReadonlyStore(compactDb, store.alias, store.path);
+    }
     prepareExpectedBlobs(compactDb, plan);
     compactDb.transaction(() => {
       compactDb.prepare("INSERT INTO meta (key, value) VALUES ('0', ?)").run(plan.metaValue);
@@ -799,7 +819,7 @@ function writeCompactStore(
 
     if (
       cursorStoreStamp(source) !== sourceStamp ||
-      (preserve && cursorStoreStamp(preserve) !== preserveStamp)
+      preserves.some((store) => cursorStoreStamp(store.path) !== store.stamp)
     ) {
       return { ok: false, reason: "source-changed" };
     }
@@ -859,18 +879,23 @@ function snapshotCursorStoreLocked(sessionId, { allowLegacyOnly = false } = {}) 
     compactValid &&
     containsSource &&
     containsLegacy;
-  let preserve = legacyToPreserve;
-  let preserveStamp = legacyStamp;
+  const preserves = [];
+  if (legacyToPreserve) preserves.push({ path: legacyToPreserve, stamp: legacyStamp });
+  if (compactValid && !current) {
+    const compactStamp = cursorStoreStamp(destination);
+    if (!compactStamp) return false;
+    preserves.push({ path: destination, stamp: compactStamp });
+  }
   let preserveFirst = true;
   let metadataLegacyStamp = legacyStamp;
-  if (!hasLive && compactValid && !current) {
-    preserve = destination;
-    preserveStamp = cursorStoreStamp(destination);
+  if (!hasLive) {
     preserveFirst = false;
     metadataLegacyStamp = null;
   }
-  if (preserve && !preserveStamp) return false;
-  const workStamp = snapshotWorkStamp(stamp, preserveStamp);
+  const workStamp = snapshotWorkStamp(
+    stamp,
+    preserves.length ? preserves.map((store) => store.stamp).join("|preserve:") : null
+  );
   if (current) {
     if (hasLegacy && !removeStoreFile(legacy)) {
       noteSnapshotFailure(sessionId, workStamp);
@@ -891,8 +916,7 @@ function snapshotCursorStoreLocked(sessionId, { allowLegacyOnly = false } = {}) 
   }
   lastStoreSnapshot.set(sessionId, now);
   const result = writeCompactStore(source, destination, stamp, {
-    preserve,
-    preserveStamp,
+    preserves,
     preserveFirst,
     metadataLegacyStamp,
   });

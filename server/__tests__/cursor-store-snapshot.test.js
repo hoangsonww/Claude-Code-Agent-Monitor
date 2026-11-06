@@ -152,7 +152,7 @@ after(async () => {
 });
 
 describe("compact Cursor store snapshots", () => {
-  it("keeps current raw conversation blobs without copying unreachable store history", () => {
+  it("keeps selected raw blobs across later live-store updates", () => {
     const sessionId = "cursor-compact-live";
     const liveDir = path.join(process.env.DASHBOARD_CURSOR_HOME, "chats", "workspace", sessionId);
     const liveStore = path.join(liveDir, "store.db");
@@ -201,13 +201,28 @@ describe("compact Cursor store snapshots", () => {
     fs.rmSync(liveDir, { recursive: true, force: true });
     const messages = readCursorStoreMessages(sessionId);
     assert.deepEqual(
-      messages.map((message) => message.sender),
-      ["user", "assistant", "tool"]
+      messages
+        .filter((message) => message.sender === "user")
+        .map((message) => message.content[0].text),
+      ["current prompt", "updated prompt"]
     );
-    assert.equal(messages[0].content[0].text, "updated prompt");
-    assert.equal(messages[1].model, "cursor-grok-4.7");
-    assert.equal(messages[1].content[1].name, "Read");
-    assert.equal(messages[2].content[0].output, "file contents");
+    const updatedAssistant = messages.find((message) =>
+      message.content.some((block) => block.text === "updated response")
+    );
+    assert.ok(updatedAssistant);
+    assert.equal(updatedAssistant.model, "cursor-grok-4.7");
+    assert.equal(updatedAssistant.content[1].name, "Read");
+    assert.ok(
+      messages.some((message) => message.content.some((block) => block.output === "file contents"))
+    );
+    const updatedCompactDb = new Database(compact, { readonly: true, fileMustExist: true });
+    assert.deepEqual(
+      Buffer.from(
+        updatedCompactDb.prepare("SELECT data FROM blobs WHERE id = ?").get(raw.opaqueId).data
+      ),
+      raw.opaqueData
+    );
+    updatedCompactDb.close();
   });
 
   it("migrates a legacy full store off-thread only after a valid compact copy exists", async () => {
