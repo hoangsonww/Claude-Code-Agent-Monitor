@@ -200,6 +200,14 @@ function createOpenApiSpec() {
           description:
             "Comma-separated stored providers to include: `claude`, `cursor`, and/or `codex`. Requesting `claude` also includes Cursor because the product scope groups their local workflows. Omit to include every provider.",
         },
+        ExactSessionProviderQuery: {
+          name: "provider",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["claude", "cursor", "codex"] },
+          description:
+            "Exact stored provider for the Sessions list. Intersects the broader `providers` product scope instead of replacing it.",
+        },
       },
       schemas: {
         ErrorObject: {
@@ -1752,6 +1760,8 @@ function createOpenApiSpec() {
               schema: { type: "boolean", default: true },
               description: "Sort descending when true and ascending when false.",
             },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+            { $ref: "#/components/parameters/ExactSessionProviderQuery" },
             { $ref: "#/components/parameters/LimitQuery" },
             { $ref: "#/components/parameters/OffsetQuery" },
           ],

@@ -1036,6 +1036,7 @@ export const api = {
      * @param params.status   Lifecycle filter (e.g. "active"/"completed").
      * @param params.q        Free-text query matched server-side.
      * @param params.cwd      Restrict to one or more working directories (see `facets`).
+     * @param params.provider Restrict to one stored session provider.
      * @param params.sort_by  Column to sort by.
      * @param params.sort_desc Descending when true; sent even when explicitly false.
      * @param params.limit    Page size.
@@ -1058,8 +1059,8 @@ export const api = {
       limit?: number;
       /** Rows to skip. */
       offset?: number;
-      /** Restrict to one product's sessions. */
-      provider?: "claude" | "codex";
+      /** Restrict to one stored session provider. */
+      provider?: "claude" | "cursor" | "codex";
       /**
        * Include transient rows: interactive Codex TUI processes discovered in memory before Codex
        * has written a session id. Only added to the first page of local results.
@@ -1083,8 +1084,8 @@ export const api = {
       if (params?.include_transient) qs.set("include_transient", "1");
       if (params?.include_task_progress) qs.set("include_task_progress", "1");
       applyScope(qs); // narrow to the active machine and product scope
-      // A provider-specific picker (for example Run Agent resume) must be
-      // able to narrow a globally-both dashboard to its native session type.
+      // A provider-specific picker (for example Sessions or Run Agent resume)
+      // narrows, but never replaces, the global plural product scope.
       if (params?.provider) qs.set("provider", params.provider);
       const queryString = qs.toString();
       // Omit the "?" entirely when there are no params, for a clean/cacheable URL.

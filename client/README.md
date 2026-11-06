@@ -210,7 +210,7 @@ client/
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
 │   │   ├── KanbanBoard.tsx
-│   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, searchable multi-project filtering, and custom sort menus
+│   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, scoped provider/project filtering, and custom sort menus
 │   │   ├── SessionDetail.tsx  # Overview + full task tracker + agent tree + event timeline + cursor-paginated Conversation tab
 │   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
 │   │   ├── Analytics.tsx
@@ -258,7 +258,7 @@ graph TB
 
     Dashboard[Dashboard<br/>Monitor tab: stats + agents + events<br/>Health tab: SystemHealthTab]
     Kanban[KanbanBoard<br/>4-column agent board]
-    Sessions[Sessions<br/>searchable multi-project table + custom sorting]
+    Sessions[Sessions<br/>searchable provider/project table + custom sorting]
     Detail[SessionDetail<br/>agent hierarchy + timeline]
     Feed[ActivityFeed<br/>streaming event log]
     Analytics[Analytics<br/>tokens + heatmap + trends]
@@ -681,7 +681,7 @@ The catalog is built by `lib/paletteCommands.ts` as a pure function of one conte
 | Sessions | `GET /api/sessions?q=` — debounced 180 ms, minimum 2 characters, capped at 6 results |
 | This page | Whatever the mounted page registered via `usePaletteAction` — listed only where it is bound |
 | Projects | `GET /api/sessions/facets` — jumps to `/sessions?cwd=…` |
-| Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
+| Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=&provider=`) |
 | Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
 | Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
 | Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |

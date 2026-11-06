@@ -7067,6 +7067,43 @@ exports[`screen snapshots > Sessions 1`] = `
         </div>
       </div>
       <div
+        class="w-full shrink-0 sm:w-[160px] [&>div>button]:h-[38px]"
+      >
+        <div
+          class="relative"
+        >
+          <button
+            aria-controls="_r_f_"
+            aria-expanded="false"
+            aria-haspopup="listbox"
+            class="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-gray-100 transition-colors hover:bg-surface-3 focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+          >
+            <span
+              class="min-w-0 truncate"
+            >
+              All providers
+            </span>
+            <svg
+              class="lucide lucide-chevron-down w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="m6 9 6 6 6-6"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div
         class="flex h-[38px] w-max max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-1.5"
       >
         <div
@@ -7076,7 +7113,7 @@ exports[`screen snapshots > Sessions 1`] = `
             class="relative"
           >
             <button
-              aria-controls="_r_f_"
+              aria-controls="_r_g_"
               aria-expanded="false"
               aria-haspopup="listbox"
               class="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-gray-100 transition-colors hover:bg-surface-3 focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-60"

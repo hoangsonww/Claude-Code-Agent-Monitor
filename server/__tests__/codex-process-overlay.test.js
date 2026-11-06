@@ -270,6 +270,14 @@ describe("Codex process overlay lifecycle", () => {
       false
     );
 
+    const exactClaude = await requestJson(
+      "/api/sessions?status=active&providers=claude,codex&provider=claude&include_transient=1"
+    );
+    assert.equal(
+      exactClaude.body.sessions.some((session) => session.id.startsWith("codex-process:")),
+      false
+    );
+
     const remote = await requestJson(
       "/api/agents?status=waiting&sources=remote-host&include_transient=1"
     );

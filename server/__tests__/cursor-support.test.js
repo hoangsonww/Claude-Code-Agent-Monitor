@@ -404,6 +404,16 @@ describe("Cursor local history", () => {
     assert.equal(codexScope.status, 200);
     assert.ok(!codexScope.body.sessions.some((session) => session.id === SESSION_ID));
   });
+
+  it("intersects product scope with an exact Sessions provider filter", async () => {
+    const exactCursor = await request("/api/sessions?providers=claude&provider=cursor&limit=100");
+    assert.equal(exactCursor.status, 200);
+    assert.ok(exactCursor.body.sessions.some((session) => session.id === SESSION_ID));
+
+    const exactClaude = await request("/api/sessions?providers=claude&provider=claude&limit=100");
+    assert.equal(exactClaude.status, 200);
+    assert.ok(!exactClaude.body.sessions.some((session) => session.id === SESSION_ID));
+  });
 });
 
 describe("Cursor session lifecycle", () => {
