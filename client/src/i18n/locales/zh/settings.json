@@ -139,6 +139,7 @@
     "title": "仪表盘数据",
     "description": "选择要在整个应用中显示哪个产品的会话、Token、费用和活动。更改会立即生效，并与机器数据源筛选保持独立。",
     "claude": "Claude Code",
+    "cursor": "Cursor",
     "codex": "Codex",
     "both": "两者",
     "claudeDescription": "显示 Claude Code 和 Cursor 数据。",

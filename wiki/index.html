@@ -1070,12 +1070,15 @@
                   <div class="feature-icon ic-emerald">▣</div>
                   <h3>Cursor Monitoring</h3>
                   <p>
-                    Cursor is included with the Claude Code scope out of the box. The dashboard
-                    watches <code>~/.cursor/chats</code> so a session appears when
-                    <code>agent</code> starts and a submitted prompt reaches cards and Conversation
-                    before the transcript or reply. The later JSONL merges without duplicating the
-                    user turn, is snapshotted for cleanup resilience, and adds native titles,
-                    subtitles, subagents, and provider-specific Cursor pricing.
+                    Cursor combines merge-safe completion hooks with native local history. CCAM
+                    preserves chained third-party hook commands, deduplicates completion signals
+                    before applying usage, and joins <code>/resume</code> shell IDs to the canonical
+                    conversation by <code>generation_id</code>. Native generated titles replace
+                    prompt fallbacks only when ingestion metadata proves CCAM owns the current
+                    name; explicit dashboard renames and ambiguous legacy names remain unchanged. Conversation merges
+                    native store, JSONL, and prompt history across aliases. Hook tokens resolve
+                    <code>default</code> only when the stored response matches and price one
+                    authoritative snapshot per generation on Cursor's own rate card.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1293,9 +1296,11 @@
                     then see consistent totals across Sessions, Session Detail, Analytics, Kanban,
                     and agent cards. Compaction-aware accounting preserves usage across context
                     compression, imports reuse the same pricing table, and rate edits recalculate
-                    stored sessions. Subagent cards show only their own transcript cost while main
-                    agents retain session totals. GPT pricing distinguishes short and long context
-                    for both Standard and Fast modes, leaving unpublished tiers explicitly unpriced.
+                    stored sessions. Subagent cards show only their own transcript cost. An
+                    accessible info icon beside Dashboard and Analytics cost labels holds scope and
+                    missing-rate details instead of crowding the value hover. GPT pricing
+                    distinguishes short and long context for Standard and Fast modes, leaving
+                    unpublished tiers explicitly unpriced.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2158,7 +2163,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_CURSOR_HOME</code></td>
                   <td><code>~/.cursor</code></td>
-                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted without separate hook installation.</td>
+                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history and native stores are backfilled and snapshotted; CCAM maintains merge-safe completion hooks separately.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_CURSOR_SYNC_MS</code></td>

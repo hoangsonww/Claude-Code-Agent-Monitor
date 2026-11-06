@@ -1773,6 +1773,8 @@ export interface CostFeatureCosts {
  *  its cost is $0 in the totals, surfaced here so the Settings UI can prompt
  *  the user to add a pricing rule instead of silently under-reporting cost. */
 export interface UnpricedModel {
+  /** Provider whose pricing editor can supply the missing rate. */
+  provider?: "claude" | "cursor" | "codex";
   /** The model id that had usage but matched no pricing rule. The value the
    *  Settings UI suggests creating a {@link ModelPricing} rule for. */
   model: string;

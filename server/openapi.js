@@ -1263,6 +1263,7 @@ function createOpenApiSpec() {
               items: {
                 type: "object",
                 properties: {
+                  provider: { type: "string", enum: ["claude", "cursor", "codex"] },
                   model: { type: "string" },
                   input_tokens: { type: "integer" },
                   output_tokens: { type: "integer" },

@@ -405,6 +405,37 @@ function repairInflatedTokenTotals() {
   }
 }
 
+function ensureCursorUsageHooks() {
+  try {
+    const { isInsideContainer } = require("../scripts/install-hooks");
+    if (isInsideContainer() || process.env.NODE_TEST_CONTEXT) {
+      return;
+    }
+    const { installCursorHooks } = require("../scripts/install-cursor-hooks");
+    const result = installCursorHooks({ silent: true });
+    if (result.ok) console.log("Cursor usage hooks configured.");
+    else console.warn("Cursor usage hooks could not be configured:", result.output?.join(" "));
+  } catch (error) {
+    console.warn("Cursor usage hooks could not be configured:", error.message);
+  }
+}
+
+async function repairCursorHistory() {
+  try {
+    const dbModule = require("./db");
+    const { repairHistoricalCursorData } = require("./lib/cursor-turn-usage");
+    const result = await repairHistoricalCursorData(dbModule);
+    if (result.repaired && (result.merged || result.removed || result.usage)) {
+      console.log(
+        `[cursor] repaired ${result.usage} usage snapshot(s), merged ${result.merged} ` +
+          `resume shell(s), and removed ${result.removed} duplicate/internal event(s)`
+      );
+    }
+  } catch (error) {
+    console.warn("Cursor history repair failed:", error.message);
+  }
+}
+
 /**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
@@ -417,6 +448,12 @@ function repairInflatedTokenTotals() {
  * `require.main === module` block below never executes for it.
  */
 function startBackgroundServices() {
+  // Cursor completion hooks are merge-safe and preserve unrelated commands.
+  // Repairing before the first sync keeps provisional /resume cards out of the
+  // initial list and backfills historical token snapshots exactly once.
+  ensureCursorUsageHooks();
+  void repairCursorHistory();
+
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();
 

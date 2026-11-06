@@ -106,6 +106,8 @@
  *   freshness and cleanup semantics.
  * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
@@ -249,7 +251,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+  type ReactNode,
+} from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -355,6 +365,17 @@ const EVENTS_REFRESH_DEBOUNCE_MS = 500;
 export function SessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const routeIdRef = useRef(id);
+  const loadSequenceRef = useRef(0);
+  useEffect(
+    () => () => {
+      loadSequenceRef.current += 1;
+    },
+    []
+  );
+  useLayoutEffect(() => {
+    routeIdRef.current = id;
+  }, [id]);
   const { t } = useTranslation("sessions");
   const { t: wfT } = useTranslation("workflows");
   const [scope] = useDataScope();
@@ -462,22 +483,37 @@ export function SessionDetail() {
   /** Load the session with its agents and its cost; a failed cost request leaves cost empty. */
   const load = useCallback(async () => {
     if (!id) return;
+    const requestedId = id;
+    const sequence = ++loadSequenceRef.current;
     try {
       const [data, costData] = await Promise.all([
-        api.sessions.get(id),
-        api.pricing.sessionCost(id).catch(() => null),
+        api.sessions.get(requestedId),
+        api.pricing.sessionCost(requestedId).catch(() => null),
       ]);
+      if (sequence !== loadSequenceRef.current || routeIdRef.current !== requestedId) return;
+      if (data.session.id !== requestedId) {
+        navigate(
+          {
+            pathname: `/sessions/${encodeURIComponent(data.session.id)}`,
+            search: typeof window !== "undefined" ? window.location.search : "",
+          },
+          { replace: true }
+        );
+      }
       setSession(data.session);
       setAgents(data.agents);
       setWorkflows(data.workflows || []);
       setCost(costData);
       setError(null);
     } catch (err) {
+      if (sequence !== loadSequenceRef.current || routeIdRef.current !== requestedId) return;
       setError(err instanceof Error ? err.message : t("detail.failedLoad"));
     } finally {
-      setLoading(false);
+      if (sequence === loadSequenceRef.current && routeIdRef.current === requestedId) {
+        setLoading(false);
+      }
     }
-  }, [id, scope, t]);
+  }, [id, navigate, scope, t]);
 
   usePaletteAction("page.refresh", () => {
     void load();

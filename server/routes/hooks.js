@@ -27,6 +27,17 @@ const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
+const {
+  applyCursorTurnUsage,
+  isCursorHook,
+  isCursorTurnPayload,
+  normalizeCursorHook,
+} = require("../lib/cursor-turn-usage");
+const {
+  claimCursorHookReceipt,
+  registerCursorGeneration,
+  resolveCursorSessionId,
+} = require("../lib/cursor-session-identity");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
   TranscriptPathError,
@@ -275,7 +286,7 @@ function ensureSession(sessionId, data, origin = null) {
       data.model || null,
       null
     );
-    if (cursorSession) setSessionProviderStmt.run("cursor", sessionId);
+    if (cursorSession) stmts.setSessionProvider.run("cursor", sessionId);
     // A hook that proved REMOTE_PUSH_TOKEN (see POST /event) comes from
     // another machine: birth the row as remote-push owned so the same
     // collector's POST /ingest-batch can enrich it with tokens/tool events.
@@ -284,7 +295,7 @@ function ensureSession(sessionId, data, origin = null) {
     if (origin && origin.remotePush) {
       stmts.setSessionSource.run(REMOTE_PUSH_SOURCE, sessionId);
       if (REMOTE_PROVIDERS.includes(data.provider) && data.provider !== "claude") {
-        setSessionProviderStmt.run(data.provider, sessionId);
+        stmts.setSessionProvider.run(data.provider, sessionId);
       }
     }
     session = stmts.getSession.get(sessionId);
@@ -332,7 +343,7 @@ function ensureSession(sessionId, data, origin = null) {
   // durable transcript path, not from the event names. Repair pre-v2.2.2 rows
   // on their very next hook as well as classifying newly created rows.
   if (cursorSession && session.provider !== "cursor") {
-    setSessionProviderStmt.run("cursor", sessionId);
+    stmts.setSessionProvider.run("cursor", sessionId);
     session = stmts.getSession.get(sessionId);
   }
   // The local hook is authenticated before it reaches this route. Persist the
@@ -532,10 +543,64 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
     if (repoRemoteUrl) data.repo_remote_url = repoRemoteUrl;
     else delete data.repo_remote_url;
   }
-  const sessionId = data.session_id;
+  let sessionId = data.session_id;
   if (!sessionId) return null;
 
-  const session = ensureSession(sessionId, data, origin);
+  if (isCursorHook(hookType, data)) {
+    const suppliedSessionId = sessionId;
+    sessionId = resolveCursorSessionId(db, sessionId);
+    if (sessionId !== suppliedSessionId) {
+      data = { ...data, session_id: sessionId, cursor_alias_session_id: suppliedSessionId };
+    }
+  }
+
+  let session = ensureSession(sessionId, data, origin);
+  if (!session) return null;
+  if (isCursorHook(hookType, data)) {
+    const suppliedSessionId = sessionId;
+    sessionId = registerCursorGeneration(db, sessionId, data);
+    if (sessionId !== suppliedSessionId) {
+      data = { ...data, session_id: sessionId, cursor_alias_session_id: suppliedSessionId };
+      session = stmts.getSession.get(sessionId);
+    }
+  }
+  if (isCursorHook(hookType, data) && !claimCursorHookReceipt(db, hookType, data, sessionId)) {
+    return {
+      session_id: sessionId,
+      agent_id: getMainAgent(sessionId)?.id || null,
+      event_type: hookType,
+      tool_name: data.tool_name || null,
+      summary: null,
+      created_at: new Date().toISOString(),
+      duplicate: true,
+    };
+  }
+  let cursorUsage = null;
+  if (isCursorTurnPayload(hookType, data)) {
+    cursorUsage = applyCursorTurnUsage(stmts, sessionId, data, { db });
+    if (cursorUsage && session.provider !== "cursor" && session.provider !== "codex") {
+      stmts.setSessionProvider.run("cursor", sessionId);
+      session = stmts.getSession.get(sessionId);
+    }
+    const actualModel = cursorUsage?.snapshot?.model;
+    if (actualModel && !["default", "auto", "unknown"].includes(actualModel.toLowerCase())) {
+      stmts.updateSessionModel.run(actualModel, sessionId, actualModel);
+    }
+  }
+
+  // Cursor's response hook exists to expose token usage. Recording it as a
+  // timeline event duplicates the subsequent Stop and inflates event counts.
+  if (hookType === "afterAgentResponse") {
+    return {
+      session_id: sessionId,
+      agent_id: getMainAgent(sessionId)?.id || null,
+      event_type: hookType,
+      tool_name: null,
+      summary: null,
+      created_at: new Date().toISOString(),
+      suppressed: true,
+    };
+  }
 
   // Remote household hooks (aideck-hook.js on other machines) cannot rely on
   // the transcript being readable on THIS host (the JSONL lives on the remote
@@ -1435,7 +1500,7 @@ router.post("/codex", (req, res) => {
 });
 
 router.post("/event", (req, res) => {
-  const { hook_type, data } = req.body;
+  let { hook_type, data } = req.body;
   if (!hook_type || !data) {
     return res.status(400).json({
       error: { code: "INVALID_INPUT", message: "hook_type and data are required" },
@@ -1451,14 +1516,22 @@ router.post("/event", (req, res) => {
   const expectedRemoteToken = getRemotePushToken();
   const remotePush =
     !!expectedRemoteToken && tokensMatch(extractHeaderOnlyToken(req), expectedRemoteToken);
+  const normalized = normalizeCursorHook(hook_type, data);
+  hook_type = normalized.hookType;
+  data = normalized.data;
   const result = processEvent(hook_type, data, remotePush ? { remotePush: true } : null);
   if (!result) {
     return res.status(400).json({
       error: { code: "MISSING_SESSION", message: "session_id is required in data" },
     });
   }
+  if (result.session_id && data.session_id !== result.session_id) {
+    data = { ...data, session_id: result.session_id };
+  }
 
-  res.json({ ok: true, event: result });
+  res.json({ ok: true, event: result.suppressed || result.duplicate ? undefined : result });
+
+  if (result.suppressed || result.duplicate) return;
 
   // Evaluate event-driven alert rules after the ingest transaction committed
   // and the response is on its way — alerting must never slow down or fail
@@ -2095,7 +2168,6 @@ function livenessReap({
 // carries no `src_` prefix, so it can never collide with a real configured
 // SSH source id, now or in the future (the id format is fixed at creation).
 const REMOTE_PUSH_SOURCE = "remote_push";
-const setSessionProviderStmt = db.prepare("UPDATE sessions SET provider = ? WHERE id = ?");
 
 // Bump only on a real wire-format break. A mismatch is a whole-request 409 —
 // per-item soft-fail doesn't make sense when the client and server disagree

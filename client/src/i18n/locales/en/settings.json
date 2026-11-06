@@ -139,6 +139,7 @@
     "title": "Dashboard Data",
     "description": "Choose which product’s sessions, tokens, costs, and activity appear across the app. The change takes effect immediately and remains independent from the machine data-source filter.",
     "claude": "Claude Code",
+    "cursor": "Cursor",
     "codex": "Codex",
     "both": "Both",
     "claudeDescription": "Show Claude Code and Cursor data.",

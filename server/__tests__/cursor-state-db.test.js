@@ -27,6 +27,8 @@ const STATE_DB = path.join(ROOT, "state.vscdb");
 const TITLED_ID = "3eb9ff9b-4e11-486e-b678-7ac26820ea22";
 const UNTITLED_ID = "4fc0aa0c-5f22-497f-8789-8bd37931fb33";
 const REPAIR_ID = "5ad1bb1d-6033-4a80-989a-9ce48a42ac44";
+const GENERATED_TITLE_ID = "6be2cc2e-7144-4b91-a8e3-ae816f757b55";
+const LEGACY_CUSTOM_ID = "7cf3dd3f-8254-4c92-b9c2-bf927ef86c66";
 
 fs.mkdirSync(ROOT, { recursive: true });
 process.env.DASHBOARD_DB_PATH = path.join(ROOT, "dashboard.db");
@@ -66,6 +68,23 @@ function writeTranscript(sessionId) {
   const stale = new Date(Date.now() - 60 * 60 * 1000);
   fs.utimesSync(transcript, stale, stale);
   return transcript;
+}
+
+function writeChat(sessionId, { title, prompts }) {
+  const chatDir = path.join(CURSOR_HOME, "chats", "workspace", sessionId);
+  fs.mkdirSync(chatDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(chatDir, "meta.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      createdAtMs: Date.now() - 60_000,
+      updatedAtMs: Date.now(),
+      hasConversation: true,
+      ...(title ? { title } : {}),
+    })
+  );
+  fs.writeFileSync(path.join(chatDir, "prompt_history.json"), JSON.stringify(prompts));
+  return chatDir;
 }
 
 after(() => {
@@ -210,5 +229,77 @@ describe("Cursor ingestion with state.vscdb titles", () => {
     await syncCursorSessions(dbModule);
     assert.equal(dbModule.stmts.getSession.get(REPAIR_ID).name, "Repaired title");
     assert.equal(dbModule.stmts.getAgent.get(`${REPAIR_ID}-main`).name, "Cursor · Repaired title");
+  });
+
+  it("replaces a prompt fallback when Cursor generates its native title later", () => {
+    const transcript = writeTranscript(GENERATED_TITLE_ID);
+    const chatDir = writeChat(GENERATED_TITLE_ID, { prompts: ["hi"] });
+    const initial = enrichCursorSession(dbModule, transcript, {
+      sessionId: GENERATED_TITLE_ID,
+      chatDir,
+    });
+    assert.equal(initial.session.name, "hi");
+    assert.equal(JSON.parse(initial.session.metadata).cursor_title_source, "prompt");
+
+    writeChat(GENERATED_TITLE_ID, { title: "Friendly Chat", prompts: ["hi"] });
+    const titled = enrichCursorSession(dbModule, transcript, {
+      sessionId: GENERATED_TITLE_ID,
+      chatDir,
+    });
+    assert.equal(titled.session.name, "Friendly Chat");
+    assert.equal(JSON.parse(titled.session.metadata).cursor_title_source, "native");
+    assert.equal(JSON.parse(titled.session.metadata).cursor_ingested_name, "Friendly Chat");
+    assert.equal(
+      dbModule.stmts.getAgent.get(`${GENERATED_TITLE_ID}-main`).name,
+      "Cursor · Friendly Chat"
+    );
+
+    dbModule.stmts.updateSession.run("Dashboard custom name", null, null, null, GENERATED_TITLE_ID);
+    writeChat(GENERATED_TITLE_ID, { title: "Regenerated native title", prompts: ["hi"] });
+    const custom = enrichCursorSession(dbModule, transcript, {
+      sessionId: GENERATED_TITLE_ID,
+      chatDir,
+    });
+    assert.equal(custom.session.name, "Dashboard custom name");
+  });
+
+  it("does not infer that a legacy name matching the first prompt is ingestion-owned", () => {
+    const transcript = writeTranscript(LEGACY_CUSTOM_ID);
+    const chatDir = writeChat(LEGACY_CUSTOM_ID, { prompts: ["hi"] });
+    enrichCursorSession(dbModule, transcript, { sessionId: LEGACY_CUSTOM_ID, chatDir });
+    dbModule.db
+      .prepare("UPDATE sessions SET name = ?, metadata = ? WHERE id = ?")
+      .run("hi", JSON.stringify({ cursor: true }), LEGACY_CUSTOM_ID);
+
+    writeChat(LEGACY_CUSTOM_ID, { title: "Generated after the rename", prompts: ["hi"] });
+    const preserved = enrichCursorSession(dbModule, transcript, {
+      sessionId: LEGACY_CUSTOM_ID,
+      chatDir,
+    });
+    assert.equal(preserved.session.name, "hi");
+  });
+
+  it("preserves a manual rename even when it resembles a generated placeholder", () => {
+    const transcript = writeTranscript(LEGACY_CUSTOM_ID);
+    const chatDir = writeChat(LEGACY_CUSTOM_ID, { prompts: ["original prompt"] });
+    enrichCursorSession(dbModule, transcript, { sessionId: LEGACY_CUSTOM_ID, chatDir });
+    const manualName = `Cursor session ${LEGACY_CUSTOM_ID.slice(0, 8)}`;
+    dbModule.db
+      .prepare("UPDATE sessions SET name = ?, metadata = ? WHERE id = ?")
+      .run(
+        manualName,
+        JSON.stringify({ cursor: true, cursor_title_source: "manual" }),
+        LEGACY_CUSTOM_ID
+      );
+
+    writeChat(LEGACY_CUSTOM_ID, {
+      title: "Generated title must not win",
+      prompts: ["original prompt"],
+    });
+    const preserved = enrichCursorSession(dbModule, transcript, {
+      sessionId: LEGACY_CUSTOM_ID,
+      chatDir,
+    });
+    assert.equal(preserved.session.name, manualName);
   });
 });

@@ -313,7 +313,7 @@ flowchart LR
 | **작업 진행률** | Claude 작업 도구, 레거시 `TodoWrite`, Codex `update_plan`에서 소유자를 인식하는 진행률을 생성합니다. 카드와 행에는 간단한 미리보기가 표시되고, Session Detail에는 상태 구간, 활성 작업, 소유자, 10개 행 단위 페이지가 추가됩니다. 새 최상위 작업은 이전의 미완료 상태를 지우고, 완료 기록은 유지합니다. |
 | **Dashboard** | 저장되는 **Monitor**와 **Health** 탭이 전체 합계, 활성 계층, 최근 활동, 가중 성공률/캐시/오류/힙 상태, 스토리지, 도구, 모델, Subagent 효과, 컴팩션 지표를 결합합니다. Health는 `/api/settings/info`와 `/api/workflows`에서 5초마다 새로 고칩니다. |
 | **Kanban Board** | Agent 열은 Working, Waiting, Completed, Error를, 세션 열은 Active와 Abandoned를 추가로 다룹니다. 카드는 10개씩 표시하고 활성 WebSocket 보기만 구독하며, 전체 제목을 보존하고 권한 입력, 턴 완료, 프롬프트 대기, 중단 같은 대기 사유를 설명합니다. |
-| **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. |
+| **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. Cursor의 네이티브 생성 제목은 수집 메타데이터가 현재 이름을 CCAM이 소유함을 입증할 때만 임시 첫 프롬프트 대체 이름을 갱신하며, 수동 이름과 소유권이 불분명한 레거시 이름은 그대로 유지됩니다. |
 | **Session Detail** | 실시간 통계, 활성 작업, 도구 사용량, Subagent, 토큰, 계층, 필터링된 이벤트 타임라인, `tool_use_id` 그룹화, 도구별 렌더러를 제공합니다. Conversation 보기는 대기 중인 턴, 시스템 알림, Markdown, 구문 강조 코드, 스타일이 적용된 도구를 렌더링하고, 대기 배너에는 사유와 경과 시간을 표시합니다. |
 | **Activity Feed** | 공유 필터, 서버 페이지네이션, 그룹화, 프로젝트/세션/Subagent 출처, 세션 링크, 일관된 Claude/Codex 상태 배지를 갖춘 일시 정지 가능한 실시간 이벤트를 제공합니다. |
 | **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. |
@@ -325,7 +325,7 @@ flowchart LR
 | **Subagent Hierarchy** | Dashboard와 Session Detail의 접을 수 있는 부모-자식 트리는 자식이 활성인 동안 자동으로 펼쳐집니다. |
 | **Background Agents** | 백그라운드 Subagent를 조기 완료 처리하지 않고 계속 추적합니다. |
 | **Subagent Tool Attribution** | `SubagentStop`과 시작 스캔이 Subagent별 JSONL 도구를 가져오고, `tool_use_id`로 결과를 연결하며, 중복을 제거하고, 30초 이내의 일치하는 실시간 행을 병합하고, 생성된 자식 ID에서 실제 중첩 부모를 재구성합니다. 재부모화는 추가 방식이며 행이 삽입되지 않아도 UI 새로 고침을 유발합니다. |
-| **Cost Tracking** | 모델별, 세션별 설정 가능한 가격은 날짜가 있는 초기 요율, 편집 가능한 프로모션 범주, 각 Subagent의 자체 비용, 컴팩션에 안전한 합계를 지원합니다. 트랜스크립트는 캐시된 증분 바이트 오프셋으로 읽습니다. |
+| **Cost Tracking** | API 상당 예상치(구독 요금 아님)는 설정 가능한 모델별 요금을 사용하며 Cursor의 실제 네이티브 모델과 generation당 하나의 usage 레코드를 포함합니다. Dashboard와 Analytics 비용 레이블 옆의 접근 가능한 정보 아이콘에는 선택 범위와 누락된 모든 요금이 표시되고, Analytics 값 Tooltip에는 전체 금액만 표시되며, Settings는 같은 coverage 정보를 인라인으로 표시합니다. |
 | **Transcript Cache** | 증분 JSONL 파싱은 토큰, 컴팩션, API 오류, 턴 소요 시간, thinking, usage 메타데이터를 추출합니다. 전체 파싱은 레거시 중복을 복구하고 tail 파싱은 append-only로 유지합니다. 배열은 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`, 기본값 `1000`으로 제한되며 항목은 파일 메타데이터와 파싱 결과만 저장합니다. |
 | **Transcript Snapshot Retention** | 영구 Claude, Codex, Cursor 스냅샷은 가장 완전한 대화를 보존합니다. 소스가 없는 Claude와 Cursor 복사본은 왕복 검증 후 gzip 처리되고, purge는 스냅샷을 제거하며, 선택적 연령과 크기 제한은 Settings 드라이런 미리보기 후 유일한 오래된 복사본을 정리할 수 있습니다. |
 | **Notifications** | VAPID Web Push는 백그라운드 또는 브라우저가 닫힌 상태에서도 설정된 이벤트를 전달하며, macOS 오디오 지원과 구독 제어를 제공합니다. |
@@ -337,7 +337,7 @@ flowchart LR
 | **MCP Server (Local)** | stdio, HTTP+SSE, REPL의 세 transport가 16개 module에서 103개의 typed tool을 노출합니다. 하나의 검증된 catalog가 localhost 또는 HTTPS target, bearer-token 규칙, redirect 거부, mutation gate, 파일당 50 MiB, 호출당 100 MiB upload, 10 MiB binary response, 25 MiB restore를 강제합니다. |
 | **Workflows** | 11개의 D3 섹션이 orchestration, tool flow, collaboration, effectiveness, patterns, delegation, errors, concurrency, complexity, compaction, session drill-in을 다룹니다. 현지화된 설명 tooltip, cross-filtering, JSON export, 3초 debounce 실시간 새로 고침, journal에서 재구성된 dynamic run이 Agent별 phase, token, tool, duration, prompt, result 정보를 보존합니다. |
 | **Compaction Tracking** | 트랜스크립트 스캔은 duration이 0인 compaction Agent와 event를 만들고, 레거시 음수 duration을 복구하며, 이전 세션을 backfill하고, 캐시된 `sessions.transcript_path` 값으로 활성 세션만 주기적으로 검사합니다. |
-| **Subsessions/Resumed Sessions** | 새 이벤트는 재개되었거나 orphaned 상태인 세션을 다시 활성화합니다. `DASHBOARD_STALE_MINUTES`의 1/4 주기로, 60초에서 5분 사이로 제한된 sweep가 abandoned 세션을 찾습니다. |
+| **Subsessions/Resumed Sessions** | Cursor의 `generation_id` 상관관계는 `/resume` 임시 세션을 정식 대화에 합치고 이전 링크를 리디렉션하며 반복 완료 Hook을 중복 제거합니다. 다른 새 이벤트도 재개되거나 orphaned 상태인 세션을 다시 활성화하고, 제한된 stale sweep는 abandoned 세션을 계속 찾습니다. |
 | **Pre-Existing Session Detection** | 시작 가져오기는 최근 수정된 트랜스크립트를 active로 표시하고, 이후 Stop 이벤트는 가져온 completed 또는 abandoned 세션을 업데이트하기 전에 다시 활성화합니다. |
 | **Continuous Project Sync** | 즉시 시작 sweep, debounce filesystem watcher, 기본 30초인 `DASHBOARD_SESSION_SYNC_MS` poll이 mtime cache와 coalesced scan을 공유합니다. 새로 생겼거나 진행된 파일만 다시 파싱하며, Linux에 안전한 watcher 범위와 실시간 session broadcast를 사용합니다. |
 | **Remote Data Sources** | SSH source는 `scp` 또는 WSL `tar`를 통해 Claude와 Codex home을 독립적으로 mirror하고, `sessions.source`를 tag하며, lifecycle을 조정하고, 두 provider 중 하나라도 작동하면 healthy 상태를 유지합니다. Polling 기본값은 15초이며 stale fallback은 실패한 provider에만 적용됩니다. 인증 정보는 host SSH에 남습니다. |
@@ -392,7 +392,7 @@ Claude 홈은 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 순서로 결정�
 
 설정 후에도 provider 검색은 계속됩니다.
 
-- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. Cursor는 Hook이 필요 없습니다. Claude Code를 선택하면 `~/.cursor/chats`와 `~/.cursor/projects/*/agent-transcripts`도 감시하고, Cursor 정리 전에 대화를 스냅샷으로 저장하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
+- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. CCAM은 관련 없는 명령 체인을 바꾸거나 분리하지 않고 자체 `stop` 및 `afterAgentResponse` 명령을 `~/.cursor/hooks.json`에 자동 병합하며, `npm run install-cursor-hooks`로 수동 복구할 수도 있습니다. Cursor의 네이티브 채팅 저장소와 transcript watcher는 오프라인 대체 경로로 유지되어 `/resume` 임시 ID를 정식 대화에 연결하고, 네이티브 Store·JSONL·alias prompt history를 병합하며, 수집기가 소유한 이름에만 생성 제목을 적용하고, alias 패밀리의 어느 네이티브 Store에서든 일치하는 응답을 찾은 경우에만 `default`를 해석하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
 - **Codex:** Hook과 증분 `~/.codex/sessions` rollout 감시가 라이프사이클, 프롬프트, 제목, 도구, 토큰, 비용, 컴팩션, 대화, WebSocket 상태를 최신으로 유지합니다. 잘못된 파일은 독립적으로 다시 시도하고, 정확한 rollout/process 매칭으로 유령 활성 카드를 방지하며, native `/rename` 제목과 cursor 페이지네이션 대화 히스토리를 실시간으로 유지합니다.
 - **Both:** 카드는 서로 다른 최근 사용자 프롬프트 2개를 유지하고, 저장된 이미지 첨부 파일을 렌더링하며, 반복된 Codex 응답을 중복 제거합니다. Codex-only 범위에서는 Claude-only Dynamic Workflow journal을 숨깁니다.
 
@@ -788,7 +788,7 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
-비용은 설정된 API 요금을 기준으로 한 예상치이며 구독 요금이 아닙니다. Dashboard와 Settings는 센트까지 표시하고 선택한 머신/제품 범위 및 적용 요금이 없는 사용량을 알립니다. GPT-6.1 Sol의 Standard/Fast Short/Long 기본 요금은 OpenAI 공개 요금을 따르며 기존에 일치하는 사용자 규칙을 덮어쓰지 않습니다.
+비용은 설정된 API 요금을 기준으로 한 예상치이며 구독 요금이 아닙니다. Dashboard와 Analytics는 비용 레이블 옆의 키보드 접근 가능한 정보 아이콘에 선택한 머신/제품 범위와 누락된 요금 전체 목록을 표시하고, Analytics 값 Tooltip에는 축약하지 않은 금액만 표시하며, Settings는 같은 coverage 정보를 인라인으로 보여 줍니다. GPT-6.1 Sol의 Standard/Fast Short/Long 기본 요금은 OpenAI 공개 요금을 따르며 기존에 일치하는 사용자 규칙을 덮어쓰지 않습니다.
 
 ### 업그레이드 전 비용 스냅숏
 

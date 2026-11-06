@@ -5,7 +5,7 @@
   "totalSessions": "Total Sessions",
   "totalAgents": "Total Agents",
   "totalTokens": "Total Tokens",
-  "totalCost": "Total Cost",
+  "totalCost": "API Cost Estimate",
   "totalEvents": "Total Events",
   "cacheHitRate": "% cache hit rate",
   "perSession": " per session",

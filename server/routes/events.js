@@ -13,6 +13,7 @@ const { Router } = require("express");
 const { db, readEventPageQuery } = require("../db");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
+const { resolveCursorSessionId } = require("../lib/cursor-session-identity");
 
 const router = Router();
 
@@ -106,6 +107,11 @@ router.get("/", async (req, res, next) => {
       sources: parseSources(req),
       providers: parseProviders(req),
     };
+    if (filters.session_id) {
+      filters.session_id = [
+        ...new Set(filters.session_id.map((id) => resolveCursorSessionId(db, id))),
+      ];
+    }
 
     const { sql: whereSql, params: whereParams } = buildWhere(filters);
 

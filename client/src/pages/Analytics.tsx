@@ -27,6 +27,8 @@
  *   selected-source views agree.
  *
  * ## Local dependency edges
+ * - `../components/CostCoverage` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `../components/PaginatedLegend` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
@@ -101,10 +103,14 @@
  *   freshness and cleanup semantics.
  * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
  * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
  * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
  * - `useSyncExternalStore` — lifecycle/state dependency detected in this module; preserve
@@ -235,7 +241,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  useLayoutEffect,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
@@ -254,6 +268,7 @@ import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
+import { CostEstimateInfo } from "../components/CostCoverage";
 import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
 import { useUrlTab } from "../hooks/usePageShortcuts";
@@ -813,6 +828,7 @@ function DonutChart({
  */
 function StatPill({
   label,
+  labelAccessory,
   value,
   raw,
   sub,
@@ -822,6 +838,8 @@ function StatPill({
 }: {
   /** Stat name. */
   label: string;
+  /** Optional control rendered immediately after the label. */
+  labelAccessory?: React.ReactNode;
   /** Formatted value. */
   value: string | number;
   /** Exact value shown in a tooltip when the displayed value is rounded. */
@@ -838,7 +856,14 @@ function StatPill({
   return (
     <div className="card p-5 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
+        {labelAccessory ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-xs text-gray-500 uppercase tracking-wider">{label}</span>
+            {labelAccessory}
+          </div>
+        ) : (
+          <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
+        )}
         <Icon className={`w-4 h-4 ${color}`} />
       </div>
       {loading ? (
@@ -932,22 +957,38 @@ export function Analytics() {
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   // Global data scope; a change re-runs `load` (api injects the `sources` param).
   const [scope] = useDataScope();
+  const [costScope, setCostScope] = useState(scope);
+  const loadSequence = useRef(0);
+  const highestAppliedSequence = useRef(0);
+  const scopeRef = useRef(scope);
+
+  useLayoutEffect(() => {
+    scopeRef.current = scope;
+  }, [scope]);
 
   /**
    * Load analytics and total cost in parallel. A failed cost request leaves cost empty instead of
    * failing the whole page.
    */
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    const requestedScope = scope;
     try {
       const [result, cost] = await Promise.all([
         api.analytics.get(),
         api.pricing.totalCost().catch(() => null),
       ]);
+      if (scopeRef.current !== requestedScope || sequence <= highestAppliedSequence.current) return;
+      highestAppliedSequence.current = sequence;
       setData(result);
       setCostData(cost);
+      setCostScope(requestedScope);
       setLastUpdate(new Date());
-    } finally {
       setLoading(false);
+    } finally {
+      if (sequence === loadSequence.current && scopeRef.current === requestedScope) {
+        setLoading(false);
+      }
     }
   }, [scope]);
 
@@ -1240,6 +1281,9 @@ export function Analytics() {
         />
         <StatPill
           label={t("totalCost")}
+          labelAccessory={
+            <CostEstimateInfo scope={costScope} unpriced={costData?.unpriced_models || []} />
+          }
           value={costData ? fmtCost(costData.total_cost) : ""}
           raw={costData ? fmtCostFull(costData.total_cost) : undefined}
           sub={

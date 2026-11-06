@@ -15,6 +15,7 @@ const {
   sourceColumnClause,
   sessionIdInSourcesClause,
 } = require("../lib/source-filter");
+const { resolveCursorSessionId } = require("../lib/cursor-session-identity");
 
 const router = Router();
 
@@ -886,7 +887,9 @@ router.get("/runs", (req, res) => {
       return res.json({ runs: [], total: 0, counts: {}, limit, offset });
     }
     const status = req.query.status && req.query.status !== "all" ? req.query.status : null;
-    const sessionId = req.query.session_id || null;
+    const sessionId = req.query.session_id
+      ? resolveCursorSessionId(db, req.query.session_id)
+      : null;
 
     let rows;
     if (sessionId) {

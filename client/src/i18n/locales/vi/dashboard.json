@@ -7,6 +7,7 @@
   "eventsToday": "Sự kiện hôm nay",
   "totalEvents": "Tổng sự kiện",
   "totalCost": "Ước tính chi phí API",
+  "costInfoLabel": "Giới thiệu về ước tính chi phí API",
   "viewBoard": "Xem bảng",
   "viewAll": "Xem tất cả",
   "activeAgentsSection": "Agent đang hoạt động",

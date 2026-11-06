@@ -302,6 +302,71 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
+  -- Cursor can emit one generation under a provisional shell id and finish it
+  -- under the canonical resumed conversation id. These tables make that join
+  -- durable, keep old links resolvable, and deduplicate repeated completion
+  -- hooks without discarding distinct aborted/error transitions.
+  CREATE TABLE IF NOT EXISTS cursor_session_aliases (
+    alias_session_id TEXT PRIMARY KEY,
+    canonical_session_id TEXT NOT NULL,
+    generation_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (canonical_session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS cursor_generations (
+    generation_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    has_transcript INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS cursor_hook_receipts (
+    receipt_key TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    hook_type TEXT NOT NULL,
+    generation_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  -- One authoritative usage snapshot per Cursor generation. The globally
+  -- unique generation id prevents a resumed shell and its canonical session
+  -- from charging the same model turn twice.
+  CREATE TABLE IF NOT EXISTS cursor_turn_usage (
+    generation_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    speed TEXT NOT NULL DEFAULT 'standard',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS cursor_repair_state (
+    repair_key TEXT PRIMARY KEY,
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS cursor_repair_progress (
+    repair_key TEXT PRIMARY KEY,
+    phase TEXT NOT NULL,
+    last_event_id INTEGER NOT NULL DEFAULT 0,
+    merged_count INTEGER NOT NULL DEFAULT 0,
+    removed_count INTEGER NOT NULL DEFAULT 0,
+    usage_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_cursor_alias_canonical
+    ON cursor_session_aliases(canonical_session_id);
+  CREATE INDEX IF NOT EXISTS idx_cursor_generation_session ON cursor_generations(session_id);
+  CREATE INDEX IF NOT EXISTS idx_cursor_turn_session ON cursor_turn_usage(session_id);
+
   -- Durable cursor state for append-only Codex rollout JSONL files. Keeping the
   -- last cumulative counters makes duplicate hook/watcher notifications free.
   CREATE TABLE IF NOT EXISTS codex_ingest_state (
@@ -553,6 +618,42 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
 `);
 
+// Early Cursor usage builds keyed turns by (session_id, generation_id). Cursor
+// `/resume` proves generation_id is the stable identity while session_id can
+// change mid-turn, so rebuild that preview schema with a global generation key.
+try {
+  const columns = db.prepare("PRAGMA table_info(cursor_turn_usage)").all();
+  const generation = columns.find((column) => column.name === "generation_id");
+  const session = columns.find((column) => column.name === "session_id");
+  if (generation?.pk !== 1 || session?.pk) {
+    db.exec(`
+      ALTER TABLE cursor_turn_usage RENAME TO cursor_turn_usage_pre_resume;
+      CREATE TABLE cursor_turn_usage (
+        generation_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        speed TEXT NOT NULL DEFAULT 'standard',
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+      );
+      INSERT OR REPLACE INTO cursor_turn_usage
+        (generation_id, session_id, model, speed, input_tokens, output_tokens,
+         cache_read_tokens, cache_write_tokens, updated_at)
+      SELECT generation_id, session_id, model, speed, input_tokens, output_tokens,
+        cache_read_tokens, cache_write_tokens, updated_at
+      FROM cursor_turn_usage_pre_resume ORDER BY updated_at;
+      DROP TABLE cursor_turn_usage_pre_resume;
+      CREATE INDEX IF NOT EXISTS idx_cursor_turn_session ON cursor_turn_usage(session_id);
+    `);
+  }
+} catch (error) {
+  console.warn("[db] Cursor turn-usage key migration skipped:", error.message);
+}
+
 // Before response-item ingestion existed, Codex terminal event messages were
 // the only available approximation of a tool invocation. Those rows remain
 // useful activity events, but response items now provide the exact call, so
@@ -793,6 +894,8 @@ const cursorRate = (pattern, name, input, cacheWrite, cacheRead, output) => [
   output,
 ];
 const DEFAULT_CURSOR_PRICING = [
+  cursorRate("grok-4.7-fast%", "Cursor Grok 4.7 (Fast)", 4, 0, 1, 12),
+  cursorRate("grok-4.7%", "Cursor Grok 4.7", 2, 0, 0.5, 6),
   cursorRate("grok-4.6-fast%", "Cursor Grok 4.6 (Fast)", 4, 0, 1, 12),
   cursorRate("grok-4.6%", "Cursor Grok 4.6", 2, 0, 0.5, 6),
   cursorRate("grok-4.5-fast%", "Cursor Grok 4.5 (Fast)", 4, 0, 1, 18),
@@ -1748,6 +1851,9 @@ const stmts = {
   updateSession: db.prepare(
     "UPDATE sessions SET name = COALESCE(?, name), status = COALESCE(?, status), ended_at = COALESCE(?, ended_at), metadata = COALESCE(?, metadata), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  setSessionProvider: db.prepare(
+    "UPDATE sessions SET provider = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
   reactivateSession: db.prepare(
     "UPDATE sessions SET status = 'active', ended_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
@@ -2089,6 +2195,53 @@ const stmts = {
       baseline_web_search = 0,
       baseline_web_fetch = 0,
       baseline_code_execution = 0
+  `),
+  upsertCursorTurnUsage: db.prepare(`
+    INSERT INTO cursor_turn_usage (
+      generation_id, session_id, model, speed,
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(generation_id) DO UPDATE SET
+      session_id = excluded.session_id,
+      model = excluded.model,
+      speed = excluded.speed,
+      input_tokens = excluded.input_tokens,
+      output_tokens = excluded.output_tokens,
+      cache_read_tokens = excluded.cache_read_tokens,
+      cache_write_tokens = excluded.cache_write_tokens,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  `),
+  sumCursorTurnUsage: db.prepare(`
+    SELECT model, speed,
+      SUM(input_tokens) AS input_tokens,
+      SUM(output_tokens) AS output_tokens,
+      SUM(cache_read_tokens) AS cache_read_tokens,
+      SUM(cache_write_tokens) AS cache_write_tokens
+    FROM cursor_turn_usage WHERE session_id = ? GROUP BY model, speed
+  `),
+  getCursorTurn: db.prepare(`
+    SELECT session_id, model, speed, input_tokens, output_tokens,
+      cache_read_tokens, cache_write_tokens
+    FROM cursor_turn_usage WHERE generation_id = ?
+  `),
+  getCursorEventModel: db.prepare(`
+    SELECT COALESCE(json_extract(data, '$.model_id'), json_extract(data, '$.model')) AS model
+    FROM events
+    WHERE session_id = ? AND json_valid(data) = 1
+      AND json_extract(data, '$.generation_id') = ?
+      AND LOWER(COALESCE(json_extract(data, '$.model_id'), json_extract(data, '$.model'), ''))
+        NOT IN ('', 'default', 'auto', 'unknown')
+    ORDER BY id DESC LIMIT 1
+  `),
+  getLatestCursorSessionModel: db.prepare(`
+    SELECT model FROM cursor_turn_usage
+    WHERE session_id = ? AND LOWER(model) NOT IN ('', 'default', 'auto', 'unknown')
+    ORDER BY updated_at DESC LIMIT 1
+  `),
+  deleteTokenUsageBucket: db.prepare(`
+    DELETE FROM token_usage
+    WHERE session_id = ? AND model = ? AND speed = ?
+      AND inference_geo = 'global' AND service_tier = 'standard' AND context_size = 'short'
   `),
   // Incremental Codex counter deltas. Unlike the full Claude re-parser, Codex
   // rollouts expose an authoritative per-request delta, so we only ever add a

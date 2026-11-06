@@ -10,8 +10,8 @@
  * cursor is near viewport edges.
  *
  * ## No-op mode
- * When `raw` is omitted the component returns `children` unchanged — callers
- * do not need conditional wrappers.
+ * When both `raw` and `content` are omitted the component returns `children`
+ * unchanged — callers do not need conditional wrappers.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -29,8 +29,8 @@
  * metric values and anywhere a compact display needs a full-precision expansion without cluttering
  * the layout. ## Portal rendering Tooltip content is portaled to `document.body` with
  * `position: fixed` so parent `overflow: hidden` cannot clip it. Placement flips left/up when the
- * cursor is near viewport edges. ## No-op mode When `raw` is omitted the component returns
- * `children` unchanged — callers do not need conditional wrappers.
+ * cursor is near viewport edges. ## No-op mode When both `raw` and `content` are omitted the
+ * component returns `children` unchanged — callers do not need conditional wrappers.
  *
  * ## Architectural boundary
  * - This component should express one reusable UI responsibility through typed props and observable
@@ -51,6 +51,14 @@
  *   name, shape, or timing.
  *
  * ## Top-level implementation landmarks
+ * - `enabledFocusableElements` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `FOCUSABLE_SELECTOR` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `focusableElements` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `isVisibleFocusable` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
  * - `Tip` (function) — top-level declaration that helps orient code review and focused test
  *   selection.
  * - `TipProps` (interface) — top-level declaration that helps orient code review and focused test
@@ -58,6 +66,12 @@
  *
  * ## React and framework hooks
  * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useId` — lifecycle/state dependency detected in this module; preserve dependency freshness and
+ *   cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
  *   freshness and cleanup semantics.
  * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
  *   and cleanup semantics.
@@ -171,50 +185,157 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useId, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
 /** Props for {@link Tip}. */
 interface TipProps {
   /** Tooltip body; when absent, only `children` are rendered. */
   raw?: string;
+  /** Optional rich tooltip body, used when the panel contains an actionable link. */
+  content?: React.ReactNode;
   /** Element that triggers the tooltip on hover. */
   children: React.ReactNode;
   /** Max tooltip width in pixels. Default `320`. */
   maxWidth?: number;
   /** Use a block-level wrapper instead of inline `span` for full-width targets. */
   block?: boolean;
+  /** Accessible name for compact non-text triggers such as an info icon. */
+  ariaLabel?: string;
+  /** Additional classes applied to the focusable trigger wrapper. */
+  triggerClassName?: string;
+  /** Visual treatment for compact values or explanatory information. */
+  variant?: "value" | "info";
+  /** Keep the panel open while its links or controls are hovered and focused. */
+  interactive?: boolean;
+}
+
+const FOCUSABLE_SELECTOR = ["a[href]", "button", "input", "select", "textarea", "[tabindex]"].join(
+  ", "
+);
+
+function isVisibleFocusable(element: HTMLElement) {
+  if (element.tabIndex < 0 || element.matches(":disabled")) return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    if (node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(node);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse"
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function enabledFocusableElements(root: ParentNode) {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => element.tabIndex >= 0 && !element.matches(":disabled")
+  );
+}
+
+function focusableElements(root: ParentNode) {
+  return enabledFocusableElements(root).filter(isVisibleFocusable);
 }
 
 /**
  * Hover tooltip anchored to the mouse cursor.
  * @param props See {@link TipProps}.
  */
-export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) {
+export function Tip({
+  raw,
+  content,
+  children,
+  maxWidth = 320,
+  block = false,
+  ariaLabel,
+  triggerClassName = "",
+  variant = "value",
+  interactive = false,
+}: TipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [tipSize, setTipSize] = useState<{ width: number; height: number } | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLSpanElement & HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tipId = useId();
+
+  useEffect(
+    () => () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    },
+    []
+  );
+
+  useLayoutEffect(() => {
+    if (!show || !tipRef.current) return;
+    const next = {
+      width: tipRef.current.offsetWidth,
+      height: tipRef.current.offsetHeight,
+    };
+    setTipSize((current) =>
+      current?.width === next.width && current.height === next.height ? current : next
+    );
+  }, [content, maxWidth, raw, show]);
 
   /** Follow the pointer with the tooltip. */
   const updatePos = useCallback((e: React.MouseEvent) => {
     setPos({ x: e.clientX, y: e.clientY });
   }, []);
 
-  if (!raw) return <>{children}</>;
+  const hasContent =
+    content !== undefined && content !== null && content !== false && content !== "";
+  if (!raw && !hasContent) return <>{children}</>;
+
+  const cancelHide = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = null;
+  };
+  const hide = () => {
+    cancelHide();
+    setShow(false);
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    if (!interactive) {
+      setShow(false);
+      return;
+    }
+    hideTimerRef.current = setTimeout(() => {
+      const active = document.activeElement;
+      if (triggerRef.current?.contains(active) || tipRef.current?.contains(active)) {
+        return;
+      }
+      setShow(false);
+    }, 100);
+  };
 
   const Wrapper = block ? "div" : "span";
-  const wrapperClass = block ? "cursor-default" : "relative inline-block cursor-default";
+  const baseWrapperClass = block ? "cursor-default" : "relative inline-block cursor-default";
+  const wrapperClass = triggerClassName
+    ? `${baseWrapperClass} ${triggerClassName}`
+    : baseWrapperClass;
+  const infoLines = variant === "info" && raw ? raw.split("\n").filter(Boolean) : [];
 
   // Compute tooltip placement avoiding screen edges
   let tipStyle: React.CSSProperties = {
     position: "fixed",
     zIndex: 99999,
     maxWidth,
+    maxHeight: variant === "info" && interactive ? "70vh" : undefined,
+    overflowY: variant === "info" && interactive ? "auto" : undefined,
     visibility: "hidden",
   };
-  if (show) {
-    const tipW = tipRef.current?.offsetWidth ?? 200;
-    const tipH = tipRef.current?.offsetHeight ?? 32;
+  if (show && !tipSize) {
+    // Measure at a neutral origin so fixed-position shrink-to-fit does not
+    // compress the panel against the viewport edge.
+    tipStyle = { ...tipStyle, left: 0, top: 0 };
+  } else if (show && tipSize) {
+    const tipW = tipSize.width;
+    const tipH = tipSize.height;
     const vw = document.documentElement.clientWidth;
     const vh = window.innerHeight;
     const pad = 12;
@@ -237,28 +358,136 @@ export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) 
     // If goes off top, clamp
     if (top < pad) top = pad;
 
-    tipStyle = { position: "fixed", left, top, zIndex: 99999, maxWidth, visibility: "visible" };
+    tipStyle = {
+      ...tipStyle,
+      left,
+      top,
+      visibility: "visible",
+    };
   }
 
   return (
     <Wrapper
+      ref={triggerRef}
       className={wrapperClass}
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-describedby={show ? tipId : undefined}
       onMouseEnter={(e: React.MouseEvent) => {
+        cancelHide();
+        setTipSize(null);
         setShow(true);
         updatePos(e);
       }}
       onMouseMove={updatePos}
-      onMouseLeave={() => setShow(false)}
+      onMouseLeave={scheduleHide}
+      onFocus={() => {
+        const bounds = triggerRef.current?.getBoundingClientRect();
+        if (bounds) setPos({ x: bounds.left + bounds.width / 2, y: bounds.bottom });
+        setTipSize(null);
+        setShow(true);
+      }}
+      onBlur={(event: React.FocusEvent) => {
+        if (tipRef.current?.contains(event.relatedTarget as Node | null)) return;
+        scheduleHide();
+      }}
+      onKeyDown={(event: React.KeyboardEvent) => {
+        if (event.key === "Escape") {
+          if (tipRef.current?.contains(document.activeElement)) {
+            triggerRef.current?.focus();
+          }
+          hide();
+          return;
+        }
+        if (
+          interactive &&
+          event.target === event.currentTarget &&
+          event.key === "Tab" &&
+          !event.shiftKey
+        ) {
+          const firstFocusable = tipRef.current
+            ? enabledFocusableElements(tipRef.current)[0]
+            : undefined;
+          if (firstFocusable) {
+            event.preventDefault();
+            firstFocusable.focus();
+          }
+        }
+        if (interactive && event.key === "Tab" && event.shiftKey) {
+          const firstFocusable = tipRef.current
+            ? enabledFocusableElements(tipRef.current)[0]
+            : undefined;
+          if (firstFocusable && event.target === firstFocusable) {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }
+        }
+        if (interactive && event.key === "Tab" && !event.shiftKey && tipRef.current) {
+          const tipFocusable = enabledFocusableElements(tipRef.current);
+          const lastFocusable = tipFocusable[tipFocusable.length - 1];
+          if (lastFocusable && event.target === lastFocusable && triggerRef.current) {
+            const trigger = triggerRef.current;
+            const focusable = focusableElements(document);
+            const triggerIndex = focusable.indexOf(trigger);
+            const nextFocusable = focusable
+              .slice(triggerIndex + 1)
+              .find((element) => !trigger.contains(element) && !tipRef.current?.contains(element));
+            if (triggerIndex >= 0 && nextFocusable) {
+              nextFocusable.focus();
+              if (document.activeElement === nextFocusable) event.preventDefault();
+            }
+          }
+        }
+      }}
     >
       {children}
       {show &&
         createPortal(
           <div
+            id={tipId}
+            role="tooltip"
             ref={tipRef}
             style={tipStyle}
-            className="px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
+            onFocus={cancelHide}
+            onBlur={(event) => {
+              if (
+                triggerRef.current?.contains(event.relatedTarget as Node | null) ||
+                tipRef.current?.contains(event.relatedTarget as Node | null)
+              ) {
+                return;
+              }
+              scheduleHide();
+            }}
+            className={
+              variant === "info"
+                ? `min-w-[260px] px-3.5 py-3 text-xs leading-5 font-sans text-gray-300 bg-[#12121f] border border-[#30304d] rounded-xl shadow-2xl break-words ${interactive ? "pointer-events-auto" : "pointer-events-none"}`
+                : "px-2.5 py-1.5 text-[11px] leading-relaxed font-mono text-gray-100 bg-[#12121f] border border-[#2a2a4a] rounded-lg shadow-xl pointer-events-none whitespace-pre-wrap break-words"
+            }
           >
-            {raw}
+            {hasContent ? (
+              content
+            ) : variant === "info" ? (
+              <div className="space-y-1.5">
+                {infoLines.map((line, index) => (
+                  <p
+                    key={`${index}-${line}`}
+                    className={
+                      index === 0
+                        ? "font-semibold text-gray-100"
+                        : index === infoLines.length - 1 && infoLines.length > 2
+                          ? "rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-amber-200"
+                          : "text-gray-400"
+                    }
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              raw
+            )}
           </div>,
           document.body
         )}

@@ -5,7 +5,7 @@
   "totalSessions": "总会话数",
   "totalAgents": "总Agent数",
   "totalTokens": "总 Token 数",
-  "totalCost": "总费用",
+  "totalCost": "API 费用估算",
   "totalEvents": "总事件数",
   "cacheHitRate": "% 缓存命中率",
   "perSession": " 每会话",

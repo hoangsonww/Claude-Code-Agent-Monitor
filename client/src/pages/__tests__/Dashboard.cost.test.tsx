@@ -61,13 +61,15 @@
  *   by this suite; preserve the observable contract or update the test with rationale.
  * - `an unmounted pending load cannot issue subagent follow-up requests` — executable behavior
  *   named by this suite; preserve the observable contract or update the test with rationale.
- * - `costs show cents and the selected scope` — executable behavior named by this suite; preserve
- *   the observable contract or update the test with rationale.
+ * - `lists unpriced models inside the cost info tooltip` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
  * - `pending polls coalesce and A→B→A cannot publish an older cost` — executable behavior named by
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `publishes fresh cost while the activity reader is pending and preserves it on failure` —
  *   executable behavior named by this suite; preserve the observable contract or update the test
  *   with rationale.
+ * - `puts the estimate disclaimer and selected scope on the cost info icon` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
  * - `reports an activity failure and retries activity while the cost read is pending` — executable
  *   behavior named by this suite; preserve the observable contract or update the test with
  *   rationale.
@@ -133,7 +135,7 @@
  */
 
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
-import { render, screen, act, cleanup } from "@testing-library/react";
+import { render, screen, act, cleanup, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { Dashboard } from "../Dashboard";
 import { api } from "../../lib/api";
@@ -210,13 +212,42 @@ async function mount() {
   await act(async () => {});
   return view;
 }
-it("costs show cents and the selected scope", async () => {
+it("puts the estimate disclaimer and selected scope on the cost info icon", async () => {
   await mount();
-  expect(screen.getByText("$1,000.12")).toBeInTheDocument();
-  expect(screen.getByText("Sources: This machine only · Products: Both")).toBeInTheDocument();
-  expect(
-    screen.getByText("API-equivalent estimate, not subscription charges.")
-  ).toBeInTheDocument();
+  const value = screen.getByText("$1,000.12");
+  expect(screen.queryByText("Sources: This machine only · Products: Both")).not.toBeInTheDocument();
+  expect(value.parentElement).not.toHaveAttribute("tabindex");
+  fireEvent.focus(screen.getByLabelText("About API cost estimate"));
+  const tooltip = screen.getByRole("tooltip");
+  expect(tooltip).toHaveClass("font-sans");
+  expect(tooltip).not.toHaveClass("font-mono");
+  expect(tooltip).toHaveTextContent("API-equivalent estimate, not subscription charges.");
+  expect(tooltip).toHaveTextContent("Sources: This machine only · Products: Both");
+});
+
+it("lists unpriced models inside the cost info tooltip", async () => {
+  vi.mocked(api.pricing.totalCost).mockResolvedValue({
+    ...cost(1000.12),
+    unpriced_models: [
+      {
+        model: "default",
+        input_tokens: 1,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+      },
+    ],
+  });
+  await mount();
+  fireEvent.focus(screen.getByLabelText("About API cost estimate"));
+  const warning = screen.getByText(
+    "Incomplete estimate: some usage has no applicable rate (default)."
+  );
+  expect(warning).toHaveClass("text-amber-200");
+  expect(screen.getByRole("link", { name: "Review pricing" })).toHaveAttribute(
+    "href",
+    "/settings#claude-pricing"
+  );
 });
 it("pending polls coalesce and A→B→A cannot publish an older cost", async () => {
   const a = deferred(),

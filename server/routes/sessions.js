@@ -43,9 +43,23 @@ const {
   isSafeCursorId,
   readCursorChatMetadata,
 } = require("../lib/cursor-home");
+const { readCursorStoreMessages } = require("../lib/cursor-store-transcript");
+const { parseCursorMessage } = require("../lib/cursor-transcript");
+const {
+  cursorSessionFamilyIds,
+  resolveCursorSessionId,
+} = require("../lib/cursor-session-identity");
 
 const router = Router();
 const MAX_TASK_PROGRESS_ROWS = 100;
+
+// A Cursor `/resume` shell is merged into its canonical conversation. Keep old
+// bookmarks and live clients working by resolving the durable alias before any
+// session-scoped endpoint runs.
+router.param("id", (req, _res, next, id) => {
+  req.params.id = resolveCursorSessionId(db, id);
+  next();
+});
 
 // A session's mutable `updated_at` also changes for metadata repair, title
 // discovery, and other bookkeeping. The UI's "Last active" label must instead
@@ -629,11 +643,27 @@ router.patch("/:id", (req, res) => {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
 
+  let nextMetadata = metadata ? metadata : null;
+  if (existing.provider === "cursor" && typeof name === "string" && name.trim()) {
+    let currentMetadata = {};
+    try {
+      currentMetadata = existing.metadata ? JSON.parse(existing.metadata) : {};
+    } catch {
+      currentMetadata = {};
+    }
+    nextMetadata = {
+      ...currentMetadata,
+      ...(metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {}),
+      cursor_title_source: "manual",
+    };
+    delete nextMetadata.cursor_ingested_name;
+  }
+
   stmts.updateSession.run(
     name || null,
     status || null,
     ended_at || null,
-    metadata ? JSON.stringify(metadata) : null,
+    nextMetadata ? JSON.stringify(nextMetadata) : null,
     req.params.id
   );
 
@@ -1230,49 +1260,6 @@ async function readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, of
   return { messages, total, has_more: hasMore, first_line: firstLine, last_line: lastLine };
 }
 
-/** Translate Cursor's Claude-compatible-but-minimal JSONL into conversation DTOs. */
-function parseCursorMessage(entry, line, isSubagentFile) {
-  if (entry?.role !== "user" && entry?.role !== "assistant") return null;
-  const rawContent = entry?.message?.content;
-  if (!Array.isArray(rawContent)) return null;
-  const content = [];
-  let embeddedTimestamp = null;
-  for (const block of rawContent) {
-    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
-      let text = block.text;
-      const timestampMatch = text.match(/<timestamp>([\s\S]*?)<\/timestamp>/i);
-      if (timestampMatch) {
-        const normalized = timestampMatch[1].replace(
-          /\(UTC([+-]\d{1,2})\)/i,
-          (_match, offset) =>
-            `GMT${Number(offset) >= 0 ? "+" : "-"}${String(Math.abs(Number(offset))).padStart(2, "0")}00`
-        );
-        const parsed = new Date(normalized);
-        if (!Number.isNaN(parsed.getTime())) embeddedTimestamp = parsed.toISOString();
-        text = text.replace(timestampMatch[0], "").trim();
-      }
-      const userQuery = text.match(/<user_query>([\s\S]*?)<\/user_query>/i);
-      if (userQuery) text = userQuery[1].trim();
-      if (text) content.push({ type: "text", text: truncate(text, 10240) });
-    } else if (entry.role === "assistant" && block?.type === "tool_use") {
-      content.push({
-        type: "tool_use",
-        name: block.name || "unknown",
-        id: block.id || null,
-        input: truncateObj(block.input || {}, 10240),
-      });
-    }
-  }
-  if (content.length === 0) return null;
-  return {
-    type: entry.role,
-    sender: entry.role === "assistant" ? "assistant" : isSubagentFile ? "orchestrator" : "user",
-    timestamp: entry.timestamp || embeddedTimestamp,
-    content,
-    line,
-  };
-}
-
 async function readCursorTranscript(
   jsonlPath,
   { limit, afterLine, beforeLine, offset, isSubagentFile }
@@ -1322,6 +1309,86 @@ function cursorMessageText(message) {
     .join("\n");
 }
 
+function cursorMessageFingerprint(message) {
+  const parts = (message?.content || []).map((block) => {
+    if (block?.type === "text" || block?.type === "thinking") {
+      return `${block.type}:${String(block.text || "")
+        .replace(/\s+/g, " ")
+        .trim()}`;
+    }
+    if (block?.type === "tool_use") {
+      return `tool_use:${block.id || ""}:${block.name || ""}:${JSON.stringify(block.input || {})}`;
+    }
+    if (block?.type === "tool_result") {
+      return `tool_result:${block.id || ""}:${block.name || ""}:${String(block.output || "")}`;
+    }
+    return JSON.stringify(block);
+  });
+  return `${message?.sender || message?.type || ""}\0${parts.join("\0")}`;
+}
+
+function cursorMessagesEquivalent(left, right) {
+  if ((left?.sender || left?.type) !== (right?.sender || right?.type)) return false;
+  if (cursorMessageFingerprint(left) === cursorMessageFingerprint(right)) return true;
+  const leftText = cursorMessageText(left);
+  const rightText = cursorMessageText(right);
+  if (!leftText || !rightText) return false;
+  return (
+    leftText === rightText ||
+    (Math.min(leftText.length, rightText.length) >= 12 &&
+      (leftText.endsWith(rightText) || rightText.endsWith(leftText)))
+  );
+}
+
+/** Keep Cursor store tool detail while filling any replies present only in JSONL. */
+function mergeCursorMessageSources(storeMessages, transcriptMessages) {
+  if (!storeMessages?.length) return transcriptMessages;
+  if (!transcriptMessages.length) return storeMessages;
+
+  const matches = new Map();
+  let searchFrom = 0;
+  transcriptMessages.forEach((message, transcriptIndex) => {
+    const storeIndex = storeMessages.findIndex(
+      (candidate, index) => index >= searchFrom && cursorMessagesEquivalent(candidate, message)
+    );
+    if (storeIndex < 0) return;
+    matches.set(transcriptIndex, storeIndex);
+    searchFrom = storeIndex + 1;
+  });
+
+  const before = new Map();
+  const after = [];
+  transcriptMessages.forEach((message, transcriptIndex) => {
+    const matchedIndex = matches.get(transcriptIndex);
+    if (matchedIndex != null) {
+      const stored = storeMessages[matchedIndex];
+      if (!stored.timestamp && message.timestamp) stored.timestamp = message.timestamp;
+      return;
+    }
+    let nextStoreIndex = null;
+    for (let index = transcriptIndex + 1; index < transcriptMessages.length; index++) {
+      if (matches.has(index)) {
+        nextStoreIndex = matches.get(index);
+        break;
+      }
+    }
+    if (nextStoreIndex == null) {
+      after.push(message);
+      return;
+    }
+    const pending = before.get(nextStoreIndex) || [];
+    pending.push(message);
+    before.set(nextStoreIndex, pending);
+  });
+
+  const merged = [];
+  storeMessages.forEach((message, index) => {
+    merged.push(...(before.get(index) || []), message);
+  });
+  merged.push(...after);
+  return merged;
+}
+
 /**
  * Merge Cursor's immediate prompt history with its later canonical transcript.
  * Prompt ids remain stable when the matching JSONL user row arrives, letting
@@ -1330,7 +1397,7 @@ function cursorMessageText(message) {
 async function readCursorConversation(
   sessionId,
   jsonlPath,
-  { limit, afterLine, beforeLine, offset, isSubagentFile }
+  { limit, afterLine, beforeLine, offset, isSubagentFile, sourceSessionIds = [sessionId] }
 ) {
   if (isSubagentFile) {
     if (!jsonlPath) {
@@ -1346,6 +1413,8 @@ async function readCursorConversation(
   }
 
   const messages = [];
+  const stored = readCursorStoreMessages(sourceSessionIds);
+  const transcriptMessages = [];
   if (jsonlPath) {
     let rawLine = 0;
     const rl = createTranscriptLineReader(jsonlPath);
@@ -1361,37 +1430,106 @@ async function readCursorConversation(
       const message = parseCursorMessage(entry, rawLine, false);
       if (!message) continue;
       message.id = `cursor-jsonl:${rawLine}`;
-      messages.push(message);
+      transcriptMessages.push(message);
     }
   }
+  messages.push(...mergeCursorMessageSources(stored || [], transcriptMessages));
 
-  const { meta, prompts } = readCursorChatMetadata(sessionId);
-  const claimedPromptIndexes = new Set();
-  for (const message of messages) {
-    if (message.sender !== "user") continue;
-    const text = cursorMessageText(message);
-    const promptIndex = prompts.findIndex(
-      (prompt, index) =>
-        !claimedPromptIndexes.has(index) && prompt.replace(/\s+/g, " ").trim() === text
-    );
-    if (promptIndex < 0) continue;
-    claimedPromptIndexes.add(promptIndex);
-    message.id = `cursor-prompt:${promptIndex}`;
-  }
-
-  prompts.forEach((prompt, index) => {
-    if (claimedPromptIndexes.has(index)) return;
-    messages.push({
-      id: `cursor-prompt:${index}`,
-      type: "user",
-      sender: "user",
-      timestamp:
-        index === prompts.length - 1 && Number.isFinite(Number(meta?.updatedAtMs))
-          ? new Date(Number(meta.updatedAtMs)).toISOString()
-          : null,
-      content: [{ type: "text", text: truncate(prompt, 10240) }],
-    });
+  const promptMessageId = (sourceSessionId, index) =>
+    sourceSessionId === sessionId
+      ? `cursor-prompt:${index}`
+      : `cursor-prompt:${sourceSessionId}:${index}`;
+  const promptSources = sourceSessionIds.flatMap((sourceSessionId) => {
+    const { meta, prompts } = readCursorChatMetadata(sourceSessionId);
+    return prompts.map((prompt, index) => ({
+      id: promptMessageId(sourceSessionId, index),
+      previousId: index > 0 ? promptMessageId(sourceSessionId, index - 1) : null,
+      isLast: index === prompts.length - 1,
+      meta,
+      prompt,
+    }));
   });
+  if (promptSources.length > 0) {
+    const claimedPromptIndexes = new Set();
+    const claimedMessages = new Set();
+    const promptAnchors = new Map();
+    let untimedPromptInsertIndex = 0;
+    for (const message of messages) {
+      if (message.sender !== "user") continue;
+      const text = cursorMessageText(message);
+      const sourceIndex = promptSources.findIndex(
+        (entry, index) =>
+          !claimedPromptIndexes.has(index) && entry.prompt.replace(/\s+/g, " ").trim() === text
+      );
+      if (sourceIndex < 0) continue;
+      claimedPromptIndexes.add(sourceIndex);
+      claimedMessages.add(message);
+      message.id = promptSources[sourceIndex].id;
+      promptAnchors.set(promptSources[sourceIndex].id, message.id);
+    }
+    promptSources.forEach(({ id, previousId, isLast, meta, prompt }, sourceIndex) => {
+      if (claimedPromptIndexes.has(sourceIndex)) return;
+      const normalized = prompt.replace(/\s+/g, " ").trim();
+      const hasAttachmentPlaceholder = /\[(?:Pasted text #\d+ \+\d+ lines|Image #\d+)\]/i.test(
+        normalized
+      );
+      const representedMessage = messages.find((message) => {
+        if (message.sender !== "user" || claimedMessages.has(message)) return false;
+        const text = cursorMessageText(message);
+        return (
+          text === normalized ||
+          (normalized.length >= 12 && text.includes(normalized)) ||
+          (!hasAttachmentPlaceholder && text.length >= 12 && normalized.includes(text))
+        );
+      });
+      if (representedMessage) {
+        claimedMessages.add(representedMessage);
+        promptAnchors.set(id, representedMessage.id);
+        return;
+      }
+      const promptMessage = {
+        id,
+        type: "user",
+        sender: "user",
+        timestamp:
+          isLast && Number.isFinite(Number(meta?.updatedAtMs))
+            ? new Date(Number(meta.updatedAtMs)).toISOString()
+            : null,
+        content: [{ type: "text", text: truncate(prompt, 10240) }],
+      };
+      const promptTime = Date.parse(promptMessage.timestamp || "");
+      if (Number.isFinite(promptTime)) {
+        const laterIndex = messages.findIndex((message) => {
+          const messageTime = Date.parse(message.timestamp || "");
+          return Number.isFinite(messageTime) && messageTime > promptTime;
+        });
+        if (laterIndex >= 0) messages.splice(laterIndex, 0, promptMessage);
+        else messages.push(promptMessage);
+      } else {
+        const previousAnchor = previousId ? promptAnchors.get(previousId) || previousId : null;
+        const previousIndex = previousAnchor
+          ? messages.findIndex((message) => message.id === previousAnchor)
+          : -1;
+        const nextUserIndex =
+          previousIndex >= 0
+            ? messages.findIndex(
+                (message, index) => index > previousIndex && message.sender === "user"
+              )
+            : -1;
+        const insertIndex =
+          previousIndex >= 0
+            ? nextUserIndex >= 0
+              ? nextUserIndex
+              : messages.length
+            : untimedPromptInsertIndex;
+        messages.splice(insertIndex, 0, promptMessage);
+        if (previousIndex < 0 || insertIndex <= untimedPromptInsertIndex) {
+          untimedPromptInsertIndex++;
+        }
+      }
+      promptAnchors.set(id, id);
+    });
+  }
 
   messages.forEach((message, index) => {
     message.line = index + 1;
@@ -1474,6 +1612,7 @@ router.get("/:id/transcript", async (req, res) => {
           beforeLine,
           offset,
           isSubagentFile,
+          sourceSessionIds: cursorSessionFamilyIds(db, req.params.id),
         })
       );
     } catch {

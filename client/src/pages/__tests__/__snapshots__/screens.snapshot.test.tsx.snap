@@ -875,6 +875,7 @@ exports[`screen snapshots > Analytics 1`] = `
         >
           <span
             class="relative inline-block cursor-default"
+            tabindex="0"
           >
             0
           </span>
@@ -937,6 +938,7 @@ exports[`screen snapshots > Analytics 1`] = `
         >
           <span
             class="relative inline-block cursor-default"
+            tabindex="0"
           >
             0
           </span>
@@ -1015,6 +1017,7 @@ exports[`screen snapshots > Analytics 1`] = `
         >
           <span
             class="relative inline-block cursor-default"
+            tabindex="0"
           >
             0
           </span>
@@ -1031,11 +1034,46 @@ exports[`screen snapshots > Analytics 1`] = `
         <div
           class="flex items-center justify-between"
         >
-          <span
-            class="text-xs text-gray-500 uppercase tracking-wider"
+          <div
+            class="flex min-w-0 items-center gap-1.5"
           >
-            Total Cost
-          </span>
+            <span
+              class="truncate text-xs text-gray-500 uppercase tracking-wider"
+            >
+              API Cost Estimate
+            </span>
+            <span
+              aria-label="About API cost estimate"
+              class="relative inline-block cursor-default flex-shrink-0 rounded-full leading-none text-gray-500 transition-colors hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              tabindex="0"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-info h-3.5 w-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                />
+                <path
+                  d="M12 16v-4"
+                />
+                <path
+                  d="M12 8h.01"
+                />
+              </svg>
+            </span>
+          </div>
           <svg
             class="lucide lucide-dollar-sign w-4 h-4 text-emerald-400"
             fill="none"
@@ -1064,6 +1102,7 @@ exports[`screen snapshots > Analytics 1`] = `
         >
           <span
             class="relative inline-block cursor-default"
+            tabindex="0"
           >
             $0.00
           </span>
@@ -1107,6 +1146,7 @@ exports[`screen snapshots > Analytics 1`] = `
         >
           <span
             class="relative inline-block cursor-default"
+            tabindex="0"
           >
             0
           </span>
@@ -2825,6 +2865,7 @@ exports[`screen snapshots > Analytics 1`] = `
             >
               <span
                 class="relative inline-block cursor-default"
+                tabindex="0"
               >
                 0
               </span>
@@ -2845,6 +2886,7 @@ exports[`screen snapshots > Analytics 1`] = `
             >
               <span
                 class="relative inline-block cursor-default"
+                tabindex="0"
               >
                 0
               </span>
@@ -4982,6 +5024,7 @@ exports[`screen snapshots > Dashboard 1`] = `
           >
             <span
               class="relative inline-block cursor-default"
+              tabindex="0"
             >
               <span
                 class="text-2xl font-semibold text-gray-100 truncate"
@@ -5145,6 +5188,7 @@ exports[`screen snapshots > Dashboard 1`] = `
           >
             <span
               class="relative inline-block cursor-default"
+              tabindex="0"
             >
               <span
                 class="text-2xl font-semibold text-gray-100 truncate"
@@ -5187,6 +5231,7 @@ exports[`screen snapshots > Dashboard 1`] = `
           >
             <span
               class="relative inline-block cursor-default"
+              tabindex="0"
             >
               <span
                 class="text-2xl font-semibold text-gray-100 truncate"
@@ -5202,11 +5247,46 @@ exports[`screen snapshots > Dashboard 1`] = `
           <div
             class="flex items-center justify-between gap-3 mb-3"
           >
-            <span
-              class="text-xs font-medium text-gray-500 uppercase tracking-wider truncate"
+            <div
+              class="flex min-w-0 items-center gap-1.5"
             >
-              API Cost Estimate
-            </span>
+              <span
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider truncate"
+              >
+                API Cost Estimate
+              </span>
+              <span
+                aria-label="About API cost estimate"
+                class="relative inline-block cursor-default flex-shrink-0 rounded-full leading-none text-gray-500 transition-colors hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                tabindex="0"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-info h-3.5 w-3.5"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                  />
+                  <path
+                    d="M12 16v-4"
+                  />
+                  <path
+                    d="M12 8h.01"
+                  />
+                </svg>
+              </span>
+            </div>
             <svg
               class="lucide lucide-dollar-sign w-5 h-5 flex-shrink-0 text-emerald-400"
               fill="none"
@@ -5234,32 +5314,12 @@ exports[`screen snapshots > Dashboard 1`] = `
             class="flex items-end gap-2 min-w-0"
           >
             <span
-              class="relative inline-block cursor-default"
+              class="text-2xl font-semibold text-gray-100 truncate"
             >
-              <span
-                class="text-2xl font-semibold text-gray-100 truncate"
-              >
-                $0.00
-              </span>
+              $0.00
             </span>
           </div>
         </div>
-      </div>
-      <div
-        class="text-xs text-gray-400 mb-4 space-y-1"
-      >
-        <p>
-          API-equivalent estimate, not subscription charges.
-        </p>
-        <p>
-          <a
-            class="text-accent hover:underline"
-            data-discover="true"
-            href="/settings#remote-sources"
-          >
-            Sources: All sources · Products: Claude Code
-          </a>
-        </p>
       </div>
       <div
         class="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 min-w-0 flex-1 min-h-0"
@@ -6975,7 +7035,7 @@ exports[`screen snapshots > Sessions 1`] = `
           class="relative w-full"
         >
           <button
-            aria-controls="_r_0_"
+            aria-controls="_r_e_"
             aria-expanded="false"
             aria-haspopup="dialog"
             aria-label="Project directories: All projects"
@@ -7016,7 +7076,7 @@ exports[`screen snapshots > Sessions 1`] = `
             class="relative"
           >
             <button
-              aria-controls="_r_1_"
+              aria-controls="_r_f_"
               aria-expanded="false"
               aria-haspopup="listbox"
               class="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-gray-100 transition-colors hover:bg-surface-3 focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -7781,6 +7841,7 @@ exports[`screen snapshots > Settings 1`] = `
             >
               <span
                 class="relative inline-block cursor-default"
+                tabindex="0"
               >
                 $0.00
               </span>

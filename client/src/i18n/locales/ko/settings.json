@@ -139,6 +139,7 @@
     "title": "대시보드 데이터",
     "description": "앱 전체에 표시할 제품의 세션, 토큰, 비용 및 활동을 선택하세요. 변경 사항은 즉시 적용되며 머신 데이터 소스 필터와 독립적입니다.",
     "claude": "Claude Code",
+    "cursor": "Cursor",
     "codex": "Codex",
     "both": "둘 다",
     "claudeDescription": "Claude Code 및 Cursor 데이터를 표시합니다.",

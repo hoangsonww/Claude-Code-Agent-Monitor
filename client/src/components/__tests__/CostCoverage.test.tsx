@@ -28,10 +28,14 @@
  * ## Local dependency edges
  * - `../CostCoverage` — repository-local contract consumed by this module; review its exports
  *   before changing assumptions here.
+ * - `../Tip` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
  *
  * ## Package dependency edges
  * - `@testing-library/react` — external package boundary; keep usage within the installed version
  *   and the repository's existing adapter patterns.
+ * - `@testing-library/user-event` — external package boundary; keep usage within the installed
+ *   version and the repository's existing adapter patterns.
  * - `react-router` — external package boundary; keep usage within the installed version and the
  *   repository's existing adapter patterns.
  * - `vitest` — external package boundary; keep usage within the installed version and the
@@ -42,9 +46,20 @@
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `labels an unset product scope as the Claude data it reads` — executable behavior named by this
  *   suite; preserve the observable contract or update the test with rationale.
+ * - `lets forward keyboard focus leave the portaled pricing links` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `links each missing provider to its own pricing editor` — executable behavior named by this
+ *   suite; preserve the observable contract or update the test with rationale.
  * - `marks missing tier rates incomplete without calling the known model unknown` — executable
  *   behavior named by this suite; preserve the observable contract or update the test with
  *   rationale.
+ * - `measures the info panel at a neutral origin before edge-aware placement` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `moves keyboard focus from the info trigger into its portaled pricing link` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `treats numeric zero as rich tooltip content` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
  *
  * ## Area invariants
  * - Name the user-visible or contract-level behavior in each test title so failures explain the
@@ -106,10 +121,14 @@
  * GENERATED_MAINTAINER_REFERENCE:END
  */
 
-import { it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { CostCoverage } from "../CostCoverage";
+import { CostCoverage, CostEstimateInfo } from "../CostCoverage";
+import { Tip } from "../Tip";
+
+afterEach(() => vi.restoreAllMocks());
 it("does not call a complete scoped estimate a subscription bill", () => {
   render(
     <MemoryRouter>
@@ -132,6 +151,7 @@ it("marks missing tier rates incomplete without calling the known model unknown"
         scope={{ mode: "selected", selected: ["box"], provider: "codex" }}
         unpriced={[
           {
+            provider: "codex",
             model: "gpt-6-sol",
             input_tokens: 1,
             output_tokens: 1,
@@ -139,6 +159,7 @@ it("marks missing tier rates incomplete without calling the known model unknown"
             cache_write_tokens: 0,
           },
           {
+            provider: "codex",
             model: "gpt-6-sol",
             input_tokens: 1,
             output_tokens: 1,
@@ -157,6 +178,158 @@ it("marks missing tier rates incomplete without calling the known model unknown"
     "href",
     "/settings#gpt-pricing"
   );
+});
+it("links each missing provider to its own pricing editor", () => {
+  render(
+    <MemoryRouter>
+      <CostCoverage
+        scope={{ mode: "all", selected: [], provider: "both" }}
+        unpriced={[
+          {
+            provider: "cursor",
+            model: "cursor-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  expect(screen.getByRole("link", { name: "Cursor" })).toHaveAttribute(
+    "href",
+    "/settings#cursor-pricing"
+  );
+  expect(screen.getByRole("link", { name: "Codex" })).toHaveAttribute(
+    "href",
+    "/settings#gpt-pricing"
+  );
+});
+it("moves keyboard focus from the info trigger into its portaled pricing link", () => {
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "codex" }}
+        unpriced={[
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  fireEvent.focus(trigger);
+  expect(screen.getByRole("tooltip")).toHaveStyle({ maxHeight: "70vh", overflowY: "auto" });
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  const pricingLink = document.querySelector<HTMLElement>('a[href="/settings#gpt-pricing"]')!;
+  expect(pricingLink).toHaveFocus();
+  fireEvent.keyDown(pricingLink, { key: "Tab", shiftKey: true });
+  expect(trigger).toHaveFocus();
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  expect(pricingLink).toHaveFocus();
+  fireEvent.keyDown(pricingLink, { key: "Escape" });
+  expect(trigger).toHaveFocus();
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+});
+it("lets forward keyboard focus leave the portaled pricing links", async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "both" }}
+        unpriced={[
+          {
+            provider: "cursor",
+            model: "cursor-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+      <button type="button">After cost information</button>
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  fireEvent.focus(trigger);
+  fireEvent.keyDown(trigger, { key: "Tab" });
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="/settings#"]'));
+  expect(links).toHaveLength(2);
+  const [firstLink, secondLink] = links as [HTMLAnchorElement, HTMLAnchorElement];
+  expect(firstLink).toHaveFocus();
+  secondLink.focus();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "After cost information" })).toHaveFocus();
+});
+it("measures the info panel at a neutral origin before edge-aware placement", () => {
+  vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
+  vi.spyOn(window, "innerHeight", "get").mockReturnValue(768);
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+    this: HTMLElement
+  ) {
+    return this.style.left === "0px" ? 360 : 260;
+  });
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+  render(
+    <MemoryRouter>
+      <CostEstimateInfo
+        scope={{ mode: "all", selected: [], provider: "codex" }}
+        unpriced={[
+          {
+            provider: "codex",
+            model: "gpt-preview",
+            input_tokens: 1,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+          },
+        ]}
+      />
+    </MemoryRouter>
+  );
+  const trigger = screen.getByLabelText("About API cost estimate");
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+    left: 980,
+    width: 16,
+    bottom: 40,
+  } as DOMRect);
+
+  fireEvent.focus(trigger);
+
+  expect(screen.getByRole("tooltip")).toHaveStyle({ left: "616px", visibility: "visible" });
+});
+it("treats numeric zero as rich tooltip content", () => {
+  render(
+    <Tip content={0}>
+      <span>metric</span>
+    </Tip>
+  );
+  fireEvent.focus(screen.getByText("metric").parentElement!);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("0");
 });
 it("labels an unset product scope as the Claude data it reads", () => {
   render(
