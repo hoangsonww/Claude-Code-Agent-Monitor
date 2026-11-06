@@ -110,8 +110,9 @@ function getSnapshotStorage({ fresh = false } = {}) {
   const roots = {};
   let totalBytes = 0;
   let totalFiles = 0;
-  for (const { kind, root } of getSnapshotRoots()) {
+  for (const { kind, root, compressible } of getSnapshotRoots()) {
     const summary = store.summarizeSnapshotRoot(root);
+    summary.compression_supported = compressible;
     roots[kind] = summary;
     totalBytes += summary.bytes;
     totalFiles += summary.files;

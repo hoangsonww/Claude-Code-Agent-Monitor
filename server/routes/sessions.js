@@ -15,7 +15,11 @@ const { stmts, db, readRowsQuery, TASK_EVENTS_SQL } = require("../db");
 const { broadcast } = require("../websocket");
 const { calculateProviderCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
-const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
+const {
+  parseProviders,
+  parseExactProvider,
+  providerColumnClause,
+} = require("../lib/provider-filter");
 const { getCodexProcessSessions } = require("../lib/codex-process-overlay");
 const { extractSessionTaskProgress } = require("../lib/task-progress");
 const {
@@ -284,6 +288,7 @@ router.get("/", (req, res, next) => {
   const sortDesc = req.query.sort_desc !== "false";
   const sources = parseSources(req);
   const providers = parseProviders(req);
+  const exactProvider = parseExactProvider(req);
 
   let where = [];
   let params = [];
@@ -312,6 +317,10 @@ router.get("/", (req, res, next) => {
   if (providerFilter.clause) {
     where.push(providerFilter.clause);
     params.push(...providerFilter.params);
+  }
+  if (exactProvider) {
+    where.push("s.provider = ?");
+    params.push(exactProvider);
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
@@ -440,7 +449,8 @@ router.get("/", (req, res, next) => {
   }
 
   const includesLocal = !sources || sources.includes("local");
-  const includesCodex = !providers || providers.includes("codex");
+  const includesCodex =
+    (!providers || providers.includes("codex")) && (!exactProvider || exactProvider === "codex");
   const normalizedQuery = q.toLowerCase();
   const transient =
     includeTransient &&

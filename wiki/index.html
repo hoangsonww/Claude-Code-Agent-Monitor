@@ -1086,8 +1086,9 @@
                   <h3 id="feat-sessions">Sessions Table</h3>
                   <p>
                     Browse every recorded session in a <strong>server-paginated</strong> table with
-                    fast search, project and status filters, sorting, cost, model, duration, and
-                    agent counts. The first page can show a temporary local Codex startup row until
+                    fast search, project, provider, and status filters, sorting, cost, model,
+                    duration, and agent counts. Provider choices follow the product scope selected
+                    in onboarding or Settings. The first page can show a temporary local Codex startup row until
                     its durable session arrives. Rows with task state add a compact progress donut
                     and owner-aware preview; stale trackers disappear when newer work no longer uses
                     them or a turn ends unfinished, while completed progress remains available. Open
@@ -2163,7 +2164,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_CURSOR_HOME</code></td>
                   <td><code>~/.cursor</code></td>
-                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history and native stores are backfilled and snapshotted; CCAM maintains merge-safe completion hooks separately.</td>
+                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled; compact native stores preserve active and legacy-only references with their exact raw blobs. Sources open read-only, and a per-session lock serializes installations. Isolated migration handles at most four legacy-only stores per sync. An empty scheduled scan waits five minutes; same-stamp retries stop after five failures per process while retaining the original. CCAM maintains merge-safe completion hooks separately.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_CURSOR_SYNC_MS</code></td>
@@ -2198,7 +2199,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_SNAPSHOT_COMPRESS</code></td>
                   <td><code>1</code></td>
-                  <td>Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.</td>
+                  <td>Lossless background compression of JSONL transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain for incremental ingestion; Cursor native stores use verified compact databases instead. <code>0</code> turns it off.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_SNAPSHOT_MAX_AGE_DAYS</code></td>
@@ -7312,7 +7313,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=120" defer></script>
+    <script src="i18n-content.js?v=124" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

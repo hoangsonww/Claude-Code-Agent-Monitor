@@ -354,6 +354,10 @@ export function SnapshotStorage({
           </div>
           {providers.map(({ key, label }) => {
             const root = storage.roots[key];
+            const transcriptFiles = root?.transcript_files ?? root?.files ?? 0;
+            const databaseFiles = root?.database_files ?? 0;
+            const compactDatabaseFiles = root?.compact_database_files ?? 0;
+            const legacyDatabaseFiles = Math.max(0, databaseFiles - compactDatabaseFiles);
             return (
               <div
                 key={key}
@@ -365,11 +369,29 @@ export function SnapshotStorage({
                   {formatStorageBytes(root?.bytes ?? 0)}
                 </p>
                 <p className="text-[11px] text-gray-500">
-                  {t("snapshots.compressedShare", {
-                    compressed: fmt(root?.compressed_files ?? 0),
-                    total: fmt(root?.files ?? 0),
-                  })}
+                  {root?.compression_supported === false
+                    ? t("snapshots.incrementalPlain")
+                    : t("snapshots.compressedShare", {
+                        compressed: fmt(root?.compressed_files ?? 0),
+                        total: fmt(transcriptFiles),
+                      })}
                 </p>
+                {databaseFiles > 0 && (
+                  <p
+                    className={`text-[11px] ${legacyDatabaseFiles ? "text-amber-400" : "text-gray-500"}`}
+                  >
+                    {legacyDatabaseFiles
+                      ? t("snapshots.legacyStores", {
+                          count: legacyDatabaseFiles,
+                          formatted: fmt(legacyDatabaseFiles),
+                        })
+                      : t("snapshots.compactStores", {
+                          count: compactDatabaseFiles,
+                          formatted: fmt(compactDatabaseFiles),
+                          size: formatStorageBytes(root?.database_bytes ?? 0),
+                        })}
+                  </p>
+                )}
               </div>
             );
           })}

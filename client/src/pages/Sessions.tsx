@@ -1,9 +1,9 @@
 /**
  * @file Sessions.tsx
  * @description Displays all recorded sessions with searchable multi-project,
- * status, text, and custom sort filters plus server-side pagination. Rows can
- * show an accessible task-progress donut beside status and the local transient
- * Codex startup row before its durable session id exists.
+ * status, provider, text, and custom sort filters plus server-side pagination.
+ * Rows can show an accessible task-progress donut beside status and the local
+ * transient Codex startup row before its durable session id exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /*
@@ -16,8 +16,8 @@
  * **Module:** client/src/pages/Sessions.tsx
  * **Area:** client page
  * **Responsibility:**
- * Displays all recorded sessions with searchable multi-project, status, text, and custom sort
- * filters plus server-side pagination. Rows can show an accessible task-progress donut beside
+ * Displays all recorded sessions with searchable multi-project, status, provider, text, and custom
+ * sort filters plus server-side pagination. Rows can show an accessible task-progress donut beside
  * status and the local transient Codex startup row before its durable session id exists.
  *
  * ## Architectural boundary
@@ -79,8 +79,14 @@
  *   and focused test selection.
  * - `PAGE_SIZE` (variable) — top-level declaration that helps orient code review and focused test
  *   selection.
+ * - `PROVIDER_FILTERS_BY_SCOPE` (variable) — top-level declaration that helps orient code review
+ *   and focused test selection.
  * - `SESSION_FILTERS` (variable) — top-level declaration that helps orient code review and focused
  *   test selection.
+ * - `SESSION_PROVIDER_FILTERS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SessionProviderFilter` (type) — top-level declaration that helps orient code review and
+ *   focused test selection.
  * - `Sessions` (function) — top-level declaration that helps orient code review and focused test
  *   selection.
  * - `SessionSort` (type) — top-level declaration that helps orient code review and focused test
@@ -245,7 +251,7 @@ import { api } from "../lib/api";
 import type { RemoteSource } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
-import { useDataScope } from "../lib/dataScope";
+import { useDataScope, type ProviderScope } from "../lib/dataScope";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { TodoProgressIndicator } from "../components/TodoProgressIndicator";
 import { EmptyState } from "../components/EmptyState";
@@ -287,13 +293,22 @@ function isTransientProcessSession(session: Session): boolean {
 /** Status filters in render order — also the order `1`…`6` addresses them.
  *  `""` is the "all" pseudo-filter the server treats as no status constraint. */
 const SESSION_FILTERS = ["", "active", "waiting", "completed", "error", "abandoned"] as const;
+/** Stored session providers accepted by the page-local provider filter. */
+const SESSION_PROVIDER_FILTERS = ["", "claude", "cursor", "codex"] as const;
+type SessionProviderFilter = (typeof SESSION_PROVIDER_FILTERS)[number];
+/** Provider choices that make sense inside each global product scope. */
+const PROVIDER_FILTERS_BY_SCOPE: Record<ProviderScope, readonly SessionProviderFilter[]> = {
+  claude: ["", "claude", "cursor"],
+  codex: ["", "codex"],
+  both: SESSION_PROVIDER_FILTERS,
+};
 
 /**
  * Sessions page (`/sessions`): a server-paginated, searchable, sortable table of every session.
- * Supports status, project, and data-scope filters (the status filter is in the URL so links and
- * the palette can open a narrowed list), task-progress indicators, and live updates throttled to
- * one reload every 2 seconds. Search input is debounced so typing does not query on every
- * keystroke.
+ * Supports status, provider, project, and data-scope filters (the status and provider filters are
+ * in the URL so links can open a narrowed list), task-progress indicators, and live updates
+ * throttled to one reload every 2 seconds. Search input is debounced so typing does not query on
+ * every keystroke.
  */
 export function Sessions() {
   const navigate = useNavigate();
@@ -304,6 +319,9 @@ export function Sessions() {
   // link) can open the list already narrowed. `""` is "all", which the hook
   // treats as a valid value like any other.
   const [filter, setFilter] = useUrlTab(SESSION_FILTERS, "", { param: "status" });
+  const [providerFilter, setProviderFilter] = useUrlTab(SESSION_PROVIDER_FILTERS, "", {
+    param: "provider",
+  });
   // `searchInput` is what the user types; `search` is the debounced value
   // actually sent to the server. Without debouncing, every keystroke would
   // hit /api/sessions.
@@ -328,6 +346,11 @@ export function Sessions() {
   // so switching scope re-fetches; the actual `sources` param is injected by the
   // api layer (see lib/api.ts applyScope).
   const [scope] = useDataScope();
+  const providerScope = scope.provider ?? "claude";
+  const availableProviderFilters = PROVIDER_FILTERS_BY_SCOPE[providerScope];
+  const effectiveProviderFilter = availableProviderFilters.includes(providerFilter)
+    ? providerFilter
+    : "";
   // source id → label, so remote-origin rows show a friendly badge.
   const [sourceLabels, setSourceLabels] = useState<Map<string, string>>(() => new Map());
   // Set of session IDs that are currently being driven by an in-flight Run
@@ -345,6 +368,24 @@ export function Sessions() {
     abandoned: t("filterAbandoned"),
   };
   const FILTER_OPTIONS = SESSION_FILTERS.map((value) => ({ value, label: FILTER_LABELS[value] }));
+  const PROVIDER_LABELS: Record<Exclude<SessionProviderFilter, "">, string> = {
+    claude: t("providerClaude"),
+    cursor: t("providerCursor"),
+    codex: t("providerCodex"),
+  };
+  const PROVIDER_FILTER_OPTIONS = availableProviderFilters.map((value) => ({
+    value,
+    label: value ? PROVIDER_LABELS[value] : t("allProviders"),
+  }));
+
+  // A Settings or splash-screen product-scope change can make the URL's
+  // provider selection invalid. Fall back to all providers in the new scope
+  // instead of issuing a request that escapes the user's selected products.
+  useEffect(() => {
+    if (providerFilter && !availableProviderFilters.includes(providerFilter)) {
+      setProviderFilter("");
+    }
+  }, [availableProviderFilters, providerFilter, setProviderFilter]);
 
   // Debounce the search input → 300 ms after the user stops typing, the
   // committed value flips and triggers a fresh fetch.
@@ -390,6 +431,7 @@ export function Sessions() {
           status: "active",
           q: search || undefined,
           cwd: cwds.length > 0 ? cwds : undefined,
+          provider: effectiveProviderFilter || undefined,
           sort_by: sortBy,
           sort_desc: sortDesc,
           include_transient: page === 0,
@@ -410,6 +452,7 @@ export function Sessions() {
         sort_desc?: boolean;
         include_transient?: boolean;
         include_task_progress?: boolean;
+        provider?: Exclude<SessionProviderFilter, "">;
         limit: number;
         offset: number;
       } = {
@@ -423,6 +466,7 @@ export function Sessions() {
       if (filter) params.status = filter;
       if (search) params.q = search;
       if (cwds.length > 0) params.cwd = cwds;
+      if (effectiveProviderFilter) params.provider = effectiveProviderFilter;
       const res = await api.sessions.list(params);
       setSessions(res.sessions);
       setTotal(res.total);
@@ -431,7 +475,7 @@ export function Sessions() {
     }
     // `scope` is a dep so a data-scope change re-fetches; the api layer injects
     // the matching `sources` param.
-  }, [filter, search, cwds, sortBy, sortDesc, page, scope]);
+  }, [filter, effectiveProviderFilter, search, cwds, sortBy, sortDesc, page, scope]);
 
   usePaletteAction("page.refresh", () => {
     void load();
@@ -442,6 +486,7 @@ export function Sessions() {
   usePaletteAction("sessions.toggleSortDirection", () => setSortDesc((prev) => !prev));
   usePaletteAction("sessions.clearFilters", () => {
     setFilter("");
+    setProviderFilter("");
     setSearchInput("");
     setCwds([]);
   });
@@ -453,7 +498,7 @@ export function Sessions() {
   // Reset to page 0 whenever filters or sort changes.
   useEffect(() => {
     setPage(0);
-  }, [filter, search, cwds, sortBy, sortDesc]);
+  }, [filter, providerFilter, search, cwds, sortBy, sortDesc]);
 
   useEffect(() => {
     // Trailing throttle: session_updated arrives on nearly every hook event
@@ -622,6 +667,18 @@ export function Sessions() {
           />
         </div>
 
+        {/* Provider selector. Its choices stay inside the product family the
+            user enabled in onboarding or Settings: Claude Code scope offers
+            Claude Code and Cursor, Codex scope offers Codex, and Both offers
+            all three stored session providers. */}
+        <div className="w-full shrink-0 sm:w-[160px] [&>div>button]:h-[38px]">
+          <Select<SessionProviderFilter>
+            value={effectiveProviderFilter}
+            onChange={setProviderFilter}
+            options={PROVIDER_FILTER_OPTIONS}
+          />
+        </div>
+
         {/* Sort Controls — the label and the direction icon have to stay
             inside this border. `flex-1 min-w-[180px]` replaced the default
             content minimum with 180px, which is narrower than "Last active:
@@ -676,7 +733,9 @@ export function Sessions() {
           icon={FolderOpen}
           title={t("noSessions")}
           description={
-            search || filter || cwds.length > 0 ? t("noSessionsDesc") : t("noSessionsHint")
+            search || filter || effectiveProviderFilter || cwds.length > 0
+              ? t("noSessionsDesc")
+              : t("noSessionsHint")
           }
         />
       ) : (

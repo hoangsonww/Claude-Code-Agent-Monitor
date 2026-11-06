@@ -210,7 +210,7 @@ client/
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
 │   │   ├── KanbanBoard.tsx
-│   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, searchable multi-project filtering, and custom sort menus
+│   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, scoped provider/project filtering, and custom sort menus
 │   │   ├── SessionDetail.tsx  # Overview + full task tracker + agent tree + event timeline + cursor-paginated Conversation tab
 │   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
 │   │   ├── Analytics.tsx
@@ -258,7 +258,7 @@ graph TB
 
     Dashboard[Dashboard<br/>Monitor tab: stats + agents + events<br/>Health tab: SystemHealthTab]
     Kanban[KanbanBoard<br/>4-column agent board]
-    Sessions[Sessions<br/>searchable multi-project table + custom sorting]
+    Sessions[Sessions<br/>searchable provider/project table + custom sorting]
     Detail[SessionDetail<br/>agent hierarchy + timeline]
     Feed[ActivityFeed<br/>streaming event log]
     Analytics[Analytics<br/>tokens + heatmap + trends]
@@ -317,7 +317,7 @@ The Remote Data Sources form names its independent optional overrides **Remote C
 
 **Settings data and homes:** the **Dashboard Data** cards select Claude-compatible (Claude Code + Cursor), Codex, or both through the same global `dataScope` store used by Remote Data Sources. Every scoped sessions, agents, events, workflow, analytics, token, and cost request re-fetches as soon as the selection changes. The Session Data Locations section independently saves the Claude Code root and the dashboard-specific Codex root; local Cursor discovery follows `~/.cursor` (or `DASHBOARD_CURSOR_HOME`) automatically. Saving the Codex root asks the server to re-arm its live rollout watcher and scan the new `sessions/` tree immediately. **Import History** uses matching Claude Code / Codex tabs: switching tabs reloads source-specific instructions and paths, then sends the selected provider with rescan, folder, and upload actions while provider-tagged WebSocket progress keeps concurrent work isolated; Cursor history is backfilled by its background ingestor without a manual import tab.
 
-**Transcript snapshots:** the `SnapshotStorage` card (`components/SnapshotStorage.tsx`) reads `snapshots` from `GET /api/settings/info` and shows total and per-provider (Claude Code / Codex / Cursor) snapshot size, the compressed share, and the env-configured retention policy. **Compress now** calls the lossless `POST /api/settings/snapshots/compress`. The prune controls (older than N days, keep total under N GB, include orphans) first run a dry run (`POST /api/settings/snapshots/prune`); **Prune** stays disabled until a preview exists for exactly the criteria on screen, editing any field invalidates it, and applying takes a second confirming click that sends `confirm: "PRUNE_SNAPSHOTS"`. Its strings ship in all five locales.
+**Transcript snapshots:** the `SnapshotStorage` card (`components/SnapshotStorage.tsx`) reads `snapshots` from `GET /api/settings/info` and shows total and per-provider (Claude Code / Codex / Cursor) snapshot size, transcript-only compressed share, compact/legacy Cursor store counts, and the env-configured retention policy. Codex explains that its rollouts stay plain for incremental ingestion instead of presenting them as failed compression candidates. **Compress now** calls the lossless `POST /api/settings/snapshots/compress`. The prune controls (older than N days, keep total under N GB, include orphans) first run a dry run (`POST /api/settings/snapshots/prune`); **Prune** stays disabled until a preview exists for exactly the criteria on screen, editing any field invalidates it, and applying takes a second confirming click that sends `confirm: "PRUNE_SNAPSHOTS"`. Its strings ship in all five locales.
 
 **Pricing controls:** the Claude, Cursor, and OpenAI GPT pricing sections use the same title, info-tooltip, **Reset Defaults**, and **Add Model** layout. Each Settings reset button resets only its own provider. Cursor keeps input, cache-write, cache-read, and output rates in its own table, while the GPT tooltip holds the USD-per-million-token units, 272K Short/Long threshold, Fast-mode behavior, pattern matching, manual-update guidance, and unpublished-rate handling that would otherwise crowd the table.
 
@@ -681,7 +681,7 @@ The catalog is built by `lib/paletteCommands.ts` as a pure function of one conte
 | Sessions | `GET /api/sessions?q=` — debounced 180 ms, minimum 2 characters, capped at 6 results |
 | This page | Whatever the mounted page registered via `usePaletteAction` — listed only where it is bound |
 | Projects | `GET /api/sessions/facets` — jumps to `/sessions?cwd=…` |
-| Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
+| Views | Page sub-tabs and Sessions status filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
 | Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
 | Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
 | Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |
