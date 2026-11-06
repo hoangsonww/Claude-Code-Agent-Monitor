@@ -10,9 +10,11 @@ const path = require("node:path");
 const { Worker } = require("node:worker_threads");
 
 const WORKER_HEAP_MB = 64;
+const NO_WORK_SCAN_BACKOFF_MS = 5 * 60 * 1000;
 let worker = null;
 let active = null;
 let nextId = 0;
+let nextScheduledScanAt = 0;
 
 /** Return the stable no-work result used when an isolated migration fails. */
 function failedResult() {
@@ -24,6 +26,11 @@ function settle(result) {
   if (!active) return;
   const current = active;
   active = null;
+  if (current.scheduled) {
+    const noWork =
+      !result?.failed && Number(result?.scanned) === 0 && Number(result?.remaining) === 0;
+    nextScheduledScanAt = noWork ? Date.now() + NO_WORK_SCAN_BACKOFF_MS : 0;
+  }
   worker?.unref();
   current.resolve(result);
 }
@@ -56,6 +63,10 @@ function startWorker() {
  */
 function compactLegacyCursorStores(options = {}) {
   if (active) return active.promise;
+  const scheduled = options.scheduled === true;
+  if (scheduled && Date.now() < nextScheduledScanAt) {
+    return Promise.resolve({ scanned: 0, compacted: 0, remaining: 0, deferred: true });
+  }
   if (!worker) {
     try {
       startWorker();
@@ -65,7 +76,7 @@ function compactLegacyCursorStores(options = {}) {
   }
   const id = ++nextId;
   const promise = new Promise((resolve) => {
-    active = { id, resolve, promise: null };
+    active = { id, resolve, promise: null, scheduled };
   });
   active.promise = promise;
   worker.ref();
@@ -84,6 +95,7 @@ function compactLegacyCursorStores(options = {}) {
 async function closeCursorStoreCompactor() {
   const current = worker;
   worker = null;
+  nextScheduledScanAt = 0;
   settle(failedResult());
   if (current) await current.terminate().catch(() => undefined);
 }

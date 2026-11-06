@@ -814,7 +814,7 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
   // Legacy-only databases can be large. Schedule their bounded migration in a
   // heap-limited worker and continue normal discovery immediately; concurrent
   // sync passes share the same in-flight batch.
-  void compactLegacyCursorStores({ limit: 4 });
+  void compactLegacyCursorStores({ limit: 4, scheduled: true });
   const transcripts = discoverCursorTranscripts(options.root);
   const chatDirs = indexCursorChatDirs();
   const transcriptsBySession = new Map();

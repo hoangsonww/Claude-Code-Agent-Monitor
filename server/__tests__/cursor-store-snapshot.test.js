@@ -160,7 +160,13 @@ describe("compact Cursor store snapshots", () => {
     const raw = addRawReferences(liveStore, "current");
     const originalSize = fs.statSync(liveStore).size;
 
-    assert.equal(snapshotCursorStore(sessionId), true);
+    const originalMode = fs.statSync(liveStore).mode & 0o777;
+    fs.chmodSync(liveStore, 0o444);
+    try {
+      assert.equal(snapshotCursorStore(sessionId), true);
+    } finally {
+      fs.chmodSync(liveStore, originalMode);
+    }
     const compact = path.join(getCursorSnapshotDir(), sessionId, COMPACT_STORE_NAME);
     assert.equal(fs.existsSync(compact), true);
     assert.ok(fs.statSync(compact).size < originalSize / 8);
@@ -210,6 +216,13 @@ describe("compact Cursor store snapshots", () => {
     const legacy = path.join(snapshotDir, "store.db");
     createStore(legacy, "legacy");
 
+    assert.equal(snapshotCursorStore(sessionId), false);
+    assert.equal(
+      fs.existsSync(legacy),
+      true,
+      "serving-thread calls must leave legacy-only work alone"
+    );
+
     let settled = false;
     const migration = compactLegacyCursorStores().then((result) => {
       settled = true;
@@ -249,6 +262,25 @@ describe("compact Cursor store snapshots", () => {
       .filter((message) => message.sender === "user")
       .map((message) => message.content[0].text);
     assert.deepEqual(prompts, ["legacy only prompt", "current only prompt"]);
+  });
+
+  it("keeps compact-only references when only the legacy source remains", async () => {
+    const sessionId = "cursor-compact-preserve-existing";
+    const liveDir = path.join(process.env.DASHBOARD_CURSOR_HOME, "chats", "workspace", sessionId);
+    const liveStore = path.join(liveDir, "store.db");
+    createStore(liveStore, "compact only");
+    assert.equal(snapshotCursorStore(sessionId), true);
+
+    const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
+    createStore(path.join(snapshotDir, "store.db"), "legacy after cleanup");
+    fs.rmSync(liveDir, { recursive: true, force: true });
+
+    const result = await compactLegacyCursorStores();
+    assert.ok(result.compacted >= 1);
+    const prompts = readCursorStoreMessages(sessionId)
+      .filter((message) => message.sender === "user")
+      .map((message) => message.content[0].text);
+    assert.deepEqual(prompts, ["legacy after cleanup prompt", "compact only prompt"]);
   });
 
   it("repairs a matching-stamp compact store whose conversation blobs are missing", () => {
@@ -324,5 +356,29 @@ describe("compact Cursor store snapshots", () => {
   it("rejects session identifiers that could escape the snapshot root", () => {
     assert.equal(snapshotCursorStore("../outside"), false);
     assert.equal(readCursorStoreMessages("../outside"), null);
+  });
+
+  it("backs off scheduled no-work scans but periodically detects new legacy stores", async () => {
+    const idle = await compactLegacyCursorStores({ limit: 4, scheduled: true });
+    assert.equal(idle.scanned, 0);
+
+    const sessionId = "cursor-compact-after-backoff";
+    const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
+    const legacy = path.join(snapshotDir, "store.db");
+    createStore(legacy, "after backoff");
+    const deferred = await compactLegacyCursorStores({ limit: 4, scheduled: true });
+    assert.equal(deferred.deferred, true);
+    assert.equal(fs.existsSync(legacy), true);
+
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 5 * 60 * 1000 + 1;
+      const migrated = await compactLegacyCursorStores({ limit: 4, scheduled: true });
+      assert.equal(migrated.compacted, 1);
+    } finally {
+      Date.now = realNow;
+    }
+    assert.equal(fs.existsSync(path.join(snapshotDir, COMPACT_STORE_NAME)), true);
+    assert.equal(fs.existsSync(legacy), false);
   });
 });

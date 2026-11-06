@@ -380,10 +380,12 @@ concrete response model, with any replies available only in JSONL.
 recorded yet. JSONL sources are snapshotted directly; native stores are reduced
 to a verified `store.compact.db` that reconciles the current root with
 legacy-only references and preserves every selected raw blob byte-for-byte.
-Repeated and parser-opaque references remain intact. Legacy-only stores migrate
-in isolated batches of at most four per sync and are removed only after raw
-verification; an unchanged source stops retrying after five failures in one
-process and remains on disk. Prompt
+Repeated and parser-opaque references remain intact. Sources attach through
+read-only, non-creating SQLite URIs, and a per-session lock serializes live and
+worker installs. Legacy-only stores migrate in isolated batches of at most four
+per sync; an empty scheduled scan waits five minutes before checking again.
+Stores are removed only after root containment and raw verification; an unchanged
+source stops retrying after five failures in one process and remains on disk. Prompt
 history is read from the live Cursor chat directory only. Messages carry stable `id` values, and an
 incremental result with `refresh: true` is a latest window that clients merge by
 `id`. A Cursor `/resume` shell ID is also accepted here and resolves to the

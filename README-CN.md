@@ -329,7 +329,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **Subagent 工具归属** | `SubagentStop` 和启动扫描导入每个 Subagent 的 JSONL 工具，按 `tool_use_id` 配对结果并去重，在 30 秒内合并匹配的实时行，再根据已生成的子项 ID 重建真实嵌套父级。重新归属只追加变更，即使未插入行也会触发 UI 刷新。 |
 | **成本跟踪** | API 等价估算（并非订阅扣费）使用可配置的按模型费率，包括 Cursor 的具体原生模型，并且每个 generation 只记录一次用量。Dashboard 与 Analytics 的成本标签旁提供无障碍信息图标，用于显示所选范围及所有缺失费率；Analytics 数值的 Tooltip 仅显示完整金额，Settings 在页面内显示相同的覆盖信息。 |
 | **Transcript 缓存** | 增量 JSONL 解析提取 Token、压缩、API 错误、回合时长、思考和用量元数据；完整解析修复旧版重复，尾部解析保持只追加。数组上限为 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`，默认 `1000`，条目仅存文件元数据和解析结果。 |
-| **Transcript 快照保留** | 持久的 Claude、Codex 和 Cursor 快照保存最完整的对话。Cursor 原生存储快照会保留实时根、仅旧版存在的引用及其精确原始 Blob，同时排除不可达历史。隔离 Worker 每次同步最多迁移四个仅旧版 Store；同一源标记失败五次后，本进程会停止重试并保留文件以待后续修复。只有符合条件且源文件已消失的 Claude/Cursor JSONL 副本会在往返验证后 gzip 压缩；Codex 快照保持未压缩。清除会删除快照；可选年龄/大小上限可在 Settings 试运行预览后清理唯一的旧副本。 |
+| **Transcript 快照保留** | 持久的 Claude、Codex 和 Cursor 快照保存最完整的对话。Cursor 原生存储快照会保留实时根、仅旧版存在的引用及其精确原始 Blob，同时排除不可达历史。隔离 Worker 每次同步最多迁移四个仅旧版 Store；源 Store 以只读方式打开，每个会话的锁会串行化安装，空的定时扫描会等待五分钟再检查。同一源标记失败五次后，本进程会停止重试并保留文件以待后续修复。只有符合条件且源文件已消失的 Claude/Cursor JSONL 副本会在往返验证后 gzip 压缩；Codex 快照保持未压缩。清除会删除快照；可选年龄/大小上限可在 Settings 试运行预览后清理唯一的旧副本。 |
 | **通知** | VAPID Web Push 在后台或浏览器关闭时发送配置的事件，并支持 macOS 音频和订阅控制。 |
 | **告警** | Settings 提供 Rules、Channels 和 Activity，用于事件模式、不活动、Agent 卡住和 Token 告警。事件规则在摄取后运行，时间规则每 60 秒扫描。持久告警按规则/会话冷却，默认 300 秒，并支持 WebSocket 投递、确认，以及按范围扇出至 14 个命名 Provider 或带脱敏 Secret、超时和有界重试的通用签名 JSON。 |
 | **更新提醒** | 非阻塞定时 `git fetch` 将当前检出与规范远程比较，再在模态框、侧边栏和终端显示准确的更新命令。CCAM 从不自行拉取或重启。 |
