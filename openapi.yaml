@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code, Cursor, and Codex API
-  version: 2.4.5
+  version: 2.4.6
   description: HTTP API for real-time Claude Code, Cursor, and Codex session monitoring, agent lifecycle tracking, analytics, provider-specific pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -587,7 +587,7 @@ components:
         version:
           type: string
           description: Dashboard release version from package.json
-          example: 2.4.5
+          example: 2.4.6
         timestamp:
           type: string
           format: date-time
@@ -2507,7 +2507,7 @@ components:
           example: github
         source:
           type: string
-          description: Where the definition was found, e.g. `~/.claude.json (top-level)`, `~/.claude.json (projects[<root>])`, or `~/.claude/settings.json`.
+          description: Where the definition was found, e.g. `~/.claude.json (top-level)` or `$CLAUDE_CONFIG_DIR/.claude.json (top-level)` when relocated, or Claude home `settings.json`.
           example: ~/.claude.json (top-level)
         kind:
           type: string
@@ -2549,19 +2549,19 @@ components:
             - GITHUB_TOKEN
     CcConfigMcpResponse:
       type: object
-      description: 'MCP servers split by where they apply: globally to the user, or scoped to the resolved project (cwd) in ~/.claude.json projects[<root>].'
+      description: 'MCP servers split by where they apply: globally to the user, or scoped to the resolved project (cwd) in Claude''s global .claude.json state file.'
       required:
         - user
         - projectScoped
       properties:
         user:
           type: array
-          description: User/global MCP servers (top-level ~/.claude.json plus ~/.claude/settings.json).
+          description: User/global MCP servers (top-level global .claude.json plus resolved Claude home settings.json).
           items:
             $ref: '#/components/schemas/CcConfigMcpServer'
         projectScoped:
           type: array
-          description: MCP servers scoped to the current project root in ~/.claude.json.
+          description: MCP servers scoped to the current project root in global .claude.json.
           items:
             $ref: '#/components/schemas/CcConfigMcpServer'
     CcConfigHookEntry:
@@ -2993,7 +2993,7 @@ components:
               example: /repo
             claudeJson:
               type: string
-              description: Path to ~/.claude.json (resolved from $HOME, not CLAUDE_HOME).
+              description: Path to $CLAUDE_CONFIG_DIR/.claude.json when set, otherwise ~/.claude.json. CLAUDE_HOME does not relocate this file.
               example: /Users/son/.claude.json
         counts:
           type: object
@@ -9217,7 +9217,7 @@ paths:
       tags:
         - CcConfig
       summary: List MCP servers
-      description: Read-only. Discovers MCP servers from ~/.claude.json (top-level and projects[<root>]) and ~/.claude/settings.json, split into `user` and `projectScoped`. Header and env VALUES are never returned — only their key NAMES. Read-only by design (the CLI writes these files concurrently). Degrades to empty arrays on errors.
+      description: Read-only. Discovers MCP servers from $CLAUDE_CONFIG_DIR/.claude.json when set (otherwise ~/.claude.json), and resolved Claude home settings.json, split into `user` and `projectScoped`. Header and env VALUES are never returned — only their key NAMES. Read-only by design (the CLI writes these files concurrently). Degrades to empty arrays on errors.
       operationId: ccConfigGetMcp
       parameters:
         - name: cwd
