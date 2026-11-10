@@ -33,6 +33,8 @@
  *   exports before changing assumptions here.
  * - `../components/MultiSelect` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
+ * - `../components/OpenInEditor` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
  *   review its exports before changing assumptions here.
  * - `../components/PaletteHint` — repository-local contract consumed by this module; review its
@@ -253,6 +255,7 @@ import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope, type ProviderScope } from "../lib/dataScope";
 import { SessionStatusBadge } from "../components/StatusBadge";
+import { OpenInEditor } from "../components/OpenInEditor";
 import { TodoProgressIndicator } from "../components/TodoProgressIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
@@ -854,7 +857,10 @@ export function Sessions() {
                       className="px-5 py-4 text-[11px] text-gray-500 font-mono"
                       title={session.cwd || undefined}
                     >
-                      {session.cwd ? truncate(session.cwd, 30) : "-"}
+                      <div className="flex items-center gap-2">
+                        <span>{session.cwd ? truncate(session.cwd, 30) : "-"}</span>
+                        <OpenInEditor session={session} compact />
+                      </div>
                     </td>
                     <td className="px-3 py-4">
                       {!isTransientProcessSession(session) && (

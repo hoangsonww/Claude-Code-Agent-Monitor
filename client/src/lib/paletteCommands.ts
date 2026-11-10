@@ -573,6 +573,7 @@ export const PAGE_COMMANDS: {
  */
 export const SETTINGS_SECTION_COMMANDS: { id: string; labelKey: string; icon: LucideIcon }[] = [
   { id: "data-display", labelKey: "settings:display.title", icon: Layers },
+  { id: "editors", labelKey: "settings:editors.title", icon: FolderOpen },
   { id: "claude-pricing", labelKey: "settings:pricing.navClaude", icon: DollarSign },
   { id: "cursor-pricing", labelKey: "settings:pricing.navCursor", icon: DollarSign },
   { id: "gpt-pricing", labelKey: "settings:pricing.navGpt", icon: DollarSign },

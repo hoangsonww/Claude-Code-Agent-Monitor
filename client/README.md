@@ -323,6 +323,8 @@ The Remote Data Sources form names its independent optional overrides **Remote C
 
 **GPT rate groups:** Settings exposes Standard short/long and Fast short/long, each with input, cached input, cache-write, and output prices in USD per million tokens. Both modes use the 272K request boundary. Unpublished tiers remain unpriced. Labels and pricing guidance are translated into all five supported languages. Existing custom rules retain their previous Fast prices in the new long band after upgrade; edits can then set either band independently.
 
+**Editor folder launcher:** Settings → Editors (`EditorSettings.tsx`) adds VS Code, Cursor, VS Code Insiders, Windsurf, or VSCodium and chooses a default. `lib/editors.ts` validates the fixed catalog, persists `ccam-editors` in browser-local storage, and synchronizes same-tab and cross-tab consumers. `OpenInEditor.tsx` appears on SessionCard, the Sessions table, and SessionDetail; multiple enabled editors expose a per-session selector without changing the saved default. Folder links encode path segments and launch only on explicit clicks, without shell commands or resuming agent conversations. Only local-source sessions accessed through localhost/loopback qualify. POSIX and Windows drive paths work; absent, relative, control-character, and UNC paths do not. The editor must be installed and the folder must exist on the browser's computer; CCAM cannot detect missing apps/folders or map remote/container paths. A storage failure is displayed instead of claiming preferences were saved. All UI copy ships in en/zh/vi/ko/es.
+
 **Provider-aware card context:** Dashboard agent cards and Kanban session cards show compact task context beneath a meaningful provider-native title. Claude Code and Codex both expose up to two recent distinct human prompts as a bounded two-row history: Claude refreshes its small persisted summary from the shared local JSONL cache during live hooks, imports, and watchdog sweeps; Codex accepts legacy user-message events plus modern response-item messages explicitly tagged as human text, excludes injected user-role context, and persists both the preview and distinct turn count. Active Codex sessions consumed by an older cursor are repaired once from their rollout. Every real-time `session_updated` refresh flows through the ordinary scoped data path. Conversation rows render safe persisted raster attachments and quietly hide missing/expired files.
 
 ### State Strategy
@@ -682,7 +684,7 @@ The catalog is built by `lib/paletteCommands.ts` as a pure function of one conte
 | This page | Whatever the mounted page registered via `usePaletteAction` — listed only where it is bound |
 | Projects | `GET /api/sessions/facets` — jumps to `/sessions?cwd=…` |
 | Views | Page sub-tabs and Sessions status filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
-| Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
+| Settings | All 15 `SETTINGS_SECTIONS` anchors (`/settings#<id>`), including Editors |
 | Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
 | Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |
 

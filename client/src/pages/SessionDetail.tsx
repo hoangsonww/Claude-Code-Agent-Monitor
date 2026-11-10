@@ -38,6 +38,8 @@
  *   exports before changing assumptions here.
  * - `../components/EventFiltersInfo` — repository-local contract consumed by this module; review
  *   its exports before changing assumptions here.
+ * - `../components/OpenInEditor` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
  *   review its exports before changing assumptions here.
  * - `../components/SessionOverview` — repository-local contract consumed by this module; review its
@@ -294,6 +296,7 @@ import { SessionOverview } from "../components/SessionOverview";
 import { TodoProgressPanel } from "../components/TodoProgressPanel";
 import { ConversationView } from "../components/conversation/ConversationView";
 import { SessionStatusBadge, AgentStatusBadge, REASON_ICONS } from "../components/StatusBadge";
+import { OpenInEditor } from "../components/OpenInEditor";
 import { CopyButton } from "../components/event-views/primitives";
 import {
   effectiveSessionStatus,
@@ -951,6 +954,9 @@ export function SessionDetail() {
               <CopyButton text={session.cwd} />
             </div>
           )}
+          <div className="mt-2">
+            <OpenInEditor session={session} />
+          </div>
         </div>
         <button onClick={load} className="btn-ghost">
           <RefreshCw className="w-4 h-4" />

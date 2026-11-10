@@ -6252,6 +6252,45 @@ exports[`screen snapshots > Session detail 1`] = `
             Copy
           </button>
         </div>
+        <div
+          class="mt-2"
+        >
+          <div
+            class="inline-flex items-center gap-1 shrink-0"
+          >
+            <a
+              aria-label="Configure editors"
+              class="btn-ghost"
+              data-discover="true"
+              href="/settings#editors"
+              title="Configure editors"
+            >
+              <svg
+                class="lucide lucide-code-xml w-3.5 h-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m18 16 4-4-4-4"
+                />
+                <path
+                  d="m6 8-4 4 4 4"
+                />
+                <path
+                  d="m14.5 4-5 16"
+                />
+              </svg>
+              Configure editors
+            </a>
+          </div>
+        </div>
       </div>
       <button
         class="btn-ghost"
@@ -7439,6 +7478,29 @@ exports[`screen snapshots > Settings 1`] = `
         </button>
         <button
           class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+          data-settings-section="editors"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-folder-open w-3.5 h-3.5"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"
+            />
+          </svg>
+          Editors
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
           data-settings-section="claude-pricing"
           type="button"
         >
@@ -8057,6 +8119,122 @@ exports[`screen snapshots > Settings 1`] = `
               Combine Claude Code, Cursor, and Codex data.
             </span>
           </button>
+        </div>
+      </div>
+    </section>
+    <section
+      class="scroll-mt-24"
+      id="editors"
+    >
+      <div>
+        <div
+          class="mb-4"
+        >
+          <h3
+            class="flex items-center gap-2 text-sm font-medium text-gray-300"
+          >
+            <svg
+              class="lucide lucide-code-xml h-4 w-4 text-gray-500"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="m18 16 4-4-4-4"
+              />
+              <path
+                d="m6 8-4 4 4 4"
+              />
+              <path
+                d="m14.5 4-5 16"
+              />
+            </svg>
+            Editors
+          </h3>
+          <p
+            class="mt-0.5 text-xs text-gray-500"
+          >
+            Add your installed editors and choose a default for opening session folders.
+          </p>
+        </div>
+        <div
+          class="card p-4 space-y-4"
+        >
+          <p
+            class="text-xs text-gray-500"
+          >
+            No editors added yet.
+          </p>
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <select
+              aria-label="Choose editor"
+              class="input text-sm"
+            >
+              <option
+                value="vscode"
+              >
+                VS Code
+              </option>
+              <option
+                value="vscode-insiders"
+              >
+                VS Code Insiders
+              </option>
+              <option
+                value="cursor"
+              >
+                Cursor
+              </option>
+              <option
+                value="windsurf"
+              >
+                Windsurf
+              </option>
+              <option
+                value="vscodium"
+              >
+                VSCodium
+              </option>
+            </select>
+            <button
+              class="btn-ghost"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-plus w-3.5 h-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M5 12h14"
+                />
+                <path
+                  d="M12 5v14"
+                />
+              </svg>
+              Add editor
+            </button>
+          </div>
+          <p
+            class="text-xs text-gray-500 leading-relaxed"
+          >
+            Saved in this browser. Install the editor first and allow your browser to open its links. Opens only the folder, not the agent conversation. The folder must exist on this computer; CCAM cannot detect missing folders or uninstalled editors.
+          </p>
         </div>
       </div>
     </section>
