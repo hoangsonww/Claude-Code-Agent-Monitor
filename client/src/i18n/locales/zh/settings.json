@@ -1,5 +1,21 @@
 {
   "title": "设置",
+  "editors": {
+    "title": "编辑器",
+    "description": "添加已安装的编辑器，并选择打开会话文件夹时使用的默认编辑器。",
+    "empty": "尚未添加编辑器。",
+    "default": "默认编辑器",
+    "choose": "选择编辑器",
+    "add": "添加编辑器",
+    "remove": "移除 {{editor}}",
+    "configure": "配置编辑器",
+    "open": "在编辑器中打开",
+    "openWith": "在 {{editor}} 中打开",
+    "remote": "只能打开此计算机上的会话。请通过 localhost 访问 CCAM。",
+    "missingFolder": "此会话没有受支持的绝对工作目录路径。",
+    "hint": "保存在此浏览器中。请先安装编辑器，并允许浏览器打开其链接。仅打开文件夹，不会打开 Agent 对话。文件夹必须存在于此计算机上；CCAM 无法检测缺失的文件夹或未安装的编辑器。",
+    "saveFailed": "无法保存编辑器。请启用浏览器存储后重试。"
+  },
   "subtitle": "管理定价、通知、数据和钩子",
   "exportData": "导出数据",
   "acrossSessions": "在所选数据范围内",

@@ -1,5 +1,21 @@
 {
   "title": "Cài đặt",
+  "editors": {
+    "title": "Trình soạn thảo",
+    "description": "Thêm trình soạn thảo đã cài đặt và chọn mặc định để mở thư mục phiên.",
+    "empty": "Chưa thêm trình soạn thảo nào.",
+    "default": "Trình soạn thảo mặc định",
+    "choose": "Chọn trình soạn thảo",
+    "add": "Thêm trình soạn thảo",
+    "remove": "Xóa {{editor}}",
+    "configure": "Cấu hình trình soạn thảo",
+    "open": "Mở trong trình soạn thảo",
+    "openWith": "Mở trong {{editor}}",
+    "remote": "Chỉ mở được phiên trên máy tính này. Truy cập CCAM qua localhost.",
+    "missingFolder": "Phiên này không có đường dẫn thư mục làm việc tuyệt đối được hỗ trợ.",
+    "hint": "Lưu trong trình duyệt này. Hãy cài trình soạn thảo trước và cho phép trình duyệt mở liên kết của nó. Chỉ mở thư mục, không mở hội thoại Agent. Thư mục phải tồn tại trên máy tính này; CCAM không thể phát hiện thư mục bị thiếu hoặc trình soạn thảo chưa cài đặt.",
+    "saveFailed": "Không thể lưu trình soạn thảo. Hãy bật bộ nhớ trình duyệt rồi thử lại."
+  },
   "subtitle": "Quản lý định giá, thông báo, dữ liệu và hooks",
   "exportData": "Xuất dữ liệu",
   "acrossSessions": "Trong phạm vi dữ liệu đã chọn",

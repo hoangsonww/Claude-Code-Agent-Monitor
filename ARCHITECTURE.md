@@ -541,6 +541,8 @@ graph TD
 - **`workflows/CompactionImpact.tsx`** — redesigned from a one-bar-per-session chart into a "sessions by compaction count" histogram (D3) with axis titles, stat tiles (total / sessions affected / avg / peak), an explanatory help line, a plain-English summary, and rich React-managed hover tooltips (full-height per-bucket hit-area + bar highlight) matching the other charts.
 - **`Workflows.tsx` `Section`** — the right-aligned section subtitle is clamped to a single line (`truncate` + `max-w` + hover `title`) so a long translation never wraps and unbalances the header; the full text stays in the section's `i` popover.
 
+- **Editor folder launching** — `client/src/lib/editors.ts` validates a fixed editor catalog and persists enabled editor IDs plus the default in browser-local `ccam-editors` preferences, with same-tab and cross-tab subscriptions. `client/src/components/EditorSettings.tsx` manages the catalog; `client/src/components/OpenInEditor.tsx` renders encoded folder links in SessionCard (including Kanban session cards), Sessions, SessionDetail, and the Dashboard's main-agent cards (`AgentCard` with `showEditor`). Only local-source sessions viewed over a loopback hostname are eligible. Relative, missing, control-character, and UNC paths are rejected; POSIX and Windows drive paths are supported. The browser/OS owns installed-editor and folder-existence errors. No server route, process execution, session resume, or remote path mapping is introduced.
+
 ### Self-hosted assets (no external CDN)
 
 Nothing the dashboard or docs render is fetched from a third-party CDN at runtime — all fonts and scripts are served locally, so every surface works fully offline and leaks nothing to external hosts.

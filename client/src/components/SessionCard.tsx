@@ -37,6 +37,8 @@
  *   changing assumptions here.
  * - `../lib/types` — repository-local contract consumed by this module; review its exports before
  *   changing assumptions here.
+ * - `./OpenInEditor` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
  * - `./StatusBadge` — repository-local contract consumed by this module; review its exports before
  *   changing assumptions here.
  *
@@ -190,6 +192,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { FolderOpen, Bot, Clock, Coins, Cpu } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
+import { OpenInEditor } from "./OpenInEditor";
 import {
   effectiveSessionStatus,
   isSessionAwaitingInput,
@@ -351,14 +354,17 @@ export function SessionCard({ session, onClick, statusDisplay = "badge" }: Sessi
         </div>
       )}
 
-      {session.cwd && (
-        <p
-          className="text-xs text-gray-400 mb-3 truncate font-mono leading-relaxed"
-          title={session.cwd}
-        >
-          {session.cwd}
-        </p>
-      )}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        {session.cwd && (
+          <p
+            className="text-xs text-gray-400 truncate font-mono leading-relaxed"
+            title={session.cwd}
+          >
+            {session.cwd}
+          </p>
+        )}
+        <OpenInEditor session={session} compact />
+      </div>
 
       <div className="flex items-center gap-3 text-[11px] text-gray-500 min-w-0 overflow-hidden flex-wrap">
         <span className="flex items-center gap-1 flex-shrink-0">

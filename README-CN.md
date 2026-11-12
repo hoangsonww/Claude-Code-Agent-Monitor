@@ -334,6 +334,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **告警** | Settings 提供 Rules、Channels 和 Activity，用于事件模式、不活动、Agent 卡住和 Token 告警。事件规则在摄取后运行，时间规则每 60 秒扫描。持久告警按规则/会话冷却，默认 300 秒，并支持 WebSocket 投递、确认，以及按范围扇出至 14 个命名 Provider 或带脱敏 Secret、超时和有界重试的通用签名 JSON。 |
 | **更新提醒** | 非阻塞定时 `git fetch` 将当前检出与规范远程比较，再在模态框、侧边栏和终端显示准确的更新命令。CCAM 从不自行拉取或重启。 |
 | **设置** | 系统与 Hook 状态、按 Provider 的定价、通知、清理、Provider 主目录、即时数据刷新，以及最大 25 MiB 的导出 JSON 幂等恢复。定价支持 Provider 级默认值、通配规则、公开费率指引、272K GPT 边界，以及独立的 Cursor 原生与第三方目录。 |
+| **编辑器文件夹启动器** | 在设置 → 编辑器中添加 VS Code、Cursor、VS Code Insiders、Windsurf 或 VSCodium，并选择默认编辑器。会话卡片、仪表盘会话卡片、会话列表和详情通过编辑器链接打开工作文件夹；选择器可切换其他已配置编辑器。偏好仅保存在此浏览器中。需要通过 localhost 访问、来自本地的会话、已安装的编辑器，以及此计算机上已存在的文件夹。缺少路径和远程会话会被禁用；无法检测缺失的文件夹或应用。不会恢复 Agent 对话，也不会执行 shell 命令。 |
 | **Run Agent + Agent 配置** | `/run` 启动 Claude Code 或原生 Codex app-server 线程，提供对应 Provider 的模型、审批、沙箱、恢复、停止、流式输出和重新连接。`/cc-config` 并列提供可编辑的 Claude 与 Codex 浏览器；受支持的用户文件使用受保护的原子保存和带时间戳备份、Secret 脱敏预览、准确的 Profile 命令和 Provider 专用监听器。 |
 | **Codex Agent 配置** | 显示完整账户模型目录及基础/Profile 覆盖，创建标准 `<name>.config.toml` Overlay，并通过规范路径包含检查和符号链接检查保护编辑。Profile、Hook、规则、技能和指令支持来源/路径/编辑/删除操作，删除前备份；`config.toml` 仅可编辑。 |
 | **MCP Server（本地）** | stdio、HTTP+SSE 和 REPL 三种传输在 16 个模块中暴露 103 个类型化工具。统一的已验证目录强制 localhost 或 HTTPS 目标、Bearer Token 规则、拒绝重定向、变更门禁、每文件 50 MiB 和每调用 100 MiB 上传、10 MiB 二进制响应，以及 25 MiB 恢复。 |
