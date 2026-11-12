@@ -1060,7 +1060,7 @@ export const api = {
       /** Rows to skip. */
       offset?: number;
       /** Restrict to one stored session provider. */
-      provider?: "claude" | "cursor" | "codex";
+      provider?: "claude" | "cursor" | "codex" | "antigravity";
       /**
        * Include transient rows: interactive Codex TUI processes discovered in memory before Codex
        * has written a session id. Only added to the first page of local results.

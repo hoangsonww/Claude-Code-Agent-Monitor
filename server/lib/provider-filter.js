@@ -7,7 +7,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const VALID_PROVIDERS = new Set(["claude", "cursor", "codex"]);
+const VALID_PROVIDERS = new Set(["claude", "cursor", "codex", "antigravity"]);
 
 /** Parse `?providers=claude,codex`; absent means every provider. */
 function parseProviders(req) {
@@ -29,7 +29,7 @@ function parseProviders(req) {
   return providers;
 }
 
-/** Parse an exact `?provider=claude|cursor|codex` stored-provider filter. */
+/** Parse an exact `?provider=claude|cursor|codex|antigravity` stored-provider filter. */
 function parseExactProvider(req) {
   const raw = req.query ? req.query.provider : undefined;
   if (typeof raw !== "string") return null;

@@ -358,6 +358,8 @@ flowchart LR
 | **Session splash screen** | 현지화된 browser session당 1회의 greeting과 node-graph animation이 first paint부터 불투명하게 나타나 약 2.5초 동안 유지됩니다. Click-to-skip을 지원하고 reduced motion을 준수합니다. |
 
 > **Provider 범위와 home:** Settings는 Claude 호환(Claude Code + Cursor) / Codex / Both 선택을 앱 전체에서 일관되게 유지합니다. Claude Code와 Codex home은 대시보드를 재시작하지 않고 편집할 수 있으며, Cursor는 `~/.cursor` 또는 `DASHBOARD_CURSOR_HOME`에서 자동으로 검색됩니다.
+
+> **Google Antigravity CLI (agy):** 대화는 `~/.gemini/antigravity`(또는 `DASHBOARD_AGY_HOME`)에서 `antigravity` 세션으로 자동 가져옵니다 — 제목과 워크스페이스는 `conversation_summaries.db`에서, 프롬프트와 도구 호출은 각 `brain/<id>/.system_generated/logs/transcript.jsonl`에서 읽고, 단계별 입력/출력/캐시 읽기 토큰도 기록합니다. 변경되지 않은 transcript는 건너뜁니다. `DASHBOARD_AGY_SYNC_MS`로 폴링 간격을 설정합니다(기본 5000, `0`이면 비활성화).
 >
 > **로컬 안전 경계:** Run Agent는 존재하는 모든 절대 작업 디렉터리를 허용하고 사용 전에 경로를 canonicalize하므로 home과 최근 프로젝트 실행을 계속 지원합니다. Hosted webhook provider는 HTTPS가 필요합니다. Generic과 n8n target은 로컬 또는 self-hosted receiver에 HTTP를 사용할 수 있으며, 전달은 redirect를 따르지 않습니다.
 

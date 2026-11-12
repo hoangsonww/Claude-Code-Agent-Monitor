@@ -360,6 +360,8 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **会话启动画面** | 每个浏览器会话显示一次的本地化问候和节点图动画从首帧起保持不透明，持续约 2.5 秒，支持点击跳过并遵循减少动态效果设置。 |
 
 > **Provider 范围和主目录：** Settings 在 Claude 兼容（Claude Code + Cursor）/ Codex / Both 之间保持全局一致。Claude Code 和 Codex 主目录无需重启 Dashboard 即可编辑；Cursor 自动从 `~/.cursor` 或 `DASHBOARD_CURSOR_HOME` 发现。
+
+> **Google Antigravity CLI (agy)：** 会话自动从 `~/.gemini/antigravity`（或 `DASHBOARD_AGY_HOME`）导入为 `antigravity` 会话——标题和工作区来自 `conversation_summaries.db`，提示和工具调用来自每个 `brain/<id>/.system_generated/logs/transcript.jsonl`，并记录每一步的输入/输出/缓存读取 token。未变化的转录会被跳过；`DASHBOARD_AGY_SYNC_MS` 设置轮询间隔（默认 5000，`0` 表示关闭）。
 >
 > **本地安全边界：** Run Agent 接受任意已存在的绝对工作目录，并在使用前进行规范化，因此仍支持从主目录和最近项目启动。托管 Webhook Provider 必须使用 HTTPS；generic 和 n8n 目标可为本地/自托管接收端使用 HTTP，且投递从不跟随重定向。
 ---
