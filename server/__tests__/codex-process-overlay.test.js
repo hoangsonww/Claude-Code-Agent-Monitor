@@ -133,7 +133,7 @@ describe("interactive Codex command classification", () => {
     assert.deepEqual(processes, [
       {
         pid: 60182,
-        cwd: "/workspace/launch",
+        cwd: path.resolve("/workspace/launch"),
         sessionId: resumedId,
       },
     ]);
