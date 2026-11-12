@@ -294,7 +294,7 @@ function isTransientProcessSession(session: Session): boolean {
  *  `""` is the "all" pseudo-filter the server treats as no status constraint. */
 const SESSION_FILTERS = ["", "active", "waiting", "completed", "error", "abandoned"] as const;
 /** Stored session providers accepted by the page-local provider filter. */
-const SESSION_PROVIDER_FILTERS = ["", "claude", "cursor", "codex"] as const;
+const SESSION_PROVIDER_FILTERS = ["", "claude", "cursor", "codex", "antigravity"] as const;
 type SessionProviderFilter = (typeof SESSION_PROVIDER_FILTERS)[number];
 /** Provider choices that make sense inside each global product scope. */
 const PROVIDER_FILTERS_BY_SCOPE: Record<ProviderScope, readonly SessionProviderFilter[]> = {
@@ -372,6 +372,7 @@ export function Sessions() {
     claude: t("providerClaude"),
     cursor: t("providerCursor"),
     codex: t("providerCodex"),
+    antigravity: t("providerAntigravity"),
   };
   const PROVIDER_FILTER_OPTIONS = availableProviderFilters.map((value) => ({
     value,

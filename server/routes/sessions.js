@@ -49,6 +49,7 @@ const {
 } = require("../lib/cursor-home");
 const { readCursorStoreMessages } = require("../lib/cursor-store-transcript");
 const { parseCursorMessage } = require("../lib/cursor-transcript");
+const { parseAgyMessage } = require("../lib/agy-transcript");
 const {
   cursorSessionFamilyIds,
   resolveCursorSessionId,
@@ -695,7 +696,11 @@ router.get("/:id/transcripts", async (req, res) => {
   // Codex uses a single append-only rollout. Cursor uses a main JSONL plus an
   // optional sibling subagents directory. Surface both through the same
   // provider-agnostic transcript contract as Claude Code.
-  if (session.provider === "codex" || session.provider === "cursor") {
+  if (
+    session.provider === "codex" ||
+    session.provider === "cursor" ||
+    session.provider === "antigravity"
+  ) {
     const mainAgent = stmts.listAgentsBySession
       .all(session.id)
       .find((agent) => agent.type === "main");
@@ -706,7 +711,12 @@ router.get("/:id/transcripts", async (req, res) => {
         ? [
             {
               id: "main",
-              name: session.provider === "cursor" ? "Cursor" : "Codex",
+              name:
+                session.provider === "cursor"
+                  ? "Cursor"
+                  : session.provider === "antigravity"
+                    ? "Antigravity"
+                    : "Codex",
               type: "main",
               has_transcript: true,
               db_agent_id: mainAgent?.id || null,
@@ -1011,7 +1021,7 @@ function inlineClaudeImage(block) {
 
 /** Resolve only the exact transcript selected by the reader/image request. */
 function resolveSessionTranscriptPath(session, sessionId, agentId, runId) {
-  if (session.provider === "codex") {
+  if (session.provider === "codex" || session.provider === "antigravity") {
     return session.transcript_path && fs.existsSync(session.transcript_path)
       ? session.transcript_path
       : null;
@@ -1272,7 +1282,7 @@ async function readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, of
 
 async function readCursorTranscript(
   jsonlPath,
-  { limit, afterLine, beforeLine, offset, isSubagentFile }
+  { limit, afterLine, beforeLine, offset, isSubagentFile, parse = parseCursorMessage }
 ) {
   const messages = [];
   let lineNum = 0;
@@ -1288,7 +1298,7 @@ async function readCursorTranscript(
     } catch {
       continue;
     }
-    const message = parseCursorMessage(entry, lineNum, isSubagentFile);
+    const message = parse(entry, lineNum, isSubagentFile);
     if (!message) continue;
     if (beforeLine !== null && lineNum >= beforeLine) break;
     total++;
@@ -1606,6 +1616,30 @@ router.get("/:id/transcript", async (req, res) => {
     try {
       return res.json(
         await readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, offset })
+      );
+    } catch {
+      return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
+    }
+  }
+
+  if (session.provider === "antigravity") {
+    const jsonlPath =
+      agentId && agentId !== "main"
+        ? null
+        : resolveSessionTranscriptPath(session, req.params.id, agentId, runId);
+    if (!jsonlPath) {
+      return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
+    }
+    try {
+      return res.json(
+        await readCursorTranscript(jsonlPath, {
+          limit,
+          afterLine,
+          beforeLine,
+          offset,
+          isSubagentFile: false,
+          parse: parseAgyMessage,
+        })
       );
     } catch {
       return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });

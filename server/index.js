@@ -644,6 +644,13 @@ function startAgySessionSync(broadcast, options = {}) {
         }
         for (const event of result.events || []) broadcast("new_event", event);
       },
+      onError(conversationId, err) {
+        // One unreadable conversation must not hide silently or stop the sweep.
+        console.warn(
+          `Antigravity sync skipped conversation ${conversationId}:`,
+          err?.message || err
+        );
+      },
     })
       .catch((err) => {
         console.warn("Antigravity session sync tick failed:", err?.message || err);

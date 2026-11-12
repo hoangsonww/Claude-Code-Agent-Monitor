@@ -20,6 +20,7 @@ const {
   getAgyBrainDir,
   getAgyTranscriptPath,
 } = require("./agy-home");
+const { cleanAgyUserText } = require("./agy-transcript");
 
 const PROVIDER = "antigravity";
 const RECENT_SESSION_MS = 10 * 60 * 1000;
@@ -67,16 +68,6 @@ function promptLabel(text) {
   return clean.length > PROMPT_LABEL_MAX ? `${clean.slice(0, PROMPT_LABEL_MAX - 1)}…` : clean;
 }
 
-function textOf(content) {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((part) => (typeof part === "string" ? part : part?.text || "")).join(" ");
-  }
-  if (content && typeof content === "object" && typeof content.text === "string")
-    return content.text;
-  return "";
-}
-
 /** Conversation index rows keyed by id. Missing/locked DB → empty map (fail-safe). */
 function readAgySummaries(home = getAgyHome()) {
   const file = getAgySummariesDb(home);
@@ -106,7 +97,11 @@ function readAgySummaries(home = getAgyHome()) {
   return rows;
 }
 
-/** Parse one transcript into prompts, tool calls and token totals. */
+/**
+ * Parse one transcript into prompts, tool calls and token totals. A read
+ * failure throws so the caller does not record a fingerprint for data it never
+ * saw — the next poll retries the file.
+ */
 function readAgyTranscript(file) {
   const out = {
     prompts: [],
@@ -118,12 +113,7 @@ function readAgyTranscript(file) {
     firstAt: null,
     lastAt: null,
   };
-  let raw = "";
-  try {
-    raw = fs.readFileSync(file, "utf8");
-  } catch {
-    return out;
-  }
+  const raw = fs.readFileSync(file, "utf8");
   for (const line of raw.split(/\r?\n/)) {
     if (!line.trim()) continue;
     let row;
@@ -139,8 +129,8 @@ function readAgyTranscript(file) {
       if (!out.lastAt || at > out.lastAt) out.lastAt = at;
     }
     if (row.type === "USER_INPUT") {
-      const text = textOf(row.content);
-      if (text.trim()) out.prompts.push({ text, at });
+      const text = cleanAgyUserText(row.content);
+      if (text) out.prompts.push({ text, at });
     }
     if (row.type === "PLANNER_RESPONSE") {
       out.input += Number(row.input_tokens) || 0;
@@ -215,8 +205,19 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
     // Never take over a session id owned by another provider.
     return { changed: false, created: false, session: existing, events: [] };
   }
+  const title = typeof summary?.title === "string" ? summary.title.trim() : "";
   if (existing && meta.agy_fingerprint === fp.key) {
-    return { changed: false, created: false, session: existing, events: [] };
+    // The transcript is unchanged, but the session can still need a refresh:
+    // an active conversation that went quiet must age out to completed, and
+    // the index (title) may have changed or become readable since last poll.
+    const lastActivityMs = Date.parse(existing.updated_at) || fp.mtimeMs;
+    const aged = existing.status === "active" && Date.now() - lastActivityMs >= RECENT_SESSION_MS;
+    const ownedName = meta.agy_ingested_name && existing.name === meta.agy_ingested_name;
+    const retitled = Boolean(ownedName && title && title !== existing.name);
+    const gainedCwd = !existing.cwd && Boolean(workspaceToCwd(summary?.workspace_uris));
+    if (!aged && !retitled && !gainedCwd) {
+      return { changed: false, created: false, session: existing, events: [] };
+    }
   }
 
   const t = readAgyTranscript(transcriptPath);
@@ -232,13 +233,23 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
   const startedAt =
     t.firstAt || (fp.birth ? fp.birth.toISOString() : new Date(activityMs).toISOString());
   const updatedAt = new Date(activityMs).toISOString();
-  const title = typeof summary?.title === "string" ? summary.title.trim() : "";
   const name =
     title || promptLabel(t.prompts[0]?.text) || `Antigravity session ${conversationId.slice(0, 8)}`;
   const cwd = workspaceToCwd(summary?.workspace_uris);
   const model = typeof options.model === "string" && options.model ? options.model : MODEL_FALLBACK;
   const mainId = `${conversationId}-main`;
   const events = [];
+  const pushEvent = (info, eventType, toolName, summaryText, createdAt) =>
+    events.push({
+      id: Number(info.lastInsertRowid),
+      session_id: conversationId,
+      agent_id: mainId,
+      event_type: eventType,
+      tool_name: toolName,
+      summary: summaryText,
+      created_at: createdAt,
+    });
+  let ownedName = true;
 
   const run = db.transaction(() => {
     if (!existing) {
@@ -274,7 +285,7 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
         null
       );
     } else {
-      const ownedName = meta.agy_ingested_name && existing.name === meta.agy_ingested_name;
+      ownedName = Boolean(meta.agy_ingested_name && existing.name === meta.agy_ingested_name);
       db.prepare(
         `UPDATE sessions
          SET name = ?, status = ?, updated_at = ?, ended_at = ?, cwd = COALESCE(cwd, ?)
@@ -300,23 +311,22 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
 
     const fromPrompt = Number(meta.agy_prompts) || 0;
     for (const p of t.prompts.slice(fromPrompt)) {
+      const label = promptLabel(p.text);
+      const at = p.at || updatedAt;
       const info = stmts.insertEventAt.run(
         conversationId,
         mainId,
         "UserPromptSubmit",
         null,
-        promptLabel(p.text),
+        label,
         JSON.stringify({ prompt: p.text, source: PROVIDER }),
-        p.at || updatedAt
+        at
       );
-      events.push({
-        id: info.lastInsertRowid,
-        session_id: conversationId,
-        event_type: "UserPromptSubmit",
-      });
+      pushEvent(info, "UserPromptSubmit", null, label, at);
     }
     const fromTool = Number(meta.agy_tools) || 0;
     for (const call of t.tools.slice(fromTool)) {
+      const at = call.at || updatedAt;
       const info = stmts.insertEventAt.run(
         conversationId,
         mainId,
@@ -324,13 +334,9 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
         call.name,
         call.name,
         JSON.stringify({ tool_name: call.name, source: PROVIDER }),
-        call.at || updatedAt
+        at
       );
-      events.push({
-        id: info.lastInsertRowid,
-        session_id: conversationId,
-        event_type: "PostToolUse",
-      });
+      pushEvent(info, "PostToolUse", call.name, call.name, at);
     }
 
     if (t.input || t.output || t.cacheRead) {
@@ -354,6 +360,9 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
     const nextMeta = {
       ...parseMetadata(stmts.getSession.get(conversationId)?.metadata),
       agy_fingerprint: fp.key,
+      // Advance the importer-owned name marker only when the importer set the
+      // name; a manual rename stays unowned and is never overwritten.
+      ...(ownedName ? { agy_ingested_name: name } : {}),
       agy_prompts: t.prompts.length,
       agy_tools: t.tools.length,
       agy_steps: t.steps,

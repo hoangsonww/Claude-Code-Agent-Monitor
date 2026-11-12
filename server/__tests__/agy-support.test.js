@@ -4,7 +4,10 @@
  * created with provider "antigravity", name/cwd come from agy's conversation
  * index, prompts and tool calls become events, token totals are recorded,
  * re-syncing an unchanged transcript is a no-op, appended steps import
- * incrementally, and a missing index still yields a usable session.
+ * incrementally, a missing index still yields a usable session, live events
+ * carry the full row shape, quiet sessions age out, index renames advance the
+ * importer-owned name, unreadable transcripts are retried, transcripts render in
+ * the reader, and Gemini usage never falls into Claude pricing.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -194,5 +197,185 @@ describe("Antigravity (agy) ingestion", () => {
     const { parseProviders, parseExactProvider } = require("../lib/provider-filter");
     assert.deepEqual(parseProviders({ query: { providers: "antigravity" } }), ["antigravity"]);
     assert.equal(parseExactProvider({ query: { provider: "antigravity" } }), "antigravity");
+  });
+});
+
+describe("Antigravity (agy) review follow-ups", () => {
+  const RECENT_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const BROKEN_ID = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+
+  function setIndexTitle(id, title) {
+    const Database = require("../compat-sqlite");
+    const idx = new Database(path.join(AGY_HOME, "conversation_summaries.db"));
+    idx
+      .prepare(
+        "INSERT INTO conversation_summaries (conversation_id, title) VALUES (?, ?) ON CONFLICT(conversation_id) DO UPDATE SET title = excluded.title"
+      )
+      .run(id, title);
+    idx.close();
+  }
+
+  it("broadcasts new events with the full DashboardEvent shape", async () => {
+    appendTranscript(CONV_ID, [
+      { type: "USER_INPUT", content: "One more thing", created_at: "2026-11-11T10:06:00Z" },
+    ]);
+    const seen = [];
+    await ingest.syncAgySessions(dbModule, { onSession: (r) => seen.push(...r.events) });
+    assert.equal(seen.length, 1);
+    const [event] = seen;
+    assert.equal(typeof event.id, "number");
+    assert.equal(event.session_id, CONV_ID);
+    assert.equal(event.agent_id, `${CONV_ID}-main`);
+    assert.equal(event.event_type, "UserPromptSubmit");
+    assert.equal(event.tool_name, null);
+    assert.equal(event.summary, "One more thing");
+    assert.equal(event.created_at, "2026-11-11T10:06:00.000Z");
+  });
+
+  it("ages a quiet active session to completed without a transcript change", async () => {
+    writeTranscript(RECENT_ID, [
+      { type: "USER_INPUT", content: "Still working", created_at: new Date().toISOString() },
+    ]);
+    await ingest.syncAgySessions(dbModule);
+    assert.equal(dbModule.stmts.getSession.get(RECENT_ID).status, "active");
+    assert.equal(dbModule.stmts.getAgent.get(`${RECENT_ID}-main`).status, "working");
+
+    // The transcript stays byte-identical; only the clock moves on. Simulate
+    // that by backdating the stored last activity past the 10-minute window.
+    const old = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    dbModule.db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(old, RECENT_ID);
+    const realNow = Date.now;
+    Date.now = () => realNow() + 20 * 60 * 1000;
+    try {
+      const results = await ingest.syncAgySessions(dbModule);
+      assert.ok(results.some((r) => r.session?.id === RECENT_ID));
+    } finally {
+      Date.now = realNow;
+    }
+    assert.equal(dbModule.stmts.getSession.get(RECENT_ID).status, "completed");
+    assert.equal(dbModule.stmts.getAgent.get(`${RECENT_ID}-main`).status, "completed");
+    assert.equal(
+      dbModule.stmts.listEventsBySession
+        .all(RECENT_ID)
+        .filter((e) => e.event_type === "UserPromptSubmit").length,
+      1
+    );
+  });
+
+  it("follows index renames and keeps tracking them, but never a manual name", async () => {
+    setIndexTitle(CONV_ID, "Dark theme v2");
+    await ingest.syncAgySessions(dbModule);
+    assert.equal(dbModule.stmts.getSession.get(CONV_ID).name, "Dark theme v2");
+    setIndexTitle(CONV_ID, "Dark theme v3");
+    await ingest.syncAgySessions(dbModule);
+    assert.equal(dbModule.stmts.getSession.get(CONV_ID).name, "Dark theme v3");
+    assert.equal(
+      dbModule.stmts.getAgent.get(`${CONV_ID}-main`).name,
+      "Antigravity · Dark theme v3"
+    );
+
+    dbModule.db.prepare("UPDATE sessions SET name = ? WHERE id = ?").run("My own name", CONV_ID);
+    setIndexTitle(CONV_ID, "Dark theme v4");
+    await ingest.syncAgySessions(dbModule);
+    assert.equal(dbModule.stmts.getSession.get(CONV_ID).name, "My own name");
+  });
+
+  it("reports an unreadable transcript and does not import it", async () => {
+    // A directory at the transcript path: stat succeeds, read fails.
+    fs.mkdirSync(transcriptPath(BROKEN_ID), { recursive: true });
+    const errors = [];
+    try {
+      await ingest.syncAgySessions(dbModule, { onError: (id) => errors.push(id) });
+    } finally {
+      fs.rmSync(path.join(AGY_HOME, "brain", BROKEN_ID), { recursive: true, force: true });
+    }
+    assert.deepEqual(errors, [BROKEN_ID]);
+    assert.equal(dbModule.stmts.getSession.get(BROKEN_ID), undefined);
+  });
+
+  it("renders agy transcript steps as reader messages", () => {
+    const { parseAgyMessage, cleanAgyUserText } = require("../lib/agy-transcript");
+    assert.equal(cleanAgyUserText("<USER_REQUEST>\nFix the bug\n</USER_REQUEST>"), "Fix the bug");
+    const user = parseAgyMessage(
+      { type: "USER_INPUT", content: "<USER_REQUEST>\nFix it\n</USER_REQUEST>", created_at: "t" },
+      1
+    );
+    assert.deepEqual(user.content, [{ type: "text", text: "Fix it" }]);
+    assert.equal(user.sender, "user");
+    const reply = parseAgyMessage(
+      {
+        type: "PLANNER_RESPONSE",
+        thinking: "plan",
+        content: "On it",
+        tool_calls: [{ name: "run_command", args: { CommandLine: '"dir"', toolSummary: '"x"' } }],
+      },
+      2
+    );
+    assert.deepEqual(
+      reply.content.map((b) => b.type),
+      ["thinking", "text", "tool_use"]
+    );
+    assert.deepEqual(reply.content[2].input, { CommandLine: "dir" });
+    const output = parseAgyMessage({ type: "GENERIC", content: "exit 0" }, 3);
+    assert.equal(output.sender, "tool");
+    assert.equal(output.content[0].type, "tool_result");
+    assert.equal(parseAgyMessage({ type: "CHECKPOINT", content: "x" }, 4), null);
+  });
+
+  it("serves an imported conversation through the transcript routes", async () => {
+    const express = require("express");
+    const app = express();
+    app.use("/api/sessions", require("../routes/sessions"));
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    try {
+      const base = `http://127.0.0.1:${server.address().port}/api/sessions/${CONV_ID}`;
+      const list = await (await fetch(`${base}/transcripts`)).json();
+      assert.equal(list.transcripts[0].name, "Antigravity");
+      const body = await (await fetch(`${base}/transcript?limit=200`)).json();
+      const senders = body.messages.map((m) => m.sender);
+      assert.ok(senders.includes("user"));
+      assert.ok(senders.includes("assistant"));
+      assert.ok(senders.includes("tool"));
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it("keeps Antigravity usage out of Claude pricing", () => {
+    const { calculateProviderCost } = require("../routes/pricing");
+    const catchAll = [
+      {
+        model_pattern: "%",
+        input_per_mtok: 5,
+        output_per_mtok: 25,
+        cache_read_per_mtok: 0.5,
+        cache_write_per_mtok: 6.25,
+      },
+    ];
+    const row = {
+      provider: "antigravity",
+      model: "gemini",
+      speed: "standard",
+      inference_geo: "global",
+      service_tier: "standard",
+      input_tokens: 1_000_000,
+      output_tokens: 1_000_000,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      cache_write_1h_tokens: 0,
+      web_search_requests: 0,
+      web_fetch_requests: 0,
+      code_execution_requests: 0,
+    };
+    const result = calculateProviderCost([row], catchAll, [], []);
+    assert.equal(result.total_cost, 0);
+    assert.equal(result.breakdown.length, 0);
+    assert.equal(result.unpriced_models.length, 0);
+    // Sanity: the same row as Claude usage would have been priced.
+    assert.ok(
+      calculateProviderCost([{ ...row, provider: "claude" }], catchAll, [], []).total_cost > 0
+    );
   });
 });
