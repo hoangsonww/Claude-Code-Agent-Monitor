@@ -1,8 +1,9 @@
 /**
  * @file provider-filter.js
- * @description Shared SQL filters for the dashboard-wide Claude/Cursor/Codex
- * scope. The Claude product choice intentionally includes Cursor sessions,
- * matching onboarding, while direct `cursor` API scopes remain available.
+ * @description Shared parsing and SQL filters for dashboard-wide product
+ * scope plus exact stored-provider filters. The Claude product choice
+ * intentionally includes Cursor sessions, matching onboarding, while a
+ * singular provider filter can narrow one page to Claude or Cursor exactly.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -28,6 +29,14 @@ function parseProviders(req) {
   return providers;
 }
 
+/** Parse an exact `?provider=claude|cursor|codex` stored-provider filter. */
+function parseExactProvider(req) {
+  const raw = req.query ? req.query.provider : undefined;
+  if (typeof raw !== "string") return null;
+  const provider = raw.trim();
+  return VALID_PROVIDERS.has(provider) ? provider : null;
+}
+
 /** SQL predicate for a query that already aliases sessions. */
 function providerColumnClause(providers, col = "s.provider") {
   if (!providers || providers.length === 0) return { clause: "", params: [] };
@@ -45,4 +54,9 @@ function sessionIdInProvidersClause(providers, sessionIdCol) {
   };
 }
 
-module.exports = { parseProviders, providerColumnClause, sessionIdInProvidersClause };
+module.exports = {
+  parseProviders,
+  parseExactProvider,
+  providerColumnClause,
+  sessionIdInProvidersClause,
+};

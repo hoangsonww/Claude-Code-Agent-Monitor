@@ -208,6 +208,14 @@ const paths = {
           example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
         },
         {
+          $ref: "#/components/parameters/ProvidersQuery",
+          example: "claude,codex",
+        },
+        {
+          $ref: "#/components/parameters/ExactSessionProviderQuery",
+          example: "cursor",
+        },
+        {
           name: "include_transient",
           in: "query",
           schema: { type: "boolean", default: false },

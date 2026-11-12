@@ -297,7 +297,7 @@ SSH machines whose Claude Code / Codex history the dashboard mirrors (Settings �
 | `ccam info` | `/api/settings/info` (raw JSON; `--format pretty` renders a system card + row table) |
 | `ccam export [file\|-]` | Full JSON export to a dated file, or `-` for stdout. Works offline |
 | `ccam cleanup --hours N --days M` | Abandon stale active sessions / purge old finished ones (their transcript snapshots are deleted too) |
-| `ccam snapshots [status]` · `ccam snapshots compress` | Transcript snapshot storage per provider (Claude Code / Codex / Cursor), compressed share, and retention policy · losslessly compress snapshots whose original transcript is gone |
+| `ccam snapshots [status]` · `ccam snapshots compress` | Transcript snapshot storage per provider (Claude Code / Codex / Cursor), transcript-only compressed share, compact/legacy Cursor store counts, and retention policy · losslessly compress snapshots whose original transcript is gone |
 | `ccam snapshots prune [--days N] [--max-size 5GB] [--orphans]` | **Dry run** listing the finished sessions whose snapshots would be removed; add `--apply --confirm PRUNE_SNAPSHOTS` to delete. A pruned snapshot may be the only remaining copy of a conversation |
 | `ccam clear-data --yes` | Delete **all** data (schema preserved). Requires a literal `--yes` — never prompts |
 | `ccam reinstall-hooks` · `ccam hooks [status]` · `ccam hooks install [claude] [codex] --yes` | Hook management (status raw JSON; `--format pretty` for a table) |

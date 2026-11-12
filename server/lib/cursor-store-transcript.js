@@ -7,18 +7,31 @@
 
 const fs = require("fs");
 const path = require("path");
-const { findCursorChatDir, getCursorSnapshotDir } = require("./cursor-home");
+const crypto = require("crypto");
+const { pathToFileURL } = require("node:url");
+const { performance } = require("node:perf_hooks");
+const { findCursorChatDir, getCursorSnapshotDir, isSafeCursorId } = require("./cursor-home");
 
 const TEXT_LIMIT = 10240;
 const MODEL_SUFFIX_MATCH_MIN_LENGTH = 16;
 const STORE_SNAPSHOT_RETRY_LIMIT = 5;
 const STORE_CACHE_LIMIT = 64;
+const MAX_ROOT_BYTES = 2 * 1024 * 1024;
+const MAX_ROOT_REFERENCES = 30_000;
+const LIVE_STORE_NAME = "store.db";
+const COMPACT_STORE_NAME = "store.compact.db";
+const COMPACT_STORE_VERSION = "1";
+const SNAPSHOT_LOCK_NAME = ".store-compaction.lock";
+const INVALID_LOCK_MAX_AGE_MS = 60 * 60 * 1000;
+const PROCESS_STARTED_AT = Math.round(performance.timeOrigin);
 const lastStoreSnapshot = new Map();
 const lastStoreSnapshotStamp = new Map();
 const pendingStoreSnapshots = new Map();
 const snapshotFailures = new Map();
 const storeMessageCache = new Map();
+const storeStructureCache = new Map();
 let StoreDatabase = null;
+let CompactionDatabase = null;
 
 function getStoreDatabase() {
   if (StoreDatabase) return StoreDatabase;
@@ -30,6 +43,16 @@ function getStoreDatabase() {
     StoreDatabase = require("../compat-sqlite");
   }
   return StoreDatabase;
+}
+
+/**
+ * Compaction uses node:sqlite because its URI-enabled ATTACH support can open
+ * source stores with mode=ro. better-sqlite3 does not enable URI filenames on
+ * its connection, even when it remains the preferred reader elsewhere.
+ */
+function getCompactionDatabase() {
+  if (!CompactionDatabase) CompactionDatabase = require("../compat-sqlite");
+  return CompactionDatabase;
 }
 
 function fileStamp(filePath) {
@@ -60,6 +83,15 @@ function cacheStoreMessages(dbPath, stamp, messages) {
   storeMessageCache.set(dbPath, { stamp, messages: cloneMessages(messages) });
   while (storeMessageCache.size > STORE_CACHE_LIMIT) {
     storeMessageCache.delete(storeMessageCache.keys().next().value);
+  }
+}
+
+/** Cache one bounded raw-structure validation without retaining message blobs. */
+function cacheStoreStructure(dbPath, stamp, valid) {
+  storeStructureCache.delete(dbPath);
+  storeStructureCache.set(dbPath, { stamp, valid });
+  while (storeStructureCache.size > STORE_CACHE_LIMIT) {
+    storeStructureCache.delete(storeStructureCache.keys().next().value);
   }
 }
 
@@ -194,8 +226,12 @@ function mapStoreBlob(blob, blobId) {
 
 function readMeta(db) {
   const row = db.prepare("SELECT value FROM meta WHERE key = '0'").get();
-  if (!row?.value) return null;
-  const value = String(row.value);
+  return parseMetaValue(row?.value);
+}
+
+function parseMetaValue(raw) {
+  if (!raw) return null;
+  const value = String(raw);
   try {
     return JSON.parse(value);
   } catch {
@@ -203,6 +239,103 @@ function readMeta(db) {
       return JSON.parse(Buffer.from(value, "hex").toString("utf8"));
     } catch {
       return null;
+    }
+  }
+}
+
+/** Preserve Cursor's JSON-or-hex metadata encoding while replacing its active root. */
+function encodeMetaValue(raw, metadata) {
+  const json = JSON.stringify(metadata);
+  return String(raw).trimStart().startsWith("{") ? json : Buffer.from(json, "utf8").toString("hex");
+}
+
+/**
+ * Read only a store's bounded root structure. Referenced message blobs stay in
+ * SQLite and are copied with `INSERT ... SELECT`, so one opaque or unusually
+ * large message cannot inflate the Node heap.
+ */
+function readStoreRoot(dbPath) {
+  let db;
+  try {
+    const Database = getStoreDatabase();
+    db = new Database(dbPath, { readonly: true, fileMustExist: true, timeout: 250 });
+    const metaRow = db.prepare("SELECT value FROM meta WHERE key = '0'").get();
+    const metadata = parseMetaValue(metaRow?.value);
+    const rootId = metadata?.latestRootBlobId;
+    if (!metaRow?.value || typeof rootId !== "string" || !rootId) return null;
+    const rootSize = Number(
+      db.prepare("SELECT length(data) AS size FROM blobs WHERE id = ?").get(rootId)?.size
+    );
+    if (!rootSize || rootSize > MAX_ROOT_BYTES) return null;
+    const rootRow = db.prepare("SELECT data FROM blobs WHERE id = ?").get(rootId);
+    if (!rootRow?.data) return null;
+    const rootData = Buffer.from(rootRow.data);
+    const references = rootBlobIds(rootData);
+    if (!references.length || references.length > MAX_ROOT_REFERENCES) return null;
+    return { metaValue: metaRow.value, metadata, rootId, rootData, references };
+  } catch {
+    return null;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // A live store may rotate after its bounded root was read.
+    }
+  }
+}
+
+/**
+ * Validate that a compact store has one bounded root and every raw blob that
+ * root references. This deliberately accepts blobs the current parser cannot
+ * render, preserving them for future Cursor-format support.
+ */
+function compactStoreHasConversation(dbPath) {
+  const stamp = cursorStoreStamp(dbPath);
+  if (!stamp) return false;
+  const cached = storeStructureCache.get(dbPath);
+  if (cached?.stamp === stamp) return cached.valid;
+  const root = readStoreRoot(dbPath);
+  if (!root) {
+    cacheStoreStructure(dbPath, stamp, false);
+    return false;
+  }
+  let db;
+  let valid = false;
+  try {
+    const Database = getStoreDatabase();
+    db = new Database(dbPath, { readonly: true, fileMustExist: true, timeout: 250 });
+    const exists = db.prepare("SELECT 1 AS present FROM blobs WHERE id = ?");
+    valid = [...new Set(root.references)].every((id) => Boolean(exists.get(id)?.present));
+  } catch {
+    valid = false;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      valid = false;
+    }
+  }
+  cacheStoreStructure(dbPath, stamp, valid);
+  return valid;
+}
+
+/** Read the CCAM metadata carried only by compact Cursor store snapshots. */
+function readCompactStoreMetadata(dbPath) {
+  if (!fs.existsSync(dbPath)) return null;
+  let db;
+  try {
+    const Database = getStoreDatabase();
+    db = new Database(dbPath, { readonly: true, fileMustExist: true, timeout: 250 });
+    const rows = db.prepare("SELECT key, value FROM ccam_snapshot").all();
+    const metadata = Object.fromEntries(rows.map((row) => [row.key, String(row.value)]));
+    return metadata.format_version === COMPACT_STORE_VERSION ? metadata : null;
+  } catch {
+    return null;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // A partially migrated snapshot is simply retried later.
     }
   }
 }
@@ -263,11 +396,14 @@ function readCursorStoreFile(dbPath) {
 function cursorStorePaths(sessionIds) {
   const ids = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
   return ids
+    .filter(isSafeCursorId)
     .flatMap((sessionId) => {
       const liveDir = findCursorChatDir(sessionId);
+      const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
       return [
-        liveDir && path.join(liveDir, "store.db"),
-        path.join(getCursorSnapshotDir(), sessionId, "store.db"),
+        liveDir && path.join(liveDir, LIVE_STORE_NAME),
+        path.join(snapshotDir, COMPACT_STORE_NAME),
+        path.join(snapshotDir, LIVE_STORE_NAME),
       ];
     })
     .filter(Boolean)
@@ -319,14 +455,31 @@ function resolveCursorStoreModel(sessionIds, responseText = null) {
 }
 
 function cursorStoreSnapshotPending(sessionId) {
-  const entry = snapshotFailures.get(sessionId);
+  if (!isSafeCursorId(sessionId)) return false;
+  const liveDir = findCursorChatDir(sessionId);
+  const live = liveDir && path.join(liveDir, LIVE_STORE_NAME);
+  const snapshotDir = path.join(getCursorSnapshotDir(), sessionId);
+  const compact = path.join(snapshotDir, COMPACT_STORE_NAME);
+  const legacy = path.join(snapshotDir, LIVE_STORE_NAME);
+  const source = live && fs.existsSync(live) ? live : fs.existsSync(legacy) ? legacy : null;
+  if (!source) return false;
+  const currentStamp = cursorStoreStamp(source);
+  if (!currentStamp) return false;
+  const legacyStamp = source !== legacy && fs.existsSync(legacy) ? cursorStoreStamp(legacy) : null;
+  const workStamp = snapshotWorkStamp(currentStamp, legacyStamp);
+  const failure = snapshotFailures.get(sessionId);
+  if (failure?.stamp === workStamp && failure.count >= STORE_SNAPSHOT_RETRY_LIMIT) {
+    return false;
+  }
   if (pendingStoreSnapshots.has(sessionId)) return true;
-  if (!entry || entry.count <= 0) return false;
-  const source = cursorStorePaths(sessionId)[0];
-  const currentStamp = source ? cursorStoreStamp(source) : null;
-  return (
-    entry.count < STORE_SNAPSHOT_RETRY_LIMIT || (!!currentStamp && currentStamp !== entry.stamp)
-  );
+  const metadata = readCompactStoreMetadata(compact);
+  const needsSnapshot =
+    metadata?.source_stamp !== currentStamp ||
+    (legacyStamp && metadata?.legacy_stamp !== legacyStamp) ||
+    !compactStoreHasConversation(compact) ||
+    fs.existsSync(legacy);
+  if (!needsSnapshot) return false;
+  return true;
 }
 
 function noteSnapshotFailure(sessionId, stamp) {
@@ -338,70 +491,498 @@ function noteSnapshotFailure(sessionId, stamp) {
   });
 }
 
-/** Create a consistent backup so conversation details survive Cursor cleanup. */
-function snapshotCursorStore(sessionId) {
-  const now = Date.now();
-  const source = cursorStorePaths(sessionId)[0];
-  if (!source || !fs.existsSync(source)) return false;
-  const stamp = cursorStoreStamp(source);
-  if (!stamp) return false;
-  if (now - (lastStoreSnapshot.get(sessionId) || 0) < 60_000) {
-    if (lastStoreSnapshotStamp.get(sessionId) !== stamp) {
-      pendingStoreSnapshots.set(sessionId, stamp);
-    }
-    return false;
-  }
-  let db;
+/** Bind retry accounting to both the live source and any legacy data being preserved. */
+function snapshotWorkStamp(sourceStamp, legacyStamp) {
+  return legacyStamp ? `${sourceStamp}|legacy:${legacyStamp}` : sourceStamp;
+}
+
+function tempCompactStorePath(destination) {
+  return path.join(
+    path.dirname(destination),
+    `.${COMPACT_STORE_NAME}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`
+  );
+}
+
+function removeStoreFile(filePath) {
   try {
-    const destinationDir = path.join(getCursorSnapshotDir(), sessionId);
-    fs.mkdirSync(destinationDir, { recursive: true });
-    const destination = path.join(destinationDir, "store.db");
-    lastStoreSnapshot.set(sessionId, now);
-    const Database = getStoreDatabase();
-    db = new Database(source, { readonly: true, fileMustExist: true, timeout: 250 });
-    if (typeof db.backup !== "function") {
-      throw new Error("The active SQLite driver does not support online backup");
-    }
-    const backup = db.backup(destination);
-    const close = () => {
-      try {
-        db.close();
-      } catch {
-        // Already closed.
-      }
-    };
-    if (backup && typeof backup.then === "function") {
-      backup.then(
-        () => {
-          snapshotFailures.delete(sessionId);
-          pendingStoreSnapshots.delete(sessionId);
-          lastStoreSnapshotStamp.set(sessionId, stamp);
-          close();
-        },
-        () => {
-          noteSnapshotFailure(sessionId, stamp);
-          close();
-        }
-      );
-    } else {
-      snapshotFailures.delete(sessionId);
-      pendingStoreSnapshots.delete(sessionId);
-      lastStoreSnapshotStamp.set(sessionId, stamp);
-      close();
-    }
+    fs.rmSync(filePath, { force: true, maxRetries: 4, retryDelay: 50 });
+    storeMessageCache.delete(filePath);
+    storeStructureCache.delete(filePath);
     return true;
   } catch {
-    noteSnapshotFailure(sessionId, stamp);
-    try {
-      db?.close();
-    } catch {
-      // Best effort around a live store.
-    }
     return false;
   }
 }
 
+/** Return whether an existing lock belongs to a live compactor process. */
+function snapshotLockIsActive(lockPath) {
+  try {
+    const owner = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+    if (owner.pid === process.pid) return owner.processStartedAt === PROCESS_STARTED_AT;
+    if (!Number.isInteger(owner.pid) || owner.pid <= 0) {
+      return Date.now() - fs.statSync(lockPath).mtimeMs <= INVALID_LOCK_MAX_AGE_MS;
+    }
+    try {
+      process.kill(owner.pid, 0);
+      return true;
+    } catch (err) {
+      return err?.code !== "ESRCH";
+    }
+  } catch {
+    try {
+      return Date.now() - fs.statSync(lockPath).mtimeMs <= INVALID_LOCK_MAX_AGE_MS;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Serialize one session's installation across the serving thread and the
+ * migration worker. The on-disk owner token also recovers locks left by a dead
+ * process without deleting a lock held by another live dashboard.
+ */
+function acquireSnapshotLock(sessionId) {
+  const destinationDir = path.join(getCursorSnapshotDir(), sessionId);
+  const lockPath = path.join(destinationDir, SNAPSHOT_LOCK_NAME);
+  fs.mkdirSync(destinationDir, { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let fd;
+    try {
+      fd = fs.openSync(lockPath, "wx", 0o600);
+      fs.writeSync(fd, JSON.stringify({ pid: process.pid, processStartedAt: PROCESS_STARTED_AT }));
+      fs.closeSync(fd);
+      fd = null;
+      return () => removeStoreFile(lockPath);
+    } catch (err) {
+      try {
+        if (fd !== undefined) fs.closeSync(fd);
+      } catch {
+        // The exclusive lock file still prevents concurrent installation.
+      }
+      if (err?.code !== "EEXIST" || snapshotLockIsActive(lockPath)) return null;
+      removeStoreFile(lockPath);
+    }
+  }
+  return null;
+}
+
+/** Compare ordered-reference multiplicities without materializing any BLOB data. */
+function referencesContainAll(container, expected) {
+  const available = new Map();
+  for (const id of container) available.set(id, (available.get(id) || 0) + 1);
+  for (const id of expected) {
+    const remaining = available.get(id) || 0;
+    if (remaining <= 0) return false;
+    available.set(id, remaining - 1);
+  }
+  return true;
+}
+
+/** Confirm that a compact root still contains every occurrence from a source root. */
+function storeContainsAllReferences(containerPath, expectedPath) {
+  const container = readStoreRoot(containerPath);
+  const expected = readStoreRoot(expectedPath);
+  return Boolean(
+    container && expected && referencesContainAll(container.references, expected.references)
+  );
+}
+
+/** Build a valid protobuf root containing one field-1 reference per id. */
+function encodeRootReferences(references) {
+  if (!references.length || references.length > MAX_ROOT_REFERENCES) return null;
+  const root = Buffer.alloc(references.length * 34);
+  for (let index = 0; index < references.length; index++) {
+    const id = Buffer.from(references[index], "hex");
+    if (id.length !== 32) return null;
+    const offset = index * 34;
+    root[offset] = 0x0a;
+    root[offset + 1] = 0x20;
+    id.copy(root, offset + 2);
+  }
+  return root;
+}
+
+/**
+ * Reconcile a source root with every earlier root that must be preserved. The
+ * chosen first root keeps its order; each later root contributes only occurrences
+ * beyond the merged multiset. Repeated references therefore survive.
+ */
+function buildCompactPlan(sourcePath, preservePaths = [], { preserveFirst = true } = {}) {
+  const source = readStoreRoot(sourcePath);
+  if (!source) return null;
+  const preserved = preservePaths.map((preservePath, index) => {
+    const root = readStoreRoot(preservePath);
+    return {
+      alias: `preserve_store_${index}`,
+      path: preservePath,
+      root,
+      ids: new Set(root?.references || []),
+    };
+  });
+  if (preserved.some((store) => !store.root)) return null;
+  if (!preserved.length) {
+    return {
+      metaValue: source.metaValue,
+      rootId: source.rootId,
+      rootData: source.rootData,
+      references: source.references,
+      origins: new Map([...new Set(source.references)].map((id) => [id, "source_store"])),
+      sourcePath,
+      preserveStores: [],
+    };
+  }
+
+  const sourceStore = { alias: "source_store", path: sourcePath, root: source };
+  const orderedStores = preserveFirst ? [...preserved, sourceStore] : [sourceStore, ...preserved];
+  const references = [];
+  const included = new Map();
+  for (const store of orderedStores) {
+    const available = new Map(included);
+    for (const id of store.root.references) {
+      const remaining = available.get(id) || 0;
+      if (remaining > 0) available.set(id, remaining - 1);
+      else {
+        references.push(id);
+        included.set(id, (included.get(id) || 0) + 1);
+      }
+    }
+  }
+  const rootData = encodeRootReferences(references);
+  if (!rootData || rootData.length > MAX_ROOT_BYTES) return null;
+  const rootId = crypto.createHash("sha256").update(rootData).digest("hex");
+  const sourceIds = new Set(source.references);
+  const origins = new Map();
+  for (const id of new Set(references)) {
+    const preservedOrigin = preserved.find((store) => store.ids.has(id));
+    origins.set(id, sourceIds.has(id) ? "source_store" : preservedOrigin.alias);
+  }
+  return {
+    metaValue: encodeMetaValue(source.metaValue, {
+      ...source.metadata,
+      latestRootBlobId: rootId,
+    }),
+    rootId,
+    rootData,
+    references,
+    origins,
+    sourcePath,
+    preserveStores: preserved.map(({ alias, path: preservePath }) => ({
+      alias,
+      path: preservePath,
+    })),
+  };
+}
+
+/** Attach one existing source read-only and forbid SQLite from creating it. */
+function attachReadonlyStore(db, alias, dbPath) {
+  if (!fs.existsSync(dbPath)) {
+    const error = new Error(`Cursor store disappeared before attach: ${dbPath}`);
+    error.code = "SQLITE_CANTOPEN";
+    throw error;
+  }
+  db.prepare(`ATTACH DATABASE ? AS ${alias}`).run(`${pathToFileURL(dbPath).href}?mode=ro`);
+}
+
+/** Build a bounded id-only table used to copy and compare blobs inside SQLite. */
+function prepareExpectedBlobs(db, plan) {
+  db.exec("CREATE TEMP TABLE expected_blobs (id TEXT PRIMARY KEY, origin TEXT NOT NULL)");
+  const insert = db.prepare("INSERT INTO expected_blobs (id, origin) VALUES (?, ?)");
+  db.transaction(() => {
+    for (const [id, origin] of plan.origins) insert.run(id, origin);
+  })();
+}
+
+/** Copy every referenced BLOB in SQLite so large opaque values never enter JS. */
+function copyExpectedBlobs(db, plan) {
+  for (const alias of ["source_store", ...plan.preserveStores.map((store) => store.alias)]) {
+    db.exec(`INSERT OR IGNORE INTO blobs (id, data)
+      SELECT source.id, source.data
+      FROM ${alias}.blobs source
+      JOIN expected_blobs expected ON expected.id = source.id
+      WHERE expected.origin = '${alias}'`);
+  }
+}
+
+/** Compare the installed compact BLOBs to their sources without materializing them. */
+function rawBlobsMatch(db, plan) {
+  const root = db.prepare("SELECT data FROM blobs WHERE id = ?").get(plan.rootId);
+  if (!root?.data || !Buffer.from(root.data).equals(plan.rootData)) return false;
+  for (const alias of ["source_store", ...plan.preserveStores.map((store) => store.alias)]) {
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) AS expected,
+                COUNT(compact.id) AS copied,
+                SUM(CASE
+                  WHEN compact.id IS NULL OR source.id IS NULL OR compact.data != source.data
+                  THEN 1 ELSE 0 END) AS mismatched
+         FROM expected_blobs expected
+         LEFT JOIN blobs compact ON compact.id = expected.id
+         LEFT JOIN ${alias}.blobs source ON source.id = expected.id
+         WHERE expected.origin = ?`
+      )
+      .get(alias);
+    if (row.expected !== row.copied || Number(row.mismatched) !== 0) return false;
+  }
+  return true;
+}
+
+/** Reopen and verify the installed file against both still-present sources. */
+function verifyCompactStore(dbPath, plan) {
+  let db;
+  try {
+    const Database = getCompactionDatabase();
+    db = new Database(dbPath, { fileMustExist: true, timeout: 250 });
+    attachReadonlyStore(db, "source_store", plan.sourcePath);
+    for (const store of plan.preserveStores) {
+      attachReadonlyStore(db, store.alias, store.path);
+    }
+    prepareExpectedBlobs(db, plan);
+    return rawBlobsMatch(db, plan);
+  } catch {
+    return false;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // The caller retains every source after any failed read-back.
+    }
+  }
+}
+
+/**
+ * Copy the source root, plus any legacy-only references, into a compact SQLite
+ * database. Cursor stores obsolete content-addressed roots in the live database;
+ * retaining every unreachable blob made a few dozen snapshots use gigabytes.
+ * The compact database keeps every selected raw blob byte-for-byte, so both the
+ * existing reader and future parsers retain the recoverable conversation.
+ */
+function writeCompactStore(
+  source,
+  destination,
+  sourceStamp,
+  { preserves = [], preserveFirst = true, metadataLegacyStamp = null } = {}
+) {
+  const Database = getCompactionDatabase();
+  const temp = tempCompactStorePath(destination);
+  let compactDb;
+  try {
+    const plan = buildCompactPlan(
+      source,
+      preserves.map((store) => store.path),
+      { preserveFirst }
+    );
+    if (!plan) return { ok: false, reason: preserves.length ? "preserved-unreadable" : "no-root" };
+    if (
+      cursorStoreStamp(source) !== sourceStamp ||
+      preserves.some((store) => cursorStoreStamp(store.path) !== store.stamp)
+    ) {
+      return { ok: false, reason: "source-changed" };
+    }
+
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    compactDb = new Database(temp);
+    compactDb.exec(
+      "PRAGMA journal_mode = DELETE; " +
+        "PRAGMA synchronous = FULL; " +
+        "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT); " +
+        "CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB); " +
+        "CREATE TABLE ccam_snapshot (key TEXT PRIMARY KEY, value TEXT)"
+    );
+    attachReadonlyStore(compactDb, "source_store", source);
+    for (const store of plan.preserveStores) {
+      attachReadonlyStore(compactDb, store.alias, store.path);
+    }
+    prepareExpectedBlobs(compactDb, plan);
+    compactDb.transaction(() => {
+      compactDb.prepare("INSERT INTO meta (key, value) VALUES ('0', ?)").run(plan.metaValue);
+      compactDb
+        .prepare("INSERT INTO blobs (id, data) VALUES (?, ?)")
+        .run(plan.rootId, plan.rootData);
+      copyExpectedBlobs(compactDb, plan);
+      compactDb
+        .prepare("INSERT INTO ccam_snapshot (key, value) VALUES (?, ?)")
+        .run("format_version", COMPACT_STORE_VERSION);
+      compactDb
+        .prepare("INSERT INTO ccam_snapshot (key, value) VALUES (?, ?)")
+        .run("source_stamp", sourceStamp);
+      if (metadataLegacyStamp) {
+        compactDb
+          .prepare("INSERT INTO ccam_snapshot (key, value) VALUES (?, ?)")
+          .run("legacy_stamp", metadataLegacyStamp);
+      }
+    })();
+    compactDb.exec("PRAGMA main.optimize");
+    if (!rawBlobsMatch(compactDb, plan)) return { ok: false, reason: "verify-failed" };
+    compactDb.close();
+    compactDb = null;
+
+    if (
+      cursorStoreStamp(source) !== sourceStamp ||
+      preserves.some((store) => cursorStoreStamp(store.path) !== store.stamp)
+    ) {
+      return { ok: false, reason: "source-changed" };
+    }
+    fs.renameSync(temp, destination);
+    storeMessageCache.delete(temp);
+    storeMessageCache.delete(destination);
+    storeStructureCache.delete(temp);
+    storeStructureCache.delete(destination);
+    if (
+      readCompactStoreMetadata(destination)?.source_stamp !== sourceStamp ||
+      (metadataLegacyStamp &&
+        readCompactStoreMetadata(destination)?.legacy_stamp !== metadataLegacyStamp) ||
+      !verifyCompactStore(destination, plan) ||
+      !compactStoreHasConversation(destination)
+    ) {
+      return { ok: false, reason: "installed-verify-failed" };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: `error:${(err && err.code) || "unknown"}` };
+  } finally {
+    try {
+      compactDb?.close();
+    } catch {
+      // Best effort around a failed compact snapshot.
+    }
+    removeStoreFile(temp);
+  }
+}
+
+/** Create one compact backup while holding the cross-thread session lock. */
+function snapshotCursorStoreLocked(sessionId, { allowLegacyOnly = false } = {}) {
+  const now = Date.now();
+  const liveDir = findCursorChatDir(sessionId);
+  const live = liveDir && path.join(liveDir, LIVE_STORE_NAME);
+  const destinationDir = path.join(getCursorSnapshotDir(), sessionId);
+  const destination = path.join(destinationDir, COMPACT_STORE_NAME);
+  const legacy = path.join(destinationDir, LIVE_STORE_NAME);
+  const hasLive = Boolean(live && fs.existsSync(live));
+  const hasLegacy = fs.existsSync(legacy);
+  const source = hasLive ? live : allowLegacyOnly && hasLegacy ? legacy : null;
+  if (!source) return false;
+  const stamp = cursorStoreStamp(source);
+  if (!stamp) return false;
+  const metadata = readCompactStoreMetadata(destination);
+  const compactValid = compactStoreHasConversation(destination);
+  const legacyToPreserve = hasLive && hasLegacy ? legacy : null;
+  const legacyStamp = legacyToPreserve ? cursorStoreStamp(legacyToPreserve) : null;
+  if (legacyToPreserve && !legacyStamp) return false;
+  const containsSource = compactValid && storeContainsAllReferences(destination, source);
+  const containsLegacy =
+    !legacyToPreserve ||
+    (compactValid && storeContainsAllReferences(destination, legacyToPreserve));
+  const current =
+    metadata?.source_stamp === stamp &&
+    (!legacyStamp || metadata?.legacy_stamp === legacyStamp) &&
+    compactValid &&
+    containsSource &&
+    containsLegacy;
+  const preserves = [];
+  if (legacyToPreserve) preserves.push({ path: legacyToPreserve, stamp: legacyStamp });
+  if (compactValid && !current) {
+    const compactStamp = cursorStoreStamp(destination);
+    if (!compactStamp) return false;
+    preserves.push({ path: destination, stamp: compactStamp });
+  }
+  let preserveFirst = true;
+  let metadataLegacyStamp = legacyStamp;
+  if (!hasLive) {
+    preserveFirst = false;
+    metadataLegacyStamp = null;
+  }
+  const workStamp = snapshotWorkStamp(
+    stamp,
+    preserves.length ? preserves.map((store) => store.stamp).join("|preserve:") : null
+  );
+  if (current) {
+    if (hasLegacy && !removeStoreFile(legacy)) {
+      noteSnapshotFailure(sessionId, workStamp);
+      return false;
+    }
+    snapshotFailures.delete(sessionId);
+    pendingStoreSnapshots.delete(sessionId);
+    lastStoreSnapshotStamp.set(sessionId, workStamp);
+    return false;
+  }
+  const failure = snapshotFailures.get(sessionId);
+  if (failure?.stamp === workStamp && failure.count >= STORE_SNAPSHOT_RETRY_LIMIT) return false;
+  if (now - (lastStoreSnapshot.get(sessionId) || 0) < 60_000) {
+    if (lastStoreSnapshotStamp.get(sessionId) !== workStamp) {
+      pendingStoreSnapshots.set(sessionId, workStamp);
+    }
+    return false;
+  }
+  lastStoreSnapshot.set(sessionId, now);
+  const result = writeCompactStore(source, destination, stamp, {
+    preserves,
+    preserveFirst,
+    metadataLegacyStamp,
+  });
+  if (!result.ok) {
+    noteSnapshotFailure(sessionId, workStamp);
+    return false;
+  }
+  snapshotFailures.delete(sessionId);
+  pendingStoreSnapshots.delete(sessionId);
+  lastStoreSnapshotStamp.set(sessionId, workStamp);
+  if (fs.existsSync(legacy) && !removeStoreFile(legacy)) {
+    noteSnapshotFailure(sessionId, workStamp);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Create a compact, verified backup so conversation details survive Cursor
+ * cleanup. Serving-thread callers handle live stores only; legacy-only stores
+ * are admitted solely by the isolated migration worker.
+ */
+function runSnapshotCursorStore(sessionId, options = {}) {
+  if (!isSafeCursorId(sessionId)) return false;
+  const release = acquireSnapshotLock(sessionId);
+  if (!release) return false;
+  try {
+    return snapshotCursorStoreLocked(sessionId, options);
+  } finally {
+    release();
+  }
+}
+
+/** Serving-thread entry point; legacy-only work is intentionally not admitted. */
+function snapshotCursorStore(sessionId) {
+  return runSnapshotCursorStore(sessionId);
+}
+
+/** Migrate legacy full-store snapshots even after Cursor removed the live chat. */
+function compactLegacyCursorStoresSync({ limit = Infinity } = {}) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(getCursorSnapshotDir(), { withFileTypes: true });
+  } catch {
+    return { scanned: 0, compacted: 0, remaining: 0 };
+  }
+  const legacy = entries.filter((entry) => {
+    if (!entry.isDirectory() || !isSafeCursorId(entry.name)) return false;
+    const legacyStore = path.join(getCursorSnapshotDir(), entry.name, LIVE_STORE_NAME);
+    if (!fs.existsSync(legacyStore)) return false;
+    const liveDir = findCursorChatDir(entry.name);
+    return !liveDir || !fs.existsSync(path.join(liveDir, LIVE_STORE_NAME));
+  });
+  const pending = legacy.filter((entry) => cursorStoreSnapshotPending(entry.name));
+  let scanned = 0;
+  let compacted = 0;
+  for (const entry of pending.slice(0, Math.max(0, limit))) {
+    scanned++;
+    if (runSnapshotCursorStore(entry.name, { allowLegacyOnly: true })) compacted++;
+  }
+  return { scanned, compacted, remaining: Math.max(0, pending.length - scanned) };
+}
+
 module.exports = {
+  COMPACT_STORE_NAME,
+  compactLegacyCursorStoresSync,
   cursorStoreSnapshotPending,
   cursorVisibleTexts,
   readCursorStoreFile,

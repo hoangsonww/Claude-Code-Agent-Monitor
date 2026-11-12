@@ -260,11 +260,13 @@ export function registerMaintenanceTools(context: ToolContext): void {
 
   // Read-only. Calls GET /api/settings/snapshots. Output: per-provider
   // transcript snapshot storage ({ total_bytes, total_files, roots: {claude,
-  // codex, cursor}: { path, files, bytes, compressed_files, compressed_bytes,
-  // sessions }, policy: { compress, max_age_days, max_bytes } }).
+  // codex, cursor}: { path, files, bytes, transcript_files, compressed_files,
+  // compressed_bytes, database_files, database_bytes, compact_database_files,
+  // compression_supported, sessions }, policy: { compress, max_age_days,
+  // max_bytes } }).
   register(
     "dashboard_get_snapshot_storage",
-    "Transcript snapshot storage per provider (bytes, files, compressed share) and retention policy.",
+    "Transcript snapshot storage per provider (bytes, transcript compression, compact Cursor stores) and retention policy.",
     {},
     async () => api.get("/api/settings/snapshots")
   );

@@ -155,7 +155,8 @@ returns the same optional field.
 | `sort_by` | string | `time` | Ordering dimension: `time`, `duration`, or `price` |
 | `sort_desc` | boolean | `true` | Use descending order; set to `false` for ascending order |
 | `sources` | string | - | Comma-separated data-source ids to include (the built-in local history is `local`; remote SSH machines use their `remote_sources.id`). Omit for all sources. Also accepted on `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`, and `/api/pricing/cost`. See [Remote Data Sources](#remote-data-sources) |
-| `providers` | string | - | Comma-separated product providers: `claude`, `codex`, or both. It composes with `sources` and is accepted by the scoped list, aggregate, facet, per-session detail, cost, and workflow routes. Codex workflow responses include its recorded `response_item` tool calls, token/model totals, and `context_compacted` events; only Claude Code's Workflow-tool run journals are unavailable for Codex. |
+| `providers` | string | - | Comma-separated stored providers: `claude`, `cursor`, and/or `codex`. Requesting `claude` also includes Cursor for the Claude-compatible product scope; requesting `cursor` directly isolates Cursor sessions. It composes with `sources` and is accepted by the scoped list, aggregate, facet, per-session detail, cost, and workflow routes. Codex workflow responses include its recorded `response_item` tool calls, token/model totals, and `context_compacted` events; only Claude Code's Workflow-tool run journals are unavailable for Codex. |
+| `provider` | string | - | Exact stored provider for this Sessions list: `claude`, `cursor`, or `codex`. It intersects the broader `providers` product scope, so a page-level selection cannot escape the product scope chosen in onboarding or Settings. |
 | `include_transient` | boolean | `false` | Opt in to local, in-memory Codex startup cards before Codex exposes a stable session ID. On `/api/sessions`, this is honored only on the first page when `status` is absent or `active`; on `/api/agents`, only on the first `status=waiting` page without `session_id`. These cards are prepended without changing durable `total`, pagination, analytics, pricing, workflows, alerts, or history. |
 | `include_task_progress` | boolean | `false` | Attach nullable `todo_summary` values for the latest top-level work item to at most the first 100 returned rows. A new Claude human turn or Codex task that emits no tracker clears older state; a turn/task ending without a final update drops unfinished state. Fully completed history remains available. Each transcript is read 32 MiB deep on first contact and incrementally after that, starting over with a fresh 32 MiB scan if it grew by more than that since the last read (state covers its newest 32 MiB), and each summary includes at most five preview tasks. Rows after the enrichment cap omit the field. |
 
@@ -376,8 +377,16 @@ user records are returned as one human turn. Cursor main sessions merge the
 ordered native `store.db` conversation, including tool calls/results and the
 concrete response model, with any replies available only in JSONL.
 `prompt_history.json` fills submitted prompts that neither durable source has
-recorded yet. JSONL and native `store.db` sources are snapshotted; prompt history is read from the
-live Cursor chat directory only. Messages carry stable `id` values, and an
+recorded yet. JSONL sources are snapshotted directly; native stores are reduced
+to a verified `store.compact.db` that reconciles the current root with
+legacy-only references and preserves every selected raw blob byte-for-byte.
+Repeated and parser-opaque references remain intact. Sources attach through
+read-only, non-creating SQLite URIs, and a per-session lock serializes live and
+worker installs. Legacy-only stores migrate in isolated batches of at most four
+per sync; an empty scheduled scan waits five minutes before checking again.
+Stores are removed only after root containment and raw verification; an unchanged
+source stops retrying after five failures in one process and remains on disk. Prompt
+history is read from the live Cursor chat directory only. Messages carry stable `id` values, and an
 incremental result with `refresh: true` is a latest window that clients merge by
 `id`. A Cursor `/resume` shell ID is also accepted here and resolves to the
 canonical conversation before the transcript is read. The response does not
@@ -1403,9 +1412,9 @@ whichever of the live file and the snapshot is more complete.
   "total_bytes": 734003200,
   "total_files": 1840,
   "roots": {
-    "claude": { "path": "/Users/me/.claude/agent-dashboard/transcripts", "files": 1702, "bytes": 692060160, "compressed_files": 1210, "compressed_bytes": 211812352, "sessions": 512 },
-    "codex": { "path": "/Users/me/.claude/agent-dashboard/codex-transcripts", "files": 96, "bytes": 31457280, "compressed_files": 0, "compressed_bytes": 0, "sessions": 96 },
-    "cursor": { "path": "/Users/me/.claude/agent-dashboard/cursor-transcripts", "files": 42, "bytes": 10485760, "compressed_files": 18, "compressed_bytes": 2097152, "sessions": 21 }
+    "claude": { "path": "/Users/me/.claude/agent-dashboard/transcripts", "files": 1702, "bytes": 692060160, "transcript_files": 1702, "compressed_files": 1210, "compressed_bytes": 211812352, "database_files": 0, "database_bytes": 0, "compact_database_files": 0, "compression_supported": true, "sessions": 512 },
+    "codex": { "path": "/Users/me/.claude/agent-dashboard/codex-transcripts", "files": 96, "bytes": 31457280, "transcript_files": 96, "compressed_files": 0, "compressed_bytes": 0, "database_files": 0, "database_bytes": 0, "compact_database_files": 0, "compression_supported": false, "sessions": 96 },
+    "cursor": { "path": "/Users/me/.claude/agent-dashboard/cursor-transcripts", "files": 42, "bytes": 10485760, "transcript_files": 21, "compressed_files": 18, "compressed_bytes": 2097152, "database_files": 21, "database_bytes": 3145728, "compact_database_files": 21, "compression_supported": true, "sessions": 21 }
   },
   "policy": { "compress": true, "max_age_days": null, "max_bytes": null }
 }
@@ -1416,6 +1425,10 @@ original is gone and that has been idle for 24 h — the same lossless pass the
 server runs every 6 h. Each archive is decompressed and matched (SHA-256 +
 length) before the plain file is removed; a provider whose source tree is
 missing or unreadable is reported in `skipped_roots` and left untouched.
+`compressed_files` is therefore a share of `transcript_files`, not every file
+in a provider root. Cursor `database_files` are compact current-root stores;
+`compact_database_files < database_files` means a verified legacy migration is
+still pending.
 
 `POST /api/settings/snapshots/prune` takes at least one of `max_age_days`,
 `max_bytes` (bytes or a size such as `"5GB"`), and `orphans: true`. It selects

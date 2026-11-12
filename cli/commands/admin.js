@@ -313,10 +313,17 @@ async function cmdSnapshotStatus() {
   if (isJson()) return printJson(s);
   heading("Transcript snapshots");
   table(
-    ["Provider", "Size", "Files", "Compressed", "Path"],
+    ["Provider", "Size", "Files", "Compressed", "Chat stores", "Path"],
     SNAPSHOT_ROOTS.map(([kind, label]) => {
       const r = s.roots?.[kind] || {};
-      return [label, fmtBytes(r.bytes || 0), r.files ?? 0, r.compressed_files ?? 0, r.path || ""];
+      const compressed =
+        r.compression_supported === false
+          ? "n/a"
+          : `${r.compressed_files ?? 0}/${r.transcript_files ?? r.files ?? 0}`;
+      const stores = r.database_files
+        ? `${r.compact_database_files ?? 0}/${r.database_files} compact`
+        : "—";
+      return [label, fmtBytes(r.bytes || 0), r.files ?? 0, compressed, stores, r.path || ""];
     })
   );
   const p = s.policy || {};

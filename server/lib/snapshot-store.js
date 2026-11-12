@@ -572,17 +572,28 @@ function summarizeSnapshotRoot(root) {
     path: root,
     files: 0,
     bytes: 0,
+    transcript_files: 0,
     compressed_files: 0,
     compressed_bytes: 0,
+    database_files: 0,
+    database_bytes: 0,
+    compact_database_files: 0,
     sessions: 0,
   };
   const sessions = new Set();
   for (const file of listSnapshotFiles(root)) {
     summary.files++;
     summary.bytes += file.size;
+    const logical = logicalPath(file.path);
+    if (logical.endsWith(".jsonl")) summary.transcript_files++;
     if (file.compressed) {
       summary.compressed_files++;
       summary.compressed_bytes += file.size;
+    }
+    if (file.path.endsWith(".db")) {
+      summary.database_files++;
+      summary.database_bytes += file.size;
+      if (path.basename(file.path) === "store.compact.db") summary.compact_database_files++;
     }
     if (file.sessionId) sessions.add(file.sessionId);
   }

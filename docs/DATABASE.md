@@ -177,7 +177,7 @@ Tracks Claude Code, Cursor, and Codex sessions (one per CLI invocation or backgr
 
 Session rows also retain optional `repo_remote_url` metadata: the first sanitized remote supplied by a collector wins. URL userinfo, query strings, and fragments are removed; malformed URLs are discarded before session or event persistence.
 
-> **Cursor:** Native rows are first discovered from `~/.cursor/chats/*/<session>/meta.json` and stored with `provider = 'cursor'` even while `transcript_path` is null. Prompt history updates that row immediately; later JSONL and `store.db` snapshots remain separately resolvable. A `/resume` shell ID may become an alias of the transcript-bearing canonical row, so old links work while conversation, lifecycle, and cost stay unified.
+> **Cursor:** Native rows are first discovered from `~/.cursor/chats/*/<session>/meta.json` and stored with `provider = 'cursor'` even while `transcript_path` is null. Prompt history updates that row immediately; later JSONL and compact native-store snapshots remain separately resolvable. A compact store reconciles the current root with legacy-only references and preserves the selected raw blobs byte-for-byte while excluding unreachable history. Source databases attach read-only, and a per-session filesystem lock serializes live snapshots with worker migration. A heap-limited worker migrates at most four legacy-only stores per sync; an empty scheduled scan backs off for five minutes, while same-stamp failures stop after five attempts in one process and leave the source in place. A `/resume` shell ID may become an alias of the transcript-bearing canonical row, so old links work while conversation, lifecycle, and cost stay unified.
 
 ```sql
 CREATE TABLE sessions (
