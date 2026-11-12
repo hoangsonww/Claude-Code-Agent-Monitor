@@ -65,6 +65,8 @@
  *   with rationale.
  * - `editor folder launcher` — executable behavior named by this suite; preserve the observable
  *   contract or update the test with rationale.
+ * - `lets global shortcuts reach the window while the editor link has focus` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
  * - `links to editor setup when nothing is configured` — executable behavior named by this suite;
  *   preserve the observable contract or update the test with rationale.
  * - `opens a dashboard main-agent card's folder only where the card opts in` — executable behavior
@@ -266,6 +268,26 @@ describe("editor folder launcher", () => {
       </MemoryRouter>
     );
     expect(screen.queryByRole("link", { name: "Open in VS Code" })).not.toBeInTheDocument();
+  });
+
+  it("lets global shortcuts reach the window while the editor link has focus", () => {
+    saveEditorPrefs({ enabled: ["vscode"], defaultId: "vscode" });
+    const onKeyDown = vi.fn();
+    window.addEventListener("keydown", onKeyDown);
+    try {
+      render(
+        <MemoryRouter>
+          <OpenInEditor session={session} />
+        </MemoryRouter>
+      );
+      fireEvent.keyDown(screen.getByRole("link", { name: "Open in VS Code" }), {
+        key: "k",
+        ctrlKey: true,
+      });
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener("keydown", onKeyDown);
+    }
   });
 
   it("updates mounted controls for another tab's storage changes", () => {

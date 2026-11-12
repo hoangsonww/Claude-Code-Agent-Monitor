@@ -41,7 +41,6 @@ export function OpenInEditor({
     <div
       className="inline-flex items-center gap-1 shrink-0"
       onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
     >
       {unavailable ? (
         <button
