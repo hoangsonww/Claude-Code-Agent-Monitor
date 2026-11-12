@@ -249,9 +249,19 @@ function writeExclusive(file, content, { syncDirectory = true } = {}) {
   const directory = fs.openSync(path.dirname(path.resolve(file)), "r");
   try {
     fs.fsyncSync(directory);
+  } catch (error) {
+    // Windows cannot flush a directory handle and always reports EPERM. NTFS
+    // journals the new directory entry itself and the file data was flushed
+    // above, so only that exact platform/error pair is accepted; any other
+    // directory-durability failure still refuses the repair.
+    if (!isUnsupportedDirectoryFsync(error)) throw error;
   } finally {
     fs.closeSync(directory);
   }
+}
+
+function isUnsupportedDirectoryFsync(error, platform = process.platform) {
+  return platform === "win32" && error?.code === "EPERM";
 }
 
 function applyRepair(db, plan, journalPath) {
@@ -357,4 +367,10 @@ if (require.main === module)
     console.error(error.message);
     process.exitCode = 1;
   });
-module.exports = { planRepair, applyRepair, accumulate, writeExclusive };
+module.exports = {
+  planRepair,
+  applyRepair,
+  accumulate,
+  writeExclusive,
+  isUnsupportedDirectoryFsync,
+};
