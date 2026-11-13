@@ -388,8 +388,10 @@ function calculateProviderCost(
   cursorPricingRules = [],
   asOf
 ) {
+  // Antigravity (Gemini) usage has no rate card here yet; keep it out of the
+  // Claude calculation so a Claude rule never prices Gemini tokens.
   const claudeRows = tokenRows.filter(
-    (row) => row.provider !== "codex" && row.provider !== "cursor"
+    (row) => row.provider !== "codex" && row.provider !== "cursor" && row.provider !== "antigravity"
   );
   const codexRows = tokenRows.filter((row) => row.provider === "codex");
   const cursorRows = tokenRows.filter((row) => row.provider === "cursor");

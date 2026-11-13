@@ -569,6 +569,13 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("Cursor session sync failed to start:", err.message);
   }
+  // Google Antigravity CLI (agy) keeps its history under ~/.gemini/antigravity
+  // (conversation index + per-conversation transcript JSONL with token counts).
+  try {
+    startAgySessionSync(broadcast);
+  } catch (err) {
+    console.warn("Antigravity session sync failed to start:", err.message);
+  }
   // Codex rollouts are append-only JSONL files under ~/.codex/sessions. Hooks
   // nudge this path immediately; this watcher + short poll closes the gap when
   // a hook is unavailable, untrusted, or fired while the dashboard was down.
@@ -608,6 +615,65 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("dashboard-runs reconciliation failed:", err.message);
   }
+}
+
+/**
+ * Import Google Antigravity CLI (agy) conversations. agy has no Claude-style
+ * lifecycle hooks the dashboard can install, so its durable history under
+ * ~/.gemini/antigravity is polled (cheap: unchanged transcripts are skipped by
+ * fingerprint). DASHBOARD_AGY_SYNC_MS=0 disables the timer (tests call tick()).
+ */
+function startAgySessionSync(broadcast, options = {}) {
+  const POLL_MS = process.env.DASHBOARD_AGY_SYNC_MS
+    ? Number(process.env.DASHBOARD_AGY_SYNC_MS)
+    : 5_000;
+  const dbModule = options.dbModule || require("./db");
+  const { syncAgySessions } = require("./lib/agy-ingest");
+  let running = false;
+  let timer = null;
+
+  const tick = () => {
+    if (running) return Promise.resolve([]);
+    running = true;
+    return syncAgySessions(dbModule, {
+      onSession(result) {
+        if (!result.session) return;
+        broadcast(result.created ? "session_created" : "session_updated", result.session);
+        for (const agent of dbModule.stmts.listAgentsBySession.all(result.session.id)) {
+          broadcast(result.created ? "agent_created" : "agent_updated", agent);
+        }
+        for (const event of result.events || []) broadcast("new_event", event);
+      },
+      onError(conversationId, err) {
+        // One unreadable conversation must not hide silently or stop the sweep.
+        console.warn(
+          `Antigravity sync skipped conversation ${conversationId}:`,
+          err?.message || err
+        );
+      },
+    })
+      .catch((err) => {
+        console.warn("Antigravity session sync tick failed:", err?.message || err);
+        return [];
+      })
+      .finally(() => {
+        running = false;
+      });
+  };
+
+  if (POLL_MS > 0) {
+    timer = setInterval(tick, POLL_MS);
+    if (timer.unref) timer.unref();
+    const boot = setTimeout(tick, 0);
+    if (boot.unref) boot.unref();
+  }
+  return {
+    tick,
+    close() {
+      if (timer) clearInterval(timer);
+      timer = null;
+    },
+  };
 }
 
 /**
@@ -1788,6 +1854,7 @@ module.exports = {
   startServer,
   startBackgroundServices,
   startCursorSessionSync,
+  startAgySessionSync,
   codexHomeChangeTriggersSweep,
   createIngestRetryBudget,
   createCodexProbeFence,

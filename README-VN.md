@@ -359,6 +359,8 @@ Dashboard bao quát toàn bộ vòng đời Agent cục bộ. Các hợp đồng
 | **Màn hình splash phiên** | Lời chào đã bản địa hóa và hoạt ảnh đồ thị nút xuất hiện một lần mỗi phiên trình duyệt, đục từ lần vẽ đầu tiên, kéo dài khoảng 2.5 giây, hỗ trợ bấm để bỏ qua và tôn trọng reduced motion. |
 
 > **Phạm vi nhà cung cấp và thư mục:** Cài đặt giữ lựa chọn tương thích Claude (Claude Code + Cursor) / Codex / Cả hai nhất quán trên toàn ứng dụng. Có thể chỉnh sửa thư mục Claude Code và Codex mà không cần khởi động lại dashboard; Cursor được tự động phát hiện từ `~/.cursor` hoặc `DASHBOARD_CURSOR_HOME`.
+
+> **Google Antigravity CLI (agy):** các cuộc hội thoại được tự động nhập từ `~/.gemini/antigravity` (hoặc `DASHBOARD_AGY_HOME`) thành phiên `antigravity` — tiêu đề và workspace lấy từ `conversation_summaries.db`, prompt và lệnh gọi công cụ lấy từ từng `brain/<id>/.system_generated/logs/transcript.jsonl`, kèm token đầu vào/đầu ra/cache-read của mỗi bước. Transcript không thay đổi sẽ được bỏ qua; `DASHBOARD_AGY_SYNC_MS` đặt chu kỳ quét (mặc định 5000, `0` để tắt). Chọn **Both** trong phạm vi nhà cung cấp để liệt kê các phiên này (trang Sessions cũng có thêm bộ lọc Antigravity) và mở chúng trong trình đọc transcript. Token của Gemini được ghi lại nhưng chưa được tính giá, nên không bao giờ cộng vào chi phí Claude.
 >
 > **Ranh giới an toàn cục bộ:** Chạy Agent chấp nhận mọi thư mục làm việc tuyệt đối đang tồn tại và chuẩn hóa trước khi dùng, nên vẫn hỗ trợ khởi chạy từ thư mục nhà và dự án gần đây. Nhà cung cấp webhook được lưu trữ bắt buộc dùng HTTPS; đích generic và n8n có thể dùng HTTP cho bên nhận cục bộ/tự lưu trữ, và quá trình gửi không theo redirect.
 
