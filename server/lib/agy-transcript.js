@@ -25,10 +25,14 @@ function agyContentText(content) {
   return "";
 }
 
-/** agy wraps typed prompts in `<USER_REQUEST>…</USER_REQUEST>`; keep only the request. */
+/**
+ * agy wraps typed prompts in `<USER_REQUEST>…</USER_REQUEST>`; keep only the request.
+ * The wrapper is only recognised at the very start, so a prompt that merely
+ * mentions the tag (e.g. "Explain <USER_REQUEST> here") is kept intact.
+ */
 function cleanAgyUserText(content) {
   const text = agyContentText(content);
-  const match = text.match(/<USER_REQUEST>([\s\S]*?)(?:<\/USER_REQUEST>|$)/i);
+  const match = text.match(/^\s*<USER_REQUEST>([\s\S]*?)(?:<\/USER_REQUEST>|$)/i);
   return (match ? match[1] : text).trim();
 }
 

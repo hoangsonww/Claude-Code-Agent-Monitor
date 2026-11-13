@@ -1641,8 +1641,13 @@ router.get("/:id/transcript", async (req, res) => {
           parse: parseAgyMessage,
         })
       );
-    } catch {
-      return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
+    } catch (err) {
+      return res.status(500).json({
+        error: {
+          code: "TRANSCRIPT_READ_FAILED",
+          message: err?.message || "Transcript read failed",
+        },
+      });
     }
   }
 

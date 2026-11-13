@@ -296,6 +296,10 @@ describe("Antigravity (agy) review follow-ups", () => {
   it("renders agy transcript steps as reader messages", () => {
     const { parseAgyMessage, cleanAgyUserText } = require("../lib/agy-transcript");
     assert.equal(cleanAgyUserText("<USER_REQUEST>\nFix the bug\n</USER_REQUEST>"), "Fix the bug");
+    assert.equal(
+      cleanAgyUserText("Explain <USER_REQUEST> in this file"),
+      "Explain <USER_REQUEST> in this file"
+    );
     const user = parseAgyMessage(
       { type: "USER_INPUT", content: "<USER_REQUEST>\nFix it\n</USER_REQUEST>", created_at: "t" },
       1
