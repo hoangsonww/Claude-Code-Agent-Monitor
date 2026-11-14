@@ -303,7 +303,7 @@ flowchart LR
   <em>⌘ <strong>命令面板</strong> · 用一个键盘启动器访问页面、会话、项目、筛选器和操作</em>
 </p>
 
-侧边栏链接 Dashboard、Kanban 看板、会话、活动流、分析、工作流、Agent 配置、Run Agent 和设置。以下章节说明这些视图背后的完整行为。
+侧边栏链接 Dashboard、Kanban 看板、会话、活动流、工具风险审计、分析、工作流、Agent 配置、Run Agent 和设置。以下章节说明这些视图背后的完整行为。
 ---
 
 ## 功能特性
@@ -318,6 +318,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。提供方选择器可进一步筛选 Claude Code、Cursor 或 Codex，同时遵循引导页或 Settings 中选择的产品范围。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。只有导入元数据能够证明当前名称由 CCAM 管理时，Cursor 原生生成标题才会替换临时的首条提示回退名；手动名称和归属不明确的旧名称保持不变。 |
 | **会话详情** | 实时统计、当前工作、工具用量、Subagent、Token、层级、筛选后的事件时间线、`tool_use_id` 分组和工具专用渲染器。对话视图渲染排队回合、系统通知、Markdown、高亮代码和样式化工具；等待横幅显示原因和已等待时长。 |
 | **活动流** | 可暂停的实时事件流，带共享筛选器、服务端分页、分组、项目/会话/Subagent 来源、会话链接，以及一致的 Claude/Codex 状态徽标。 |
+| **工具风险审计** | 针对已执行工具调用的只读安全视图（`/audit`）。声明式规则集会标记权限提升（`sudo`、`chmod 777`）、破坏性命令（`rm -rf`、`git push --force`、`DROP TABLE`）、远程代码执行（`curl … \| sh`、未固定版本的 `npx`）、凭据访问（`.env`、`~/.ssh`、`*.pem`）、按主机分组的外部连接，以及写入会话项目之外的文件。每一行都显示严重程度和精确匹配的文本，可打开完整的存储事件，并可导出为 CSV/JSON；没有保存输入的调用会按摘要检查并单独计数。不会阻止或更改任何工具执行。 |
 | **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。 |
 | **命令面板** | `Cmd/Ctrl+K` 搜索最近命令、所有路由、实时服务端会话、页面操作、项目目录、子视图、筛选器、Settings、Agent Config、偏好、范围和语言。支持子序列排序、`>`/`@`/`#` 范围、完整键盘控制、已翻译标签、静默处理搜索失败，并且对破坏性操作只导航不执行。 |
 | **唯一快捷键** | `Cmd/Ctrl+K` 是 Dashboard 唯一的全局组合键，在输入框中也有效。移除多键导航可避免隐藏模式；Tabby 保留 `Cmd/Ctrl+B`。 |
@@ -692,6 +693,7 @@ ccam workflows [session <id>]         # 工作流智能 + 模式
 ccam runs [list|get <run-id>]         # Workflow 工具运行
 ccam run list|history|start|follow|send|stop …   # 仪表盘启动的 agent
 ccam cost [--session id] [--daily]    # 按模型成本、附加费、未定价模型
+ccam audit [--since 7d] [--severity high] [--signal destructive,…]   # 工具风险审计
 
 # 告警与 Webhook
 ccam alerts [--unacked] | ack <id> | ack-all
@@ -1157,6 +1159,18 @@ API 文档现已**全面覆盖**：每个后端路由都有文档说明（共 82
 | `POST` | `/api/alerts/rules` | 创建规则（`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`） |
 | `PATCH` | `/api/alerts/rules/:id` | 更新名称 / 配置 / 启用状态 / 冷却时间，规则类型不可变 |
 | `DELETE` | `/api/alerts/rules/:id` | 删除规则及其已触发告警历史 |
+
+### 工具风险审计
+
+只读；每个请求都会先在很短的时间预算内推进增量风险索引。
+
+| 方法 | 路径 | 描述 |
+| --- | --- | --- |
+| `GET` | `/api/audit/tools` | 被标记的工具调用（最新在前）及其命中的信号（`signal`、`severity`、`min_severity`、`session_id`、`project`、`host`、`q`、`from`、`to`、`limit`、`offset`） |
+| `GET` | `/api/audit/tools/:eventId` | 某个被标记调用对应的完整存储事件 |
+| `GET` | `/api/audit/summary` | 按严重程度、信号、项目和外部主机统计（筛选条件相同） |
+| `GET` | `/api/audit/export` | 以 `?format=csv`（防公式注入）或 `json` 导出筛选结果，最多 10,000 行 |
+| `GET` | `/api/audit/rules` | 内置规则集，以及每条规则的信号和严重程度 |
 
 ### Webhook
 
@@ -1977,6 +1991,7 @@ graph LR
     S["/sessions"] --> SESS["Sessions<br/>可筛选表格"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>Agent + 时间线 + 成本"]
     A["/activity"] --> ACT["ActivityFeed<br/>流式事件日志"]
+    AU["/audit"] --> AUDIT["Audit<br/>工具风险视图 + 导出"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>Token + 热力图 + 趋势"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 可视化 + 下钻"]
     ST["/settings"] --> SETTINGS["Settings<br/>定价 + 通知 + Hook + 导出"]
@@ -2185,6 +2200,7 @@ agent-dashboard/
 |           |-- Sessions.tsx       # 会话表格
 |           |-- SessionDetail.tsx  # 单会话深入查看
 |           |-- ActivityFeed.tsx   # 实时事件流
+|           |-- Audit.tsx          # 只读的工具风险审计
 |           |-- Analytics.tsx      # Token 使用、热力图、趋势
 |           |-- Workflows.tsx      # D3.js 工作流可视化和会话下钻
 |           |-- Settings.tsx       # 模型定价、通知、Hook、导出、清理

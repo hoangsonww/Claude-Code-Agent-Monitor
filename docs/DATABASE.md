@@ -543,6 +543,18 @@ Read-only callers require canonical definitions for both tables/all triggers, a 
 
 Direct derived-row edits or deliberate manual schema-cookie resets are outside automatic detection. `ensureGlobalEventCount(db, { rebuild: true })` rebuilds both derived tables without changing original event/token rows. Backfill duration depends on storage and corpus size.
 
+### tool_risk_events, tool_risk_signals, tool_risk_state
+
+Derived, rebuildable index behind the Tool Risk Audit (`/audit`, `GET /api/audit/*`, `ccam audit`). `server/lib/tool-risk-index.js` walks `events` forward by primary key in 5,000-id windows, classifies `PreToolUse` and `codex_tool_call` rows with `server/lib/tool-risk.js`, and stores only the flagged ones. Work is time-boxed per request and finished by a background pump, so a multi-million-row `events` table never stalls the synchronous driver.
+
+| Table | Columns | Notes |
+|-------|---------|-------|
+| `tool_risk_events` | `event_id` (PK, FK → `events.id` `ON DELETE CASCADE`), `session_id`, `agent_id`, `tool_name`, `created_at`, `max_severity`, `severity_rank` (1–4), `target` (≤ 1000 chars), `degraded` (0/1) | One row per flagged call; indexed on `created_at DESC` and `session_id` |
+| `tool_risk_signals` | `event_id` (FK → `tool_risk_events.event_id` `ON DELETE CASCADE`), `signal`, `severity`, `rule`, `match`, `host` | One row per matched rule; indexed on `event_id` and `(signal, severity)` |
+| `tool_risk_state` | `key` (PK), `value` | `ruleset_version`, `last_event_id` (scan watermark), `scanned`, `degraded` counters |
+
+Deleting an event or its session cascades to both index tables. `POST /api/settings/clear-data` turns foreign keys off, so it clears all three tables explicitly. When `RULESET_VERSION` in `tool-risk.js` differs from the stored `ruleset_version`, the next refresh wipes the index and rescans from id 0; no data migration is ever needed.
+
 ### remote_sources
 
 Config for remote SSH machines the dashboard pulls Claude Code and Codex history from, so a single dashboard can consolidate sessions from several machines. **No secrets are stored** — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, key files). The optional `remote_home` and `remote_codex_home` values are the UI's **Remote Claude home** and **Remote Codex home** overrides; each row's `id` is used as the `source` value on every session imported from that machine (see `sessions.source`).

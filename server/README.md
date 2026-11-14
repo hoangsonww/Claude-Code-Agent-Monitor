@@ -113,6 +113,7 @@ graph TB
         Sessions[routes/sessions.js /api/sessions]
         Agents[routes/agents.js /api/agents]
         Events[routes/events.js GET /api/events]
+        Audit[routes/audit.js GET /api/audit/*]
         Stats[routes/stats.js GET /api/stats]
         Analytics[routes/analytics.js GET /api/analytics]
         Pricing[routes/pricing.js /api/pricing*]
@@ -132,6 +133,7 @@ graph TB
     Index --> Sessions
     Index --> Agents
     Index --> Events
+    Index --> Audit
     Index --> Stats
     Index --> Analytics
     Index --> Pricing
@@ -469,6 +471,7 @@ The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), 
 | `POST`  | `/api/agents`       | Create agent (idempotent by `id`)               |
 | `PATCH` | `/api/agents/:id`   | Update agent                                     |
 | `GET`   | `/api/events`       | List events (`session_id`, `limit`, `offset`)   |
+| `GET`   | `/api/audit/tools`  | Tool Risk Audit: flagged tool calls + signals (`signal`, `severity`, `min_severity`, `host`, `q`, `from`, `to`, `limit`, `offset`); also `/tools/:eventId`, `/summary`, `/export?format=csv\|json`, `/rules` |
 | `GET`   | `/api/stats`        | Dashboard aggregate counters                     |
 | `GET`   | `/api/analytics`    | Analytics aggregates for charts/trends           |
 | `GET`   | `/api/metrics`      | Prometheus / OpenMetrics exposition (text; v0.0.4) |

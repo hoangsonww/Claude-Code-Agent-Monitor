@@ -494,6 +494,41 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
 
+  -- Tool Risk Audit (#301): a derived, rebuildable index of tool events the
+  -- classifier in server/lib/tool-risk.js flagged. One row per flagged event in
+  -- tool_risk_events, one row per matched rule in tool_risk_signals. Filled
+  -- incrementally by event id (server/lib/tool-risk-index.js) and wiped when the
+  -- ruleset version changes, so it never needs a data migration.
+  CREATE TABLE IF NOT EXISTS tool_risk_events (
+    event_id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    agent_id TEXT,
+    tool_name TEXT,
+    created_at TEXT NOT NULL,
+    max_severity TEXT NOT NULL,
+    severity_rank INTEGER NOT NULL,
+    target TEXT,
+    degraded INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_tool_risk_events_created ON tool_risk_events(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_tool_risk_events_session ON tool_risk_events(session_id);
+  CREATE TABLE IF NOT EXISTS tool_risk_signals (
+    event_id INTEGER NOT NULL,
+    signal TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    rule TEXT NOT NULL,
+    match TEXT NOT NULL,
+    host TEXT,
+    FOREIGN KEY (event_id) REFERENCES tool_risk_events(event_id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_tool_risk_signals_event ON tool_risk_signals(event_id);
+  CREATE INDEX IF NOT EXISTS idx_tool_risk_signals_signal ON tool_risk_signals(signal, severity);
+  CREATE TABLE IF NOT EXISTS tool_risk_state (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+
   -- Rules-based alerting engine. Rules are evaluated server-side: event-driven
   -- types (event_pattern, token_threshold) on hook ingest, time-based types
   -- (inactivity, status_duration) on a periodic sweep in server/lib/alerts.js.

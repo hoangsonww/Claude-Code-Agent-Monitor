@@ -188,6 +188,8 @@ export function DocumentTitle() {
     title = t("agentBoard");
   } else if (path.startsWith("/activity")) {
     title = t("activityFeed");
+  } else if (path.startsWith("/audit")) {
+    title = t("audit");
   } else if (path.startsWith("/analytics")) {
     title = t("analytics");
   } else if (path.startsWith("/workflows")) {

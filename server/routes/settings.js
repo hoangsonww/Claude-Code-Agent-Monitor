@@ -175,6 +175,11 @@ router.post("/clear-data", (_req, res) => {
   // Webhook delivery log is an audit trail of those fired alerts — wipe it too.
   // Webhook *targets* survive, like alert rules and pricing.
   db.prepare("DELETE FROM webhook_deliveries").run();
+  // The Tool Risk Audit index is derived from events; with foreign keys off
+  // its cascade does not fire, so clear it (and its scan watermark) explicitly.
+  db.prepare("DELETE FROM tool_risk_signals").run();
+  db.prepare("DELETE FROM tool_risk_events").run();
+  db.prepare("DELETE FROM tool_risk_state").run();
   db.pragma("foreign_keys = ON");
   res.json({ ok: true, cleared: counts });
 });

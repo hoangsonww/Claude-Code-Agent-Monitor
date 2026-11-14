@@ -1,0 +1,65 @@
+{
+  "title": "Kiểm toán rủi ro công cụ",
+  "subtitle": "Các lệnh, thao tác ghi tệp và truy cập mạng của agent khớp với một quy tắc rủi ro",
+  "readOnly": "Chỉ đọc: chế độ xem này không bao giờ chặn hay thay đổi những gì agent chạy.",
+  "exportCsv": "Xuất CSV",
+  "exportJson": "Xuất JSON",
+  "exportFailed": "Xuất thất bại: {{message}}",
+  "indexing": "Đang lập chỉ mục lịch sử công cụ… {{percent}}%",
+  "coverage": "{{degraded}} trong {{scanned}} lần gọi công cụ không lưu dữ liệu đầu vào (payload đã bị ẩn hoặc chỉ có tóm tắt); chỉ phần tóm tắt được kiểm tra.",
+  "flagged_one": "{{count}} lần gọi bị gắn cờ",
+  "flagged_other": "{{count}} lần gọi bị gắn cờ",
+  "severity": {
+    "label": "Mức độ",
+    "low": "Thấp",
+    "medium": "Trung bình",
+    "high": "Cao",
+    "critical": "Nghiêm trọng"
+  },
+  "signals": {
+    "privilege": "Đặc quyền",
+    "destructive": "Phá hủy",
+    "remote-exec": "Thực thi từ xa",
+    "credential-access": "Thông tin xác thực",
+    "egress": "Kết nối ra ngoài",
+    "outside-cwd": "Ngoài dự án"
+  },
+  "signalHelp": {
+    "privilege": "sudo, doas, chmod 777, chown root, tiến trình nâng quyền",
+    "destructive": "rm -rf, git reset --hard, git push --force, DROP TABLE, xóa ổ đĩa",
+    "remote-exec": "Tải về rồi chuyển thẳng vào shell, npx gói không cố định phiên bản",
+    "credential-access": ".env, khóa SSH, tệp .pem, credentials, ~/.aws, ~/.ssh",
+    "egress": "Máy chủ được truy cập qua WebFetch, WebSearch hoặc lệnh mạng",
+    "outside-cwd": "Ghi tệp ra ngoài dự án của phiên hoặc vào đường dẫn hệ thống"
+  },
+  "search": "Tìm lệnh, đường dẫn và máy chủ…",
+  "range": {
+    "label": "Khoảng thời gian",
+    "24h": "24 giờ qua",
+    "7d": "7 ngày qua",
+    "30d": "30 ngày qua",
+    "all": "Toàn bộ"
+  },
+  "clearFilters": "Xóa bộ lọc",
+  "topHosts": "Máy chủ bên ngoài truy cập nhiều nhất",
+  "noHosts": "Không có máy chủ bên ngoài",
+  "columns": {
+    "time": "Thời gian",
+    "severity": "Mức độ",
+    "tool": "Công cụ",
+    "target": "Lệnh / đường dẫn",
+    "signals": "Tín hiệu",
+    "session": "Phiên"
+  },
+  "why": "Lý do bị gắn cờ",
+  "rule": "Quy tắc",
+  "matched": "Khớp",
+  "summaryOnly": "chỉ tóm tắt",
+  "loadingEvent": "Đang tải toàn bộ sự kiện…",
+  "eventUnavailable": "Sự kiện đầy đủ không còn khả dụng.",
+  "viewSession": "Xem phiên",
+  "empty": "Không tìm thấy lần gọi công cụ rủi ro nào",
+  "emptyDesc": "Không có gì trong khoảng thời gian này khớp với bộ quy tắc tích hợp. Lệnh Bash, thao tác ghi tệp và truy cập mạng được kiểm tra ngay khi đến.",
+  "emptyFiltered": "Không có lần gọi bị gắn cờ nào khớp với bộ lọc này",
+  "loadFailed": "Không thể tải kiểm toán: {{message}}"
+}

@@ -144,6 +144,22 @@
  *   changing its name, shape, or timing.
  * - `ToolFlowTransition` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
+ * - `ToolRiskEvent` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolRiskFilters` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolRiskIndexStatus` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ToolRiskListResponse` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ToolRiskSeverity` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolRiskSignal` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolRiskSignalName` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolRiskSummary` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `TranscriptContent` (interface) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
  * - `TranscriptInfo` (interface) — exported contract; search downstream imports and tests before
@@ -312,6 +328,22 @@
  *   test selection.
  * - `ToolFlowTransition` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
+ * - `ToolRiskEvent` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolRiskFilters` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolRiskIndexStatus` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ToolRiskListResponse` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ToolRiskSeverity` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolRiskSignal` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolRiskSignalName` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolRiskSummary` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
  * - `TranscriptContent` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
  * - `TranscriptInfo` (interface) — top-level declaration that helps orient code review and focused
@@ -3199,3 +3231,93 @@ export const SESSION_STATUS_CONFIG: Record<
     dot: "bg-slate-400",
   },
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool Risk Audit (#301) — /api/audit/*
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Risk families the server-side classifier (`server/lib/tool-risk.js`) emits. */
+export type ToolRiskSignalName =
+  | "privilege"
+  | "destructive"
+  | "remote-exec"
+  | "credential-access"
+  | "egress"
+  | "outside-cwd";
+
+/** Severity of one signal, lowest to highest. */
+export type ToolRiskSeverity = "low" | "medium" | "high" | "critical";
+
+/** One rule that matched a tool call, with the exact text that triggered it. */
+export interface ToolRiskSignal {
+  signal: ToolRiskSignalName;
+  severity: ToolRiskSeverity;
+  /** Stable rule id, e.g. `rm-rf`, `pipe-to-shell`. */
+  rule: string;
+  /** The substring (command fragment, path, or host) that matched. */
+  match: string;
+  /** Remote host for `egress` signals. */
+  host?: string;
+}
+
+/** One flagged tool call in the audit list. */
+export interface ToolRiskEvent {
+  /** `events.id` of the underlying tool call. */
+  event_id: number;
+  session_id: string;
+  session_name: string | null;
+  /** The session's working directory. */
+  project: string | null;
+  provider: string | null;
+  agent_id: string | null;
+  tool_name: string | null;
+  created_at: string;
+  max_severity: ToolRiskSeverity;
+  /** The command, path, or URL the signals were derived from. */
+  target: string | null;
+  /** True when no tool input was stored and only the summary was checked. */
+  degraded: boolean;
+  signals: ToolRiskSignal[];
+}
+
+/** Index progress and payload coverage reported with every audit response. */
+export interface ToolRiskIndexStatus {
+  indexing: { complete: boolean; last_event_id: number; max_event_id: number };
+  coverage: { scanned: number; degraded: number };
+}
+
+/** `GET /api/audit/tools` response. */
+export interface ToolRiskListResponse extends ToolRiskIndexStatus {
+  events: ToolRiskEvent[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+/** `GET /api/audit/summary` response. */
+export interface ToolRiskSummary extends ToolRiskIndexStatus {
+  total: number;
+  by_severity: Record<ToolRiskSeverity, number>;
+  by_signal: Array<
+    { signal: ToolRiskSignalName; events: number } & Record<ToolRiskSeverity, number>
+  >;
+  by_project: Array<{
+    project: string | null;
+    events: number;
+    max_severity: ToolRiskSeverity | null;
+  }>;
+  top_hosts: Array<{ host: string; events: number }>;
+}
+
+/** Filters shared by the audit list, summary and export. */
+export interface ToolRiskFilters {
+  signal?: ToolRiskSignalName[];
+  severity?: ToolRiskSeverity[];
+  min_severity?: ToolRiskSeverity;
+  session_id?: string[];
+  project?: string[];
+  host?: string[];
+  q?: string;
+  from?: string;
+  to?: string;
+}

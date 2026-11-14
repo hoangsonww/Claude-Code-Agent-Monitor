@@ -301,7 +301,7 @@ Giao diện tối thích ứng bao quát toàn bộ quy trình. Mỗi bản xem 
   <em>⌘ <strong>Bảng lệnh</strong> · một trình khởi chạy bằng bàn phím cho trang, phiên, dự án, bộ lọc và hành động</em>
 </p>
 
-Thanh bên liên kết Dashboard, Bảng Kanban, Phiên, Luồng hoạt động, Phân tích, Quy trình, Cấu hình Agent, Chạy Agent và Cài đặt. Các phần dưới đây mô tả đầy đủ hành vi đằng sau những chế độ xem này.
+Thanh bên liên kết Dashboard, Bảng Kanban, Phiên, Luồng hoạt động, Kiểm toán rủi ro công cụ, Phân tích, Quy trình, Cấu hình Agent, Chạy Agent và Cài đặt. Các phần dưới đây mô tả đầy đủ hành vi đằng sau những chế độ xem này.
 
 ---
 
@@ -317,6 +317,7 @@ Dashboard bao quát toàn bộ vòng đời Agent cục bộ. Các hợp đồng
 | **Phiên** | Lịch sử có thể tìm kiếm, lọc và phân trang phía máy chủ, với chi phí chỉ tính trên trang đang hiển thị và một hàng khởi động Codex tạm thời trong bộ nhớ. Bộ chọn nhà cung cấp lọc theo Claude Code, Cursor hoặc Codex nhưng vẫn tuân theo phạm vi sản phẩm đã chọn trong phần hướng dẫn ban đầu hoặc Settings. Tìm kiếm bao quát `id`, `name` và `cwd` với debounce 300 ms. Tên được lấy lần lượt từ tiêu đề rõ ràng, tiêu đề AI rồi lời nhắc người dùng có ý nghĩa đầu tiên. Tiêu đề gốc do Cursor tạo chỉ thay thế tên tạm lấy từ prompt đầu tiên khi metadata nhập liệu chứng minh CCAM sở hữu tên hiện tại; tên thủ công và tên cũ không rõ quyền sở hữu được giữ nguyên. |
 | **Chi tiết phiên** | Thống kê trực tiếp, công việc hiện tại, mức dùng công cụ, Subagent, token, hệ thống phân cấp, dòng thời gian sự kiện có bộ lọc, nhóm theo `tool_use_id` và trình kết xuất riêng cho từng công cụ. Chế độ Hội thoại kết xuất lượt chờ, thông báo hệ thống, Markdown, mã được tô sáng và công cụ có kiểu riêng; banner chờ hiển thị lý do và thời gian đã trôi qua. |
 | **Luồng hoạt động** | Sự kiện thời gian thực có thể tạm dừng, với bộ lọc dùng chung, phân trang phía máy chủ, nhóm, nguồn dự án/phiên/Subagent, liên kết phiên và badge trạng thái Claude/Codex nhất quán. |
+| **Kiểm toán rủi ro công cụ** | Góc nhìn bảo mật chỉ đọc trên các lần gọi công cụ đã thực thi (`/audit`). Bộ quy tắc khai báo gắn cờ nâng quyền (`sudo`, `chmod 777`), lệnh phá hủy (`rm -rf`, `git push --force`, `DROP TABLE`), thực thi mã từ xa (`curl … \| sh`, `npx` không cố định phiên bản), truy cập thông tin xác thực (`.env`, `~/.ssh`, `*.pem`), kết nối ra ngoài nhóm theo máy chủ, và thao tác ghi ra ngoài dự án của phiên. Mỗi dòng hiển thị mức độ và đúng đoạn văn bản đã khớp, mở được sự kiện đầy đủ đã lưu và xuất ra CSV/JSON; các lần gọi không lưu dữ liệu đầu vào được kiểm tra qua phần tóm tắt và được đếm riêng. Không bao giờ chặn hay thay đổi việc thực thi công cụ. |
 | **Phân tích** | Token theo model, tần suất công cụ, heatmap hoạt động bắt đầu tuần vào Chủ nhật, xu hướng phiên, trạng thái kết nối, skeleton tải khớp bố cục và phân trang cho chú giải dài. |
 | **Bảng lệnh** | `Cmd/Ctrl+K` tìm kiếm lệnh gần đây, mọi route, phiên trực tiếp phía máy chủ, hành động của trang, thư mục dự án, chế độ xem con, bộ lọc, Cài đặt, Cấu hình Agent, tùy chọn, phạm vi và ngôn ngữ. Hỗ trợ xếp hạng theo chuỗi con, phạm vi `>`/`@`/`#`, điều khiển đầy đủ bằng bàn phím, nhãn đã dịch, lỗi tìm kiếm im lặng và chỉ điều hướng đối với hành động phá hủy. |
 | **Một phím tắt** | `Cmd/Ctrl+K` là tổ hợp toàn cục duy nhất của dashboard, kể cả bên trong trường nhập. Loại bỏ điều hướng nhiều phím để tránh chế độ ẩn; Tabby vẫn dùng `Cmd/Ctrl+B`. |
@@ -691,6 +692,7 @@ ccam workflows [session <id>]         # workflow intelligence + patterns
 ccam runs [list|get <run-id>]         # Workflow-tool runs
 ccam run list|history|start|follow|send|stop …   # dashboard-launched agents
 ccam cost [--session id] [--daily]    # per-model cost, surcharges, unpriced models
+ccam audit [--since 7d] [--severity high] [--signal destructive,…]   # Tool Risk Audit
 
 # Alerts & webhooks
 ccam alerts [--unacked] | ack <id> | ack-all
@@ -1138,6 +1140,18 @@ Tài liệu API hiện đã **đầy đủ**: mọi route phụ trợ đều đ�
 | `POST` | `/api/alerts/rules` | Tạo quy tắc (`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
 | `PATCH` | `/api/alerts/rules/:id` | Cập nhật tên / cấu hình / trạng thái bật / cooldown (loại quy tắc không thể đổi) |
 | `DELETE` | `/api/alerts/rules/:id` | Xóa quy tắc và lịch sử cảnh báo đã kích hoạt của nó |
+
+### Kiểm toán rủi ro công cụ
+
+Chỉ đọc; mỗi yêu cầu trước tiên cập nhật chỉ mục rủi ro tăng dần trong một ngân sách thời gian nhỏ.
+
+| Phương thức | Đường dẫn | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/audit/tools` | Các lần gọi công cụ bị gắn cờ, mới nhất trước, kèm tín hiệu khớp (`signal`, `severity`, `min_severity`, `session_id`, `project`, `host`, `q`, `from`, `to`, `limit`, `offset`) |
+| `GET` | `/api/audit/tools/:eventId` | Sự kiện đầy đủ đã lưu của một lần gọi bị gắn cờ |
+| `GET` | `/api/audit/summary` | Số lượng theo mức độ, tín hiệu, dự án và máy chủ bên ngoài (cùng bộ lọc) |
+| `GET` | `/api/audit/export` | Xuất các dòng đã lọc dạng `?format=csv` (chống chèn công thức) hoặc `json`, tối đa 10.000 |
+| `GET` | `/api/audit/rules` | Bộ quy tắc tích hợp cùng tín hiệu và mức độ của từng quy tắc |
 
 ### Webhook
 
@@ -1963,6 +1977,7 @@ graph LR
     S["/sessions"] --> SESS["Sessions<br/>filterable table"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
+    AU["/audit"] --> AUDIT["Audit<br/>tool risk lens + export"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 visualizations + drill-in"]
     ST["/settings"] --> SETTINGS["Settings<br/>pricing + notifications + hooks + export"]
@@ -2181,6 +2196,7 @@ agent-dashboard/
 |           |-- Sessions.tsx       # Sessions table
 |           |-- SessionDetail.tsx  # Single session deep dive
 |           |-- ActivityFeed.tsx   # Real-time event stream
+|           |-- Audit.tsx          # Read-only Tool Risk Audit
 |           |-- Analytics.tsx      # Token usage, heatmap, trends
 |           |-- Workflows.tsx      # D3.js workflow visualizations and session drill-in
 |           |-- Settings.tsx       # Model pricing, notifications, hooks, export, cleanup
