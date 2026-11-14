@@ -88,6 +88,7 @@ graph TB
                 Sessions[Sessions]
                 Detail[SessionDetail]
                 Feed[ActivityFeed]
+                Audit[Audit]
                 Analytics[Analytics]
                 Workflows[Workflows]
                 Settings[Settings]
@@ -116,7 +117,7 @@ graph TB
     end
     
     Router --> Layout
-    Layout --> Home & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings
+    Layout --> Home & Kanban & Sessions & Detail & Feed & Audit & Analytics & Workflows & Settings
     Home & Detail --> AgentCard & StatCard & StatusBadge
     Feed --> EventDetail
     API --> REST
@@ -213,6 +214,7 @@ client/
 │   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, scoped provider/project filtering, and custom sort menus
 │   │   ├── SessionDetail.tsx  # Overview + full task tracker + agent tree + event timeline + cursor-paginated Conversation tab
 │   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
+│   │   ├── Audit.tsx         # Tool Risk Audit: severity tiles, signal chips, flagged calls, CSV/JSON export
 │   │   ├── Analytics.tsx
 │   │   ├── Workflows.tsx
 │   │   ├── Settings.tsx
@@ -261,12 +263,13 @@ graph TB
     Sessions[Sessions<br/>searchable provider/project table + custom sorting]
     Detail[SessionDetail<br/>agent hierarchy + timeline]
     Feed[ActivityFeed<br/>streaming event log]
+    Audit[Audit<br/>tool risk lens + export]
     Analytics[Analytics<br/>tokens + heatmap + trends]
     Workflows[Workflows<br/>D3.js visualizations]
     Settings[Settings<br/>pricing + notifications + hooks]
 
     App --> Layout
-    Layout --> Dashboard & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings
+    Layout --> Dashboard & Kanban & Sessions & Detail & Feed & Audit & Analytics & Workflows & Settings
 
     Dashboard --> StatCard[StatCard × 6]
     Dashboard --> AgentCard[AgentCard × N]
@@ -510,6 +513,7 @@ graph TB
     Sessions["/sessions"]
     Detail["/sessions/:id"]
     Feed["/activity"]
+    Audit["/audit"]
     Analytics["/analytics"]
     Workflows["/workflows"]
     CcConfig["/cc-config"]
@@ -517,7 +521,7 @@ graph TB
     Settings["/settings"]
     NF["/* (NotFound)"]
 
-    Root --> Dashboard & Kanban & Sessions & Detail & Feed & Analytics & Workflows & CcConfig & Run & Settings & NF
+    Root --> Dashboard & Kanban & Sessions & Detail & Feed & Audit & Analytics & Workflows & CcConfig & Run & Settings & NF
 
     style Dashboard fill:#3B82F6
     style Detail fill:#3B82F6
@@ -540,6 +544,7 @@ function App() {
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:id" element={<SessionDetail />} />
           <Route path="activity" element={<ActivityFeed />} />
+          <Route path="audit" element={<Audit />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="workflows" element={<Workflows />} />
           <Route path="cc-config" element={<CcConfig />} />
@@ -892,6 +897,15 @@ flowchart LR
 - The chevron icon rotates 90° when a row is expanded — it is a visual indicator only, not a separate button.
 - The **Session →** button uses `e.stopPropagation()` so navigating to session details never collapses an open payload panel.
 - Multiple rows can be expanded simultaneously (state stored in `Set<number>`).
+
+#### Audit (`pages/Audit.tsx`)
+
+Tool Risk Audit (`/audit`, issue #301): a read-only security lens over tool calls agents already ran.
+
+- **Severity tiles** (critical / high / medium / low) and **signal chips** (privilege, destructive, remote exec, credentials, egress, outside project) come from `GET /api/audit/summary`; clicking either narrows the table, while the tiles keep showing the unfiltered overview.
+- **Table** rows come from `GET /api/audit/tools` (50 per page): time, severity, the command/path with the matched fragment highlighted, project · session · signals, tool, and a session link. Expanding a row lists *why* it was flagged (rule + matched text) and lazily fetches the full stored event (`GET /api/audit/tools/:eventId`) into `EventDetail`.
+- **Search** (300 ms debounce), a **time range** (24 h / 7 d / 30 d / all) and the **top egress hosts** panel filter the same request; **Export CSV/JSON** downloads `GET /api/audit/export` through `fetch`, so the optional dashboard token is sent.
+- While the server back-fills its risk index the page shows the percentage and polls every 2 s; when some calls had no stored input it says how many were checked by summary only. New `PreToolUse` / `codex_tool_call` events trigger a debounced refresh.
 
 #### EventDetail (`components/EventDetail.tsx`)
 
