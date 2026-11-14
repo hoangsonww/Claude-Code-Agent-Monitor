@@ -94,6 +94,8 @@ describe("tool-risk classifier", () => {
   it("flags credential access in commands and paths", () => {
     assert.ok(rules(bash("cat ~/.ssh/id_rsa")).includes("ssh-dir"));
     assert.ok(rules(bash("cat ~/.ssh/id_rsa")).includes("private-key"));
+    // A public key still lives in ~/.ssh, but it is not a private key.
+    assert.deepEqual(rules(bash("cat ~/.ssh/id_ed25519.pub")), ["ssh-dir"]);
     assert.deepEqual(rules(bash("cat .env")), ["dotenv"]);
     assert.deepEqual(rules(bash("cp .env.production /tmp/")), ["dotenv"]);
     assert.deepEqual(bash("cat src/environment.ts").signals, []);

@@ -151,7 +151,7 @@ const NPX_RE = /\b(?:npx|pnpm\s+dlx|bunx|yarn\s+dlx)\s+((?:-{1,2}[\w-]+(?:=\S+)?
 const CREDENTIAL_RULES = Object.freeze([
   { id: "ssh-dir", severity: "high", pattern: /(?:^|[\\/])\.ssh(?:[\\/]|$)/ },
   { id: "aws-dir", severity: "high", pattern: /(?:^|[\\/])\.aws(?:[\\/]|$)/ },
-  { id: "private-key", severity: "high", pattern: /\bid_(?:rsa|dsa|ecdsa|ed25519)\b/ },
+  { id: "private-key", severity: "high", pattern: /\bid_(?:rsa|dsa|ecdsa|ed25519)\b(?!\.pub\b)/ },
   { id: "pem", severity: "high", pattern: /[\w-]+\.(?:pem|key|p12|pfx)\b/ },
   { id: "credentials-file", severity: "high", pattern: /[\w.-]*credentials[\w.-]*/ },
   { id: "netrc", severity: "high", pattern: /(?:^|[\\/\s])\.netrc\b/ },
