@@ -52,6 +52,8 @@
  *   exports before changing assumptions here.
  * - `./locales/en/analytics.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
+ * - `./locales/en/audit.json` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `./locales/en/ccConfig.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/en/common.json` — repository-local contract consumed by this module; review its
@@ -81,6 +83,8 @@
  * - `./locales/es/alerts.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/es/analytics.json` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `./locales/es/audit.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/es/ccConfig.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
@@ -112,6 +116,8 @@
  *   exports before changing assumptions here.
  * - `./locales/ko/analytics.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
+ * - `./locales/ko/audit.json` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `./locales/ko/ccConfig.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/ko/common.json` — repository-local contract consumed by this module; review its
@@ -142,6 +148,8 @@
  *   exports before changing assumptions here.
  * - `./locales/vi/analytics.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
+ * - `./locales/vi/audit.json` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `./locales/vi/ccConfig.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/vi/common.json` — repository-local contract consumed by this module; review its
@@ -171,6 +179,8 @@
  * - `./locales/zh/alerts.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/zh/analytics.json` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `./locales/zh/audit.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `./locales/zh/ccConfig.json` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
@@ -338,8 +348,11 @@ import analytics_en from "./locales/en/analytics.json";
 import analytics_zh from "./locales/zh/analytics.json";
 import analytics_vi from "./locales/vi/analytics.json";
 import workflows_en from "./locales/en/workflows.json";
+import audit_en from "./locales/en/audit.json";
 import workflows_zh from "./locales/zh/workflows.json";
+import audit_zh from "./locales/zh/audit.json";
 import workflows_vi from "./locales/vi/workflows.json";
+import audit_vi from "./locales/vi/audit.json";
 import settings_en from "./locales/en/settings.json";
 import settings_zh from "./locales/zh/settings.json";
 import settings_vi from "./locales/vi/settings.json";
@@ -372,6 +385,7 @@ import sessions_ko from "./locales/ko/sessions.json";
 import activity_ko from "./locales/ko/activity.json";
 import analytics_ko from "./locales/ko/analytics.json";
 import workflows_ko from "./locales/ko/workflows.json";
+import audit_ko from "./locales/ko/audit.json";
 import settings_ko from "./locales/ko/settings.json";
 import kanban_ko from "./locales/ko/kanban.json";
 import errors_ko from "./locales/ko/errors.json";
@@ -388,6 +402,7 @@ import sessions_es from "./locales/es/sessions.json";
 import activity_es from "./locales/es/activity.json";
 import analytics_es from "./locales/es/analytics.json";
 import workflows_es from "./locales/es/workflows.json";
+import audit_es from "./locales/es/audit.json";
 import settings_es from "./locales/es/settings.json";
 import kanban_es from "./locales/es/kanban.json";
 import errors_es from "./locales/es/errors.json";
@@ -410,6 +425,7 @@ i18n
         activity: activity_en,
         analytics: analytics_en,
         workflows: workflows_en,
+        audit: audit_en,
         settings: settings_en,
         kanban: kanban_en,
         errors: errors_en,
@@ -427,6 +443,7 @@ i18n
         activity: activity_zh,
         analytics: analytics_zh,
         workflows: workflows_zh,
+        audit: audit_zh,
         settings: settings_zh,
         kanban: kanban_zh,
         errors: errors_zh,
@@ -444,6 +461,7 @@ i18n
         activity: activity_vi,
         analytics: analytics_vi,
         workflows: workflows_vi,
+        audit: audit_vi,
         settings: settings_vi,
         kanban: kanban_vi,
         errors: errors_vi,
@@ -461,6 +479,7 @@ i18n
         activity: activity_ko,
         analytics: analytics_ko,
         workflows: workflows_ko,
+        audit: audit_ko,
         settings: settings_ko,
         kanban: kanban_ko,
         errors: errors_ko,
@@ -478,6 +497,7 @@ i18n
         activity: activity_es,
         analytics: analytics_es,
         workflows: workflows_es,
+        audit: audit_es,
         settings: settings_es,
         kanban: kanban_es,
         errors: errors_es,
@@ -499,6 +519,7 @@ i18n
       "activity",
       "analytics",
       "workflows",
+      "audit",
       "settings",
       "kanban",
       "errors",

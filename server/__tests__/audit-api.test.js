@@ -126,6 +126,20 @@ describe("tool risk audit API", () => {
     assert.equal((await get("/tools?limit=2&offset=1")).body.events.length, 2);
   });
 
+  it("returns the full stored event behind a flagged row only", async () => {
+    const { body } = await get("/tools?signal=remote-exec");
+    const id = body.events[0].event_id;
+    const one = await get(`/tools/${id}`);
+    assert.equal(one.status, 200);
+    assert.equal(one.body.event.id, id);
+    assert.match(one.body.event.data, /get\.example\.com/);
+    const benign = db
+      .prepare("SELECT id FROM events WHERE summary IS NULL AND data LIKE '%npm test%'")
+      .get();
+    assert.equal((await get(`/tools/${benign.id}`)).status, 404);
+    assert.equal((await get("/tools/abc")).status, 400);
+  });
+
   it("rejects unknown filter values with a structured error", async () => {
     const bad = await get("/tools?signal=nope");
     assert.equal(bad.status, 400);

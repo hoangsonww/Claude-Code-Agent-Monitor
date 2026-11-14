@@ -2,7 +2,8 @@
  * @file Express router for the Tool Risk Audit (#301). Read-only views over the
  * derived tool_risk_* index: `GET /tools` lists flagged tool calls with their
  * signals (same filter and pagination shape as /api/events, plus signal and
- * severity), `GET /summary` returns counts per signal, severity, project and
+ * severity), `GET /tools/:eventId` returns the full stored event behind one row,
+ * `GET /summary` returns counts per signal, severity, project and
  * egress host for the header tiles, `GET /export` streams the filtered rows as
  * CSV or JSON, and `GET /rules` describes the built-in ruleset. Each request
  * first advances the incremental index within a small time budget.
@@ -205,6 +206,22 @@ router.get("/tools", (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// GET /api/audit/tools/:eventId — the full stored event behind one flagged row,
+// fetched lazily so the list never ships whole payloads.
+router.get("/tools/:eventId", (req, res) => {
+  const id = Number.parseInt(req.params.eventId, 10);
+  if (!Number.isInteger(id) || id < 1) return badRequest(res, "eventId must be a positive integer");
+  const event = db
+    .prepare("SELECT e.* FROM events e JOIN tool_risk_events r ON r.event_id = e.id WHERE e.id = ?")
+    .get(id);
+  if (!event) {
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "Flagged event not found" } });
+  }
+  res.json({ event });
 });
 
 // GET /api/audit/summary — counts for the header tiles, same filters as /tools.

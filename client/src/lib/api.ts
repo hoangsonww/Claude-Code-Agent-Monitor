@@ -272,6 +272,8 @@
  *   selection.
  * - `applyScope` (function) — top-level declaration that helps orient code review and focused test
  *   selection.
+ * - `auditQuery` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
  * - `BASE` (variable) — top-level declaration that helps orient code review and focused test
  *   selection.
  * - `CcArtifactType` (type) — top-level declaration that helps orient code review and focused test
@@ -787,6 +789,9 @@
 // file instead of being imported here.
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
+  ToolRiskFilters,
+  ToolRiskListResponse,
+  ToolRiskSummary,
   Agent,
   AlertEvent,
   AlertRule,
@@ -844,6 +849,24 @@ function applyScope(qs: URLSearchParams): URLSearchParams {
     if (providers) qs.set("providers", providers);
   }
   return qs;
+}
+
+/** Query string for the Tool Risk Audit filters, narrowed to the data scope. */
+function auditQuery(params?: ToolRiskFilters): URLSearchParams {
+  const qs = new URLSearchParams();
+  const csv = (key: string, v?: string[]) => {
+    if (v && v.length > 0) qs.set(key, v.join(","));
+  };
+  csv("signal", params?.signal);
+  csv("severity", params?.severity);
+  csv("session_id", params?.session_id);
+  csv("project", params?.project);
+  csv("host", params?.host);
+  if (params?.min_severity) qs.set("min_severity", params.min_severity);
+  if (params?.q) qs.set("q", params.q);
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  return applyScope(qs);
 }
 
 /**
@@ -1340,6 +1363,42 @@ export const api = {
       return request<{ event_types: string[]; tool_names: string[] }>(
         `/events/facets${qs.size ? `?${qs.toString()}` : ""}`
       );
+    },
+  },
+
+  // ──────────────────────────── Tool Risk Audit API ───────────────────────────
+  /** Read-only security lens over executed tool calls (#301). Maps to
+   *  `server/routes/audit.js`; every call honours the global data scope. */
+  audit: {
+    /** GET /api/audit/tools — flagged tool calls, newest first, paginated. */
+    list: (params?: ToolRiskFilters & { limit?: number; offset?: number }) => {
+      const qs = auditQuery(params);
+      if (params?.limit != null) qs.set("limit", String(params.limit));
+      if (params?.offset != null) qs.set("offset", String(params.offset));
+      return request<ToolRiskListResponse>(`/audit/tools?${qs.toString()}`);
+    },
+    /** GET /api/audit/tools/:eventId — the full stored event behind one row. */
+    event: (eventId: number) =>
+      request<{ event: DashboardEvent }>(`/audit/tools/${encodeURIComponent(String(eventId))}`),
+    /** GET /api/audit/summary — counts for the header tiles. */
+    summary: (params?: ToolRiskFilters) =>
+      request<ToolRiskSummary>(`/audit/summary?${auditQuery(params).toString()}`),
+    /**
+     * GET /api/audit/export — fetches the filtered rows as CSV or JSON and
+     * returns them as a Blob plus the server-suggested file name. Uses fetch
+     * (not a plain link) so the optional dashboard token header is sent.
+     */
+    export: async (format: "csv" | "json", params?: ToolRiskFilters) => {
+      const qs = auditQuery(params);
+      qs.set("format", format);
+      const token = dashboardToken();
+      const res = await fetch(`${BASE}/audit/export?${qs.toString()}`, {
+        headers: token ? { "x-dashboard-token": token } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const disposition = res.headers.get("content-disposition") || "";
+      const name = /filename="([^"]+)"/.exec(disposition)?.[1] || `tool-risk-audit.${format}`;
+      return { blob: await res.blob(), filename: name };
     },
   },
 
