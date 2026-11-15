@@ -640,5 +640,37 @@
     "remoteSourceBadgeTitle": "从远程机器收集",
     "retryLastError": "正在重试。上次错误："
   },
-  "cursorPathsNote": "Cursor 已包含在 Claude Code 仪表板范围内。本地历史会自动从 ~/.cursor 发现并创建快照；仅同步 Claude 的 SSH 导入不会同步远程 Cursor 文件夹。"
+  "cursorPathsNote": "Cursor 已包含在 Claude Code 仪表板范围内。本地历史会自动从 ~/.cursor 发现并创建快照；仅同步 Claude 的 SSH 导入不会同步远程 Cursor 文件夹。",
+  "budgets": {
+    "navTitle": "预算",
+    "title": "支出预算",
+    "description": "为每个周期设定美元目标并对照真实支出跟踪——不做强制，只发出提醒。",
+    "error": "无法加载预算。",
+    "saveError": "无法保存预算。",
+    "confirmDelete": "删除此预算？",
+    "none": "暂无预算。",
+    "on": "开",
+    "off": "关",
+    "edit": "编辑",
+    "remove": "删除",
+    "save": "保存",
+    "create": "创建",
+    "cancel": "取消",
+    "name": "名称",
+    "scope": "范围",
+    "scope_global": "所有项目",
+    "scope_project": "项目",
+    "scope_provider": "提供方",
+    "scopeValueProject": "项目路径 (cwd)",
+    "scopeValueProvider": "提供方 (claude、codex、cursor)",
+    "period": "周期",
+    "period_daily": "每日",
+    "period_weekly": "每周",
+    "period_monthly": "每月",
+    "limit": "上限 (USD)",
+    "warnAt": "警告阈值 %",
+    "burndownTitle": "预算",
+    "projected": "预计：{{amount}}",
+    "runsOut": "预计用尽 {{date}}"
+  }
 }

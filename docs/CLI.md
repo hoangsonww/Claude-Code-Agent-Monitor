@@ -176,7 +176,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 
 | Works offline | Server required (the refusal prints the reason) |
 | ------------- | ----------------------------------------------- |
-| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), and every mutation |
+| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`, `budgets`), and every mutation |
 
 \* shows everything except cost. Offline exports carry `"exported_offline": true`.
 
@@ -232,6 +232,8 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 | `ccam run follow <id>` (alias `logs`) | **Stream a run's output** (assistant text, `⚙` tool calls, results, final cost) until it ends; `Ctrl+C` detaches without stopping it; NDJSON with `--json` |
 | `ccam run send <id> --text msg --yes` · `ccam run stop <id> --yes` | Follow-up message / stop |
 | `ccam cost [--session id] [--daily] [--days n]` | Total estimated cost with a per-model chart, a daily sparkline (`--daily` for the per-day chart), server-tool surcharges, and a warning listing models with usage but **no pricing rule** |
+| `ccam budgets` / `budgets list` | List configured spending budgets (scope, period, limit, warn %, enabled) |
+| `ccam budgets status` | Spend vs. limit with a **burn-down forecast** per budget: spent, % used, USD/hour burn rate, projected period-end spend, projected exhaustion date, and status (`ok`/`warn`/`projected_over`/`over`). Pairs with `--json` for `ccam budgets status --json \| jq` in a cron job |
 
 ### Alerts & Webhooks
 

@@ -640,5 +640,37 @@
     "remoteSourceBadgeTitle": "Recopilado desde una máquina remota",
     "retryLastError": "Reintentando. Último error:"
   },
-  "cursorPathsNote": "Cursor está incluido en el ámbito de Claude Code del panel. El historial local se detecta y conserva automáticamente desde ~/.cursor; las importaciones SSH solo de Claude no sincronizan carpetas remotas de Cursor."
+  "cursorPathsNote": "Cursor está incluido en el ámbito de Claude Code del panel. El historial local se detecta y conserva automáticamente desde ~/.cursor; las importaciones SSH solo de Claude no sincronizan carpetas remotas de Cursor.",
+  "budgets": {
+    "navTitle": "Presupuestos",
+    "title": "Presupuestos de gasto",
+    "description": "Fija un objetivo en dólares por período y controla el gasto real — no se aplica nada, solo avisa.",
+    "error": "No se pudieron cargar los presupuestos.",
+    "saveError": "No se pudo guardar el presupuesto.",
+    "confirmDelete": "¿Eliminar este presupuesto?",
+    "none": "Aún no hay presupuestos.",
+    "on": "Activo",
+    "off": "Inactivo",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "save": "Guardar",
+    "create": "Crear",
+    "cancel": "Cancelar",
+    "name": "Nombre",
+    "scope": "Alcance",
+    "scope_global": "Todos los proyectos",
+    "scope_project": "Proyecto",
+    "scope_provider": "Proveedor",
+    "scopeValueProject": "Ruta del proyecto (cwd)",
+    "scopeValueProvider": "Proveedor (claude, codex, cursor)",
+    "period": "Período",
+    "period_daily": "Diario",
+    "period_weekly": "Semanal",
+    "period_monthly": "Mensual",
+    "limit": "Límite (USD)",
+    "warnAt": "Avisar al %",
+    "burndownTitle": "Presupuestos",
+    "projected": "Proyectado: {{amount}}",
+    "runsOut": "Se agota {{date}}"
+  }
 }

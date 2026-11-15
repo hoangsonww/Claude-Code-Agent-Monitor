@@ -54,6 +54,16 @@
  *   changing its name, shape, or timing.
  * - `AwaitingReason` (type) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
+ * - `BudgetInput` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `BudgetPeriod` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `BudgetScopeType` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `BudgetStatus` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `BudgetStatusLevel` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `CcConfigChangedPayload` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
  * - `CompactionImpactData` (interface) — exported contract; search downstream imports and tests
@@ -63,6 +73,8 @@
  * - `ConcurrencyLane` (interface) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
  * - `CostBreakdown` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CostBudget` (interface) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
  * - `CostFeatureCosts` (interface) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
@@ -222,6 +234,16 @@
  *   test selection.
  * - `AwaitingReason` (type) — top-level declaration that helps orient code review and focused test
  *   selection.
+ * - `BudgetInput` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `BudgetPeriod` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BudgetScopeType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BudgetStatus` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `BudgetStatusLevel` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
  * - `CcConfigChangedPayload` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
  * - `CompactionImpactData` (interface) — top-level declaration that helps orient code review and
@@ -232,6 +254,8 @@
  *   test selection.
  * - `CostBreakdown` (interface) — top-level declaration that helps orient code review and focused
  *   test selection.
+ * - `CostBudget` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
  * - `CostFeatureCosts` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
  * - `CostResult` (interface) — top-level declaration that helps orient code review and focused test
@@ -2117,6 +2141,80 @@ export interface AlertEvent {
   /** ISO timestamp the user acknowledged it; null while unacknowledged. The
    *  `alert_updated` WS message flips this from null to a timestamp. */
   acknowledged_at: string | null;
+}
+
+// ───── Budgets ─────
+
+/** How a {@link CostBudget} selects which sessions' spend counts toward it. */
+export type BudgetScopeType = "global" | "project" | "provider";
+
+/** The budget period the limit applies over. Weeks are Sunday-aligned. */
+export type BudgetPeriod = "daily" | "weekly" | "monthly";
+
+/** Lifecycle status of a budget against its limit, from {@link BudgetStatus}.
+ *  `warn` = past `warn_at_percent`; `projected_over` = on track to exceed the
+ *  limit by period end even though current spend is still under it; `over` =
+ *  already at/over the limit. */
+export type BudgetStatusLevel = "ok" | "warn" | "projected_over" | "over";
+
+/** A configured spending budget (row of `cost_budgets`). No spend is stored —
+ *  it's measured live by the pricing engine; see {@link BudgetStatus}. */
+export interface CostBudget {
+  id: string;
+  name: string;
+  scope_type: BudgetScopeType;
+  /** For `project`, a cwd prefix (nested repos roll up); for `provider`, the
+   *  provider id; null for `global`. */
+  scope_value: string | null;
+  period: BudgetPeriod;
+  /** USD ceiling for the period. */
+  limit_usd: number;
+  /** Percent of the limit at which the budget is considered `warn` (1-100). */
+  warn_at_percent: number;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Body for creating a budget (and, partially, for updating one). */
+export interface BudgetInput {
+  name: string;
+  scope_type: BudgetScopeType;
+  /** Required for `project`/`provider`; omitted/null for `global`. */
+  scope_value?: string | null;
+  period: BudgetPeriod;
+  limit_usd: number;
+  warn_at_percent?: number;
+  enabled?: boolean;
+}
+
+/** A budget plus its live spend-vs-limit forecast, from GET /api/budgets/status. */
+export interface BudgetStatus {
+  id: string;
+  name: string;
+  scope_type: BudgetScopeType;
+  scope_value: string | null;
+  period: BudgetPeriod;
+  warn_at_percent: number;
+  enabled: boolean;
+  /** Real USD spent inside the current period. */
+  spent_usd: number;
+  limit_usd: number;
+  /** Spend as a percent of the limit, or null for a zero limit. */
+  percent_used: number | null;
+  /** ISO start/end of the current period (in the viewer's timezone). */
+  period_start: string;
+  period_end: string;
+  /** Fraction of the period elapsed (0-1). */
+  elapsed_fraction: number;
+  /** USD/hour burn rate so far, or null before any time has elapsed. */
+  burn_rate_usd_per_hour: number | null;
+  /** Linear projection of total period spend at the current rate, or null. */
+  projected_end_usd: number | null;
+  /** ISO moment spend is projected to hit the limit within this period, or null
+   *  (already over, not burning, or won't run out this period). */
+  projected_exhaustion_at: string | null;
+  status: BudgetStatusLevel;
 }
 
 // ───── Webhooks ─────

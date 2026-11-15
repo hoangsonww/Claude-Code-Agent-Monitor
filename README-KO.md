@@ -325,7 +325,7 @@ flowchart LR
 | **Subagent Hierarchy** | Dashboard와 Session Detail의 접을 수 있는 부모-자식 트리는 자식이 활성인 동안 자동으로 펼쳐집니다. |
 | **Background Agents** | 백그라운드 Subagent를 조기 완료 처리하지 않고 계속 추적합니다. |
 | **Subagent Tool Attribution** | `SubagentStop`과 시작 스캔이 Subagent별 JSONL 도구를 가져오고, `tool_use_id`로 결과를 연결하며, 중복을 제거하고, 30초 이내의 일치하는 실시간 행을 병합하고, 생성된 자식 ID에서 실제 중첩 부모를 재구성합니다. 재부모화는 추가 방식이며 행이 삽입되지 않아도 UI 새로 고침을 유발합니다. |
-| **Cost Tracking** | API 상당 예상치(구독 요금 아님)는 설정 가능한 모델별 요금을 사용하며 Cursor의 실제 네이티브 모델과 generation당 하나의 usage 레코드를 포함합니다. Dashboard와 Analytics 비용 레이블 옆의 접근 가능한 정보 아이콘에는 선택 범위와 누락된 모든 요금이 표시되고, Analytics 값 Tooltip에는 전체 금액만 표시되며, Settings는 같은 coverage 정보를 인라인으로 표시합니다. |
+| **Cost Tracking** | API 상당 예상치(구독 요금 아님)는 설정 가능한 모델별 요금을 사용하며 Cursor의 실제 네이티브 모델과 generation당 하나의 usage 레코드를 포함합니다. Dashboard와 Analytics 비용 레이블 옆의 접근 가능한 정보 아이콘에는 선택 범위와 누락된 모든 요금이 표시되고, Analytics 값 Tooltip에는 전체 금액만 표시되며, Settings는 같은 coverage 정보를 인라인으로 표시합니다. **지출 예산**(Settings)은 프로젝트 또는 제공자별로 기간(일/주/월)마다 금액 목표를 정하고, Analytics의 번다운 스트립이 한도 대비 실제 지출을 추적하며 기간 말 비용과 소진 날짜를 선형으로 예측합니다. |
 | **Transcript Cache** | 증분 JSONL 파싱은 토큰, 컴팩션, API 오류, 턴 소요 시간, thinking, usage 메타데이터를 추출합니다. 전체 파싱은 레거시 중복을 복구하고 tail 파싱은 append-only로 유지합니다. 배열은 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`, 기본값 `1000`으로 제한되며 항목은 파일 메타데이터와 파싱 결과만 저장합니다. |
 | **Transcript Snapshot Retention** | 영구 Claude, Codex, Cursor 스냅샷은 가장 완전한 대화를 보존합니다. Cursor 네이티브 저장소 스냅샷은 라이브 root, 레거시에만 있는 참조, 해당 원시 blob의 정확한 바이트를 보존하면서 접근할 수 없는 기록은 제외합니다. 격리된 Worker는 동기화당 레거시 전용 Store를 최대 네 개 마이그레이션합니다. 소스 Store는 읽기 전용으로 열고 세션별 잠금으로 설치를 직렬화하며, 작업이 없는 예약 스캔은 5분 뒤 다시 확인합니다. 한 프로세스에서 같은 소스 stamp로 다섯 번 실패하면 이후 복구를 위해 파일을 남기고 재시도를 중단합니다. 원본이 사라진 적격 Claude/Cursor JSONL 복사본만 왕복 검증 후 gzip 처리되며 Codex 스냅샷은 압축하지 않습니다. Purge는 스냅샷을 제거하며, 선택적 연령과 크기 제한은 Settings 드라이런 미리보기 후 유일한 오래된 복사본을 정리할 수 있습니다. |
 | **Notifications** | VAPID Web Push는 백그라운드 또는 브라우저가 닫힌 상태에서도 설정된 이벤트를 전달하며, macOS 오디오 지원과 구독 제어를 제공합니다. |
@@ -693,6 +693,7 @@ ccam workflows [session <id>]         # 워크플로 인텔리전스 + 패턴
 ccam runs [list|get <run-id>]         # Workflow 도구 실행
 ccam run list|history|start|follow|send|stop …   # 대시보드에서 실행한 에이전트
 ccam cost [--session id] [--daily]    # 모델별 비용, 부가 요금, 가격 미지정 모델
+ccam budgets [list|status]            # 지출 대비 예산 + 번다운 예측
 
 # 알림 & 웹훅
 ccam alerts [--unacked] | ack <id> | ack-all

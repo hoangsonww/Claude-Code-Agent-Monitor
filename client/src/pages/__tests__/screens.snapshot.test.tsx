@@ -660,6 +660,13 @@ vi.mock("../../lib/api", async (importOriginal) => {
           remove: r({ ok: true }),
         },
       },
+      budgets: {
+        list: r({ budgets: [] }),
+        status: r({ budgets: [] }),
+        create: r({ budget: {} }),
+        update: r({ budget: {} }),
+        remove: r({ ok: true }),
+      },
       webhooks: {
         list: r({ targets: [] }),
         providers: r({ providers: [] }),

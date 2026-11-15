@@ -27,6 +27,8 @@
  * ## Local dependency edges
  * - `../components/AlertsNotifications` — repository-local contract consumed by this module; review
  *   its exports before changing assumptions here.
+ * - `../components/Budgets` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
  * - `../components/CostCoverage` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `../components/ImportHistory` — repository-local contract consumed by this module; review its
@@ -302,6 +304,7 @@ import {
   Bell,
   BellOff,
   BellRing,
+  Wallet,
   FileDown,
   Eraser,
   Play,
@@ -353,6 +356,7 @@ import { ImportHistory } from "../components/ImportHistory";
 import { RemoteSources } from "../components/RemoteSources";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
+import { BudgetsSettings } from "../components/Budgets";
 import { SnapshotStorage, formatStorageBytes } from "../components/SnapshotStorage";
 import type { CursorModelPricing, GptModelPricing, ModelPricing, WSMessage } from "../lib/types";
 import { useDataScope, type ProviderScope } from "../lib/dataScope";
@@ -386,6 +390,7 @@ const SETTINGS_SECTIONS: {
   { id: "sound", labelKey: "sound.title", fallback: "Sound", Icon: Volume2 },
   { id: "notifications", labelKey: "notifications.title", Icon: Bell },
   { id: "alerts", labelKey: "alertsHub.title", Icon: BellRing },
+  { id: "budgets", labelKey: "budgets.navTitle", fallback: "Budgets", Icon: Wallet },
   { id: "data", labelKey: "data.title", Icon: Database },
   { id: "about", labelKey: "about.title", Icon: Server },
 ];
@@ -3407,6 +3412,11 @@ export function Settings() {
         </h3>
         <p className="text-xs text-gray-500 mb-4">{t("alertsHub.description")}</p>
         <AlertsNotifications />
+      </section>
+
+      {/* ─── BUDGETS ─── */}
+      <section id="budgets" className="scroll-mt-24">
+        <BudgetsSettings />
       </section>
 
       {/* ─── DATA MANAGEMENT ─── */}

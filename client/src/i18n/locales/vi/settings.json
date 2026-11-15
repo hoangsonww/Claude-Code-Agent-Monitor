@@ -640,5 +640,37 @@
     "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
     "retryLastError": "Đang thử lại. Lỗi gần nhất:"
   },
-  "cursorPathsNote": "Cursor được bao gồm trong phạm vi dashboard Claude Code. Lịch sử cục bộ được tự động phát hiện và lưu snapshot từ ~/.cursor; import SSH chỉ đồng bộ Claude không đồng bộ thư mục Cursor từ xa."
+  "cursorPathsNote": "Cursor được bao gồm trong phạm vi dashboard Claude Code. Lịch sử cục bộ được tự động phát hiện và lưu snapshot từ ~/.cursor; import SSH chỉ đồng bộ Claude không đồng bộ thư mục Cursor từ xa.",
+  "budgets": {
+    "navTitle": "Ngân sách",
+    "title": "Ngân sách chi tiêu",
+    "description": "Đặt mục tiêu đô-la cho mỗi kỳ và theo dõi chi tiêu thực tế — không ép buộc, chỉ cảnh báo.",
+    "error": "Không thể tải ngân sách.",
+    "saveError": "Không thể lưu ngân sách.",
+    "confirmDelete": "Xóa ngân sách này?",
+    "none": "Chưa có ngân sách.",
+    "on": "Bật",
+    "off": "Tắt",
+    "edit": "Sửa",
+    "remove": "Xóa",
+    "save": "Lưu",
+    "create": "Tạo",
+    "cancel": "Hủy",
+    "name": "Tên",
+    "scope": "Phạm vi",
+    "scope_global": "Tất cả dự án",
+    "scope_project": "Dự án",
+    "scope_provider": "Nhà cung cấp",
+    "scopeValueProject": "Đường dẫn dự án (cwd)",
+    "scopeValueProvider": "Nhà cung cấp (claude, codex, cursor)",
+    "period": "Kỳ",
+    "period_daily": "Hằng ngày",
+    "period_weekly": "Hằng tuần",
+    "period_monthly": "Hằng tháng",
+    "limit": "Hạn mức (USD)",
+    "warnAt": "Cảnh báo ở %",
+    "burndownTitle": "Ngân sách",
+    "projected": "Dự kiến: {{amount}}",
+    "runsOut": "Hết vào {{date}}"
+  }
 }
