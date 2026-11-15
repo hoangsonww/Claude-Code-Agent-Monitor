@@ -768,7 +768,7 @@ exports[`screen snapshots > Analytics 1`] = `
                     points="12 6 12 12 16 14"
                   />
                 </svg>
-                1:00:00 PM
+                13:00:00
               </span>
             </p>
           </div>
@@ -2965,6 +2965,375 @@ exports[`screen snapshots > Analytics 1`] = `
             class="text-sm text-gray-500"
           >
             No daily cost data yet.
+          </p>
+        </div>
+      </div>
+      <div
+        class="mt-6"
+      >
+        <div
+          class="card p-5"
+        >
+          <div
+            class="flex items-center gap-2 mb-1"
+          >
+            <svg
+              class="lucide lucide-calculator w-4 h-4 text-violet-400"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="20"
+                rx="2"
+                width="16"
+                x="4"
+                y="2"
+              />
+              <line
+                x1="8"
+                x2="16"
+                y1="6"
+                y2="6"
+              />
+              <line
+                x1="16"
+                x2="16"
+                y1="14"
+                y2="18"
+              />
+              <path
+                d="M16 10h.01"
+              />
+              <path
+                d="M12 10h.01"
+              />
+              <path
+                d="M8 10h.01"
+              />
+              <path
+                d="M12 14h.01"
+              />
+              <path
+                d="M8 14h.01"
+              />
+              <path
+                d="M12 18h.01"
+              />
+              <path
+                d="M8 18h.01"
+              />
+            </svg>
+            <h3
+              class="text-sm font-medium text-gray-300"
+            >
+              Cost what-if simulator
+            </h3>
+          </div>
+          <p
+            class="text-[11px] text-gray-600 mb-4"
+          >
+            Reprice your real usage under a hypothetical — nothing is changed.
+          </p>
+          <div
+            class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"
+          >
+            <label
+              class="flex flex-col gap-1 text-[11px] text-gray-500"
+            >
+              Since
+              <input
+                class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+                type="date"
+                value=""
+              />
+            </label>
+            <label
+              class="flex flex-col gap-1 text-[11px] text-gray-500"
+            >
+              Until
+              <input
+                class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+                type="date"
+                value=""
+              />
+            </label>
+            <label
+              class="flex flex-col gap-1 text-[11px] text-gray-500"
+            >
+              Project (cwd)
+              <input
+                class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+                placeholder="All projects"
+                type="text"
+                value=""
+              />
+            </label>
+            <label
+              class="flex flex-col gap-1 text-[11px] text-gray-500"
+            >
+              Provider
+              <select
+                class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+              >
+                <option
+                  value=""
+                >
+                  Any
+                </option>
+                <option
+                  value="claude"
+                >
+                  Claude
+                </option>
+                <option
+                  value="codex"
+                >
+                  Codex
+                </option>
+                <option
+                  value="cursor"
+                >
+                  Cursor
+                </option>
+              </select>
+            </label>
+          </div>
+          <div
+            class="mb-3"
+          >
+            <div
+              class="flex items-center justify-between mb-2"
+            >
+              <span
+                class="text-[11px] font-medium text-gray-400 uppercase tracking-wide"
+              >
+                Transformations
+              </span>
+              <div
+                class="flex items-center gap-1"
+              >
+                <select
+                  class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1 text-[11px] text-gray-300"
+                >
+                  <option
+                    value=""
+                  >
+                    Add transformation
+                  </option>
+                  <option
+                    value="remap_model"
+                  >
+                    Remap model
+                  </option>
+                  <option
+                    value="set_speed"
+                  >
+                    Set speed
+                  </option>
+                  <option
+                    value="set_geo"
+                  >
+                    Set data residency
+                  </option>
+                  <option
+                    value="set_tier"
+                  >
+                    Set service tier
+                  </option>
+                  <option
+                    value="expire_intro_rates"
+                  >
+                    Expire intro rates
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex flex-wrap items-center gap-2 bg-[#12121f]/60 border border-[#2a2a4a] rounded px-2 py-2"
+              >
+                <span
+                  class="text-[11px] text-violet-300 font-medium min-w-[108px]"
+                >
+                  Remap model
+                </span>
+                <input
+                  aria-label="From (glob)"
+                  class="flex-1 min-w-[120px] bg-[#0d0d18] border border-[#2a2a4a] rounded px-2 py-1 text-xs text-gray-200 font-mono"
+                  placeholder="From (glob)"
+                  value="claude-opus-*"
+                />
+                <span
+                  class="text-gray-600"
+                >
+                  →
+                </span>
+                <input
+                  aria-label="To (model id)"
+                  class="flex-1 min-w-[120px] bg-[#0d0d18] border border-[#2a2a4a] rounded px-2 py-1 text-xs text-gray-200 font-mono"
+                  placeholder="To (model id)"
+                  value="claude-sonnet-5-5"
+                />
+                <button
+                  aria-label="Remove"
+                  class="ml-auto text-gray-600 hover:text-red-400 transition-colors"
+                  type="button"
+                >
+                  <svg
+                    class="lucide lucide-trash2 w-3.5 h-3.5"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M3 6h18"
+                    />
+                    <path
+                      d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+                    />
+                    <path
+                      d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                    />
+                    <line
+                      x1="10"
+                      x2="10"
+                      y1="11"
+                      y2="17"
+                    />
+                    <line
+                      x1="14"
+                      x2="14"
+                      y1="11"
+                      y2="17"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-2 mb-4"
+          >
+            <button
+              class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-medium rounded px-3 py-1.5 transition-colors"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-calculator w-3.5 h-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  height="20"
+                  rx="2"
+                  width="16"
+                  x="4"
+                  y="2"
+                />
+                <line
+                  x1="8"
+                  x2="16"
+                  y1="6"
+                  y2="6"
+                />
+                <line
+                  x1="16"
+                  x2="16"
+                  y1="14"
+                  y2="18"
+                />
+                <path
+                  d="M16 10h.01"
+                />
+                <path
+                  d="M12 10h.01"
+                />
+                <path
+                  d="M8 10h.01"
+                />
+                <path
+                  d="M12 14h.01"
+                />
+                <path
+                  d="M8 14h.01"
+                />
+                <path
+                  d="M12 18h.01"
+                />
+                <path
+                  d="M8 18h.01"
+                />
+              </svg>
+              Simulate
+            </button>
+          </div>
+          <div
+            class="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-border"
+          >
+            <div
+              class="flex items-center gap-1"
+            >
+              <input
+                class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1 text-[11px] text-gray-200 w-36"
+                placeholder="Scenario name"
+                value=""
+              />
+              <button
+                class="flex items-center gap-1 text-[11px] text-gray-400 hover:text-violet-300 transition-colors"
+                type="button"
+              >
+                <svg
+                  class="lucide lucide-save w-3.5 h-3.5"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+                  />
+                  <path
+                    d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"
+                  />
+                  <path
+                    d="M7 3v4a1 1 0 0 0 1 1h7"
+                  />
+                </svg>
+                Save
+              </button>
+            </div>
+          </div>
+          <p
+            class="text-sm text-gray-500"
+          >
+            Run a simulation to see actual vs. simulated cost.
           </p>
         </div>
       </div>

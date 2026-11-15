@@ -226,6 +226,85 @@ const CURSOR_FIELDS = [
   ["output", "output", "output_per_mtok"],
 ];
 
+// ── What-if repricing simulator ─────────────────────────────────────────────
+
+/**
+ * Parse a compact `--transform` spec into the API transform object:
+ *   model:opus→sonnet | model:opus->claude-sonnet-5-5   remap (→ / -> / =>)
+ *   speed:standard | speed:fast                         force speed
+ *   geo:global | geo:us                                 force data residency
+ *   tier:standard | tier:batch                          force service tier
+ *   expire-intro:2026-09-01                             expire intro rates as-of
+ * A bare `from` token with no `*` is widened to `*token*` for convenience, so
+ * `model:opus→…` matches `claude-opus-4-8`; `to` must be a real model id to be
+ * priced (an unknown id reprices to $0 and shows as unpriced).
+ */
+function parseTransformSpec(spec) {
+  const s = String(spec || "").trim();
+  let m = /^model:(.+?)\s*(?:→|->|=>)\s*(.+)$/.exec(s);
+  if (m) {
+    const from = m[1].trim();
+    return { type: "remap_model", from: from.includes("*") ? from : `*${from}*`, to: m[2].trim() };
+  }
+  m = /^speed:(\S+)$/.exec(s);
+  if (m) return { type: "set_speed", value: m[1] };
+  m = /^geo:(\S+)$/.exec(s);
+  if (m) return { type: "set_geo", value: m[1] };
+  m = /^tier:(\S+)$/.exec(s);
+  if (m) return { type: "set_tier", value: m[1] };
+  m = /^expire-intro:(\d{4}-\d{2}-\d{2})$/.exec(s);
+  if (m) return { type: "expire_intro_rates", as_of: m[1] };
+  throw new CliError(
+    `bad --transform '${spec}'. Examples: model:opus→claude-sonnet-5-5, speed:standard, geo:us, tier:batch, expire-intro:2026-09-01`
+  );
+}
+
+async function simulateCost({ opts }) {
+  const transforms = (opts.transform || []).map(parseTransformSpec);
+  const scope = {};
+  if (opts.since) scope.since = opts.since;
+  if (opts.until) scope.until = opts.until;
+  if (opts.project) scope.project = opts.project;
+  if (opts.provider) scope.provider = opts.provider;
+  if (opts.session && opts.session.length) scope.session_ids = opts.session;
+
+  const result = await post("/api/pricing/simulate", { scope, transforms });
+  if (isJson()) return printJson(result);
+
+  const a = result.actual.total_cost;
+  const s = result.simulated.total_cost;
+  const d = result.delta.total;
+  const pct = result.delta.total_pct;
+  const sign = d > 0 ? "+" : "";
+  const deltaColor = d > 0 ? c.red : d < 0 ? c.green : c.dim;
+  console.log("");
+  console.log(`  Actual:    ${c.bold(`$${a}`)}`);
+  console.log(`  Simulated: ${c.bold(`$${s}`)}`);
+  console.log(
+    `  Delta:     ${deltaColor(`${sign}$${d}${pct === null ? "" : ` (${sign}${pct}%)`}`)}`
+  );
+  console.log("");
+  table(
+    ["Model", "Actual", "Simulated", "Delta", "%"],
+    (result.delta.by_model || []).map((m) => {
+      const md = m.delta;
+      const mc = md > 0 ? c.red : md < 0 ? c.green : c.dim;
+      return [
+        m.model,
+        `$${m.actual_cost}`,
+        `$${m.simulated_cost}`,
+        mc(`${md > 0 ? "+" : ""}$${md}`),
+        m.delta_pct === null ? "-" : mc(`${md > 0 ? "+" : ""}${m.delta_pct}%`),
+      ];
+    })
+  );
+  for (const note of result.assumptions || []) console.log(c.dim(`  note: ${note}`));
+}
+
+function collectSpec(value, previous) {
+  return (previous || []).concat([value]);
+}
+
 function register(program) {
   const pricing = listGroup(program, "pricing", {
     group: GROUP,
@@ -263,6 +342,23 @@ function register(program) {
     .description("Reset Claude pricing rules to the shipped defaults (asks first; --yes skips)")
     .option("-y, --yes", "confirm the reset")
     .action(run(resetPricing, { serverOnly: PRICING_ONLY }));
+  pricing
+    .command("simulate")
+    .description("What-if repricing of real usage (remap model, speed/tier, expire intro rates)")
+    .option(
+      "--transform <spec>",
+      "repeatable: model:opus→claude-sonnet-5-5, speed:fast, geo:us, tier:batch, expire-intro:2026-09-01",
+      collectSpec,
+      []
+    )
+    .option("--since <date>", "only usage on/after this day (YYYY-MM-DD)")
+    .option("--until <date>", "only usage on/before this day (YYYY-MM-DD)")
+    .option("--project <cwd>", "restrict to one project working directory")
+    .option("--provider <name>", "restrict to a provider (claude, codex, cursor)")
+    .option("--session <id>", "restrict to a session id (repeatable)", collectSpec, [])
+    .action(
+      run(simulateCost, { serverOnly: "repricing shells into the pricing engine on the server" })
+    );
   rateCard(pricing, {
     name: "gpt",
     label: "OpenAI/Codex",

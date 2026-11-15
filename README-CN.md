@@ -318,7 +318,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。提供方选择器可进一步筛选 Claude Code、Cursor 或 Codex，同时遵循引导页或 Settings 中选择的产品范围。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。只有导入元数据能够证明当前名称由 CCAM 管理时，Cursor 原生生成标题才会替换临时的首条提示回退名；手动名称和归属不明确的旧名称保持不变。 |
 | **会话详情** | 实时统计、当前工作、工具用量、Subagent、Token、层级、筛选后的事件时间线、`tool_use_id` 分组和工具专用渲染器。对话视图渲染排队回合、系统通知、Markdown、高亮代码和样式化工具；等待横幅显示原因和已等待时长。 |
 | **活动流** | 可暂停的实时事件流，带共享筛选器、服务端分页、分组、项目/会话/Subagent 来源、会话链接，以及一致的 Claude/Codex 状态徽标。 |
-| **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。 |
+| **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。内置**成本假设模拟器**，可在模型重映射、速度/层级变更或介绍价到期等假设下对真实用量重新计价——实际与模拟并列显示，按模型给出差额，服务端不改动任何数据。 |
 | **命令面板** | `Cmd/Ctrl+K` 搜索最近命令、所有路由、实时服务端会话、页面操作、项目目录、子视图、筛选器、Settings、Agent Config、偏好、范围和语言。支持子序列排序、`>`/`@`/`#` 范围、完整键盘控制、已翻译标签、静默处理搜索失败，并且对破坏性操作只导航不执行。 |
 | **唯一快捷键** | `Cmd/Ctrl+K` 是 Dashboard 唯一的全局组合键，在输入框中也有效。移除多键导航可避免隐藏模式；Tabby 保留 `Cmd/Ctrl+B`。 |
 | **实时更新** | WebSocket 推送直接更新界面，无需轮询。 |
@@ -701,6 +701,7 @@ ccam webhooks list|get|providers|deliveries|create|update|enable|disable|delete|
 # 定价
 ccam pricing [list] | set <pattern> --input N --output N [--fast-* …] [--intro-* …] | delete | reset
 ccam pricing gpt|cursor [list|set|delete]   # OpenAI/Codex 与 Cursor 价目表
+ccam pricing simulate [--transform model:opus→claude-sonnet-5-5|speed:fast|expire-intro:DATE …] [--since|--until|--project|--provider|--session]   # 假设重新计价（不改动数据）
 
 # 导入与远程数据源
 ccam import guide|rescan|path <dir>|upload <files…>|reimport

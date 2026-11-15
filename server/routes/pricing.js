@@ -18,6 +18,7 @@ const {
   DATA_RESIDENCY_US_MULTIPLIER,
   BATCH_DISCOUNT_MULTIPLIER,
 } = require("../lib/pricing-constants");
+const { simulate, validateTransforms } = require("../lib/pricing-simulate");
 
 const router = Router();
 
@@ -786,6 +787,115 @@ router.get("/cost/:sessionId", (req, res) => {
   const result = calculateProviderCost(tokenRows, rules, gptRules, cursorRules, session.date);
   const daily_costs = session ? [{ date: session.date, cost: result.total_cost }] : [];
   res.json({ ...result, daily_costs });
+});
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Build the scope WHERE clause and params for the repricing simulator from a
+ * request body `scope`. Mirrors the dimensions `/cost` already prices by, plus
+ * a date range (`since`/`until`), a project (`cwd`), explicit `session_ids`, and
+ * a provider filter. Returns `{ clause, params }` or `{ error }` on bad input.
+ *
+ * `tzModifier` is bound inside each date clause's `DATE(s.started_at, ?)` so the
+ * range is compared in the caller's local day, exactly like the SELECT list.
+ */
+function buildSimulateScope(scope, tzModifier) {
+  const s = scope && typeof scope === "object" ? scope : {};
+  const clauses = [];
+  const params = [];
+
+  for (const key of ["since", "until"]) {
+    if (s[key] === undefined || s[key] === null || s[key] === "") continue;
+    if (!DATE_ONLY_RE.test(String(s[key])))
+      return { error: `scope.${key} must be a YYYY-MM-DD date` };
+    clauses.push(`DATE(s.started_at, ?) ${key === "since" ? ">=" : "<="} ?`);
+    params.push(tzModifier, String(s[key]));
+  }
+
+  if (s.project !== undefined && s.project !== null && s.project !== "") {
+    if (typeof s.project !== "string") return { error: "scope.project must be a string" };
+    clauses.push("s.cwd = ?");
+    params.push(s.project);
+  }
+
+  if (s.provider !== undefined && s.provider !== null && s.provider !== "") {
+    const providers = Array.isArray(s.provider) ? s.provider : [s.provider];
+    if (!providers.every((p) => typeof p === "string" && p))
+      return { error: "scope.provider must be a string or array of strings" };
+    clauses.push(`s.provider IN (${providers.map(() => "?").join(", ")})`);
+    params.push(...providers);
+  }
+
+  if (s.session_ids !== undefined && s.session_ids !== null) {
+    if (!Array.isArray(s.session_ids) || !s.session_ids.every((x) => typeof x === "string" && x))
+      return { error: "scope.session_ids must be an array of non-empty strings" };
+    if (s.session_ids.length > 0) {
+      clauses.push(`tu.session_id IN (${s.session_ids.map(() => "?").join(", ")})`);
+      params.push(...s.session_ids);
+    }
+  }
+
+  return { clause: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", params };
+}
+
+// POST /api/pricing/simulate - Deterministic "what-if" repricing of real usage.
+// Reprices the scoped token_usage under a list of transforms (remap_model,
+// set_speed, set_geo, set_tier, expire_intro_rates) by feeding the transformed
+// rows back through the SAME calculator /cost uses — so an empty transform list
+// returns exactly the /cost figure. No new tables, no ingestion, fully offline.
+router.post("/simulate", async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const v = validateTransforms(body.transforms);
+    if (!v.ok) {
+      return res.status(400).json({ error: { code: "INVALID_TRANSFORM", message: v.message } });
+    }
+
+    const rawOffset = parseInt(req.query.tz_offset, 10);
+    const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
+
+    const scoped = buildSimulateScope(body.scope, tzModifier);
+    if (scoped.error) {
+      return res.status(400).json({ error: { code: "INVALID_SCOPE", message: scoped.error } });
+    }
+
+    const { dailyTokens, rules, gptRules, cursorRules } = await readCostQuery(
+      `SELECT
+        DATE(s.started_at, ?) as date,
+        s.provider as provider,
+        tu.model as model,
+        tu.speed as speed,
+        tu.inference_geo as inference_geo,
+        tu.service_tier as service_tier,
+        tu.context_size as context_size,
+        SUM(tu.input_tokens + tu.baseline_input) as input_tokens,
+        SUM(tu.output_tokens + tu.baseline_output) as output_tokens,
+        SUM(tu.cache_read_tokens + tu.baseline_cache_read) as cache_read_tokens,
+        SUM(tu.cache_write_tokens + tu.baseline_cache_write) as cache_write_tokens,
+        SUM(tu.cache_write_1h_tokens + tu.baseline_cache_write_1h) as cache_write_1h_tokens,
+        SUM(tu.web_search_requests + tu.baseline_web_search) as web_search_requests,
+        SUM(tu.web_fetch_requests + tu.baseline_web_fetch) as web_fetch_requests,
+        SUM(tu.code_execution_requests + tu.baseline_code_execution) as code_execution_requests
+      FROM token_usage tu
+      JOIN sessions s ON s.id = tu.session_id
+      ${scoped.clause}
+      GROUP BY 1, s.provider, tu.model, tu.speed, tu.inference_geo, tu.service_tier, tu.context_size`,
+      // Statement param order: the SELECT's DATE() tz modifier first, then every
+      // scope param (each since/until clause carries its own tz modifier ahead of
+      // the bound date — see buildSimulateScope).
+      [tzModifier, ...scoped.params]
+    );
+
+    if (res.destroyed) return;
+
+    const result = simulate({ rows: dailyTokens, transforms: v.transforms }, (rows, asOf) =>
+      calculateProviderCost(rows, rules, gptRules, cursorRules, asOf)
+    );
+    res.json({ scope: body.scope || {}, ...result });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
