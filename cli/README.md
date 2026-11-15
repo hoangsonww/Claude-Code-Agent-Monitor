@@ -11,6 +11,7 @@ npm run setup          # installs deps and links `ccam` globally
 ccam help              # grouped command list
 ccam start             # start the dashboard in the background
 ccam overview --watch  # live one-screen snapshot
+ccam tui               # full-screen live terminal dashboard (headless/SSH)
 ccam sessions --json   # machine-readable output
 ccam repl              # interactive shell with completion and history
 ```
@@ -30,6 +31,7 @@ cli/
 └── commands/
     ├── server.js       # status, health, start, stop, restart, logs, open
     ├── monitor.js      # stats, kanban, overview/top, tail, stream, watch
+    ├── tui.js          # full-screen live terminal dashboard (ccam tui)
     ├── data.js         # sessions, agents, events, transcripts (+ legacy forms)
     ├── insights.js     # analytics, workflows, runs, run, cost
     ├── alerts.js       # alert feed, alert rules, webhooks

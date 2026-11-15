@@ -676,6 +676,7 @@ ccam overview [--watch]               # 单屏实时概览（别名：top）
 ccam stats | kanban                   # 总量 + 状态分布 / 状态泳道
 ccam tail [--session id] [--type T] [--tool N]   # 实时事件流
 ccam stream [--type new_event,…]      # 原始实时 WebSocket 推送
+ccam tui [--interval s]               # 全屏实时终端仪表板
 ccam watch -n 5 <command …>           # 按间隔重复运行任意命令
 
 # 数据

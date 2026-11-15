@@ -55,7 +55,7 @@ Contributor notes — module layout, the error model, and a step-by-step guide t
 | `cli/lib/http.js` | URL resolution, bearer token, JSON/raw requests, health probe |
 | `cli/lib/offline.js` | Read-only SQLite fallback, liveness correction, server-down guidance |
 | `cli/lib/runtime.js` | Global state (output mode, target, token) and the error model |
-| `cli/commands/*.js` | One module per area: `server`, `monitor`, `data`, `insights`, `alerts`, `pricing`, `sources`, `admin`, `meta` |
+| `cli/commands/*.js` | One module per area: `server`, `monitor`, `tui`, `data`, `insights`, `alerts`, `pricing`, `sources`, `admin`, `meta` |
 | `cli/repl.js` | The interactive shell |
 
 ```mermaid
@@ -176,7 +176,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 
 | Works offline | Server required (the refusal prints the reason) |
 | ------------- | ----------------------------------------------- |
-| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), and every mutation |
+| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`, `tui`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), and every mutation |
 
 \* shows everything except cost. Offline exports carry `"exported_offline": true`.
 
@@ -191,9 +191,10 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 | `ccam overview [-w [secs]]` (alias `top`) | One-screen operational snapshot: active/total sessions and agents, events today, total and today's cost, unacked alerts, live runs, plus the active sessions (with "awaiting input" markers) and working agents. `--watch` refreshes it full-screen |
 | `ccam tail [--session id] [--type T,…] [--tool N,…] [--interval s] [--backlog n]` | Live event feed polling `/api/events`; NDJSON with `--json` |
 | `ccam stream [--type T,…] [--count n]` | The raw **real-time WebSocket feed** (`/ws`) — every broadcast the web UI receives (`new_event`, `session_updated`, `agent_updated`, `run_stream`, …); pretty lines or NDJSON |
+| `ccam tui [--interval s] [--sources s] [--providers p]` | **Full-screen live terminal dashboard** for headless/SSH use — sessions, a session-detail pane, the live event feed, and a stats/cost footer, updating off `/ws` (and falling back to REST polling with a reconnecting indicator when the socket drops). `Tab` cycles panes, `j`/`k`/arrows navigate, `/` filters the focused pane, `q` quits. Needs an interactive TTY; it prints a clear message and exits on a non-TTY or dumb terminal |
 | `ccam watch [-n secs] <command …>` | Re-run any ccam command on an interval, screen-clearing (e.g. `ccam watch -n 5 kanban`) |
 
-`--sources` / `--providers` (comma-separated) mirror the web UI's data-scope selector on `stats`, `kanban`, `overview`, `sessions`, `agents`, `events`, `analytics`, `workflows`, and `cost`.
+`--sources` / `--providers` (comma-separated) mirror the web UI's data-scope selector on `stats`, `kanban`, `overview`, `sessions`, `agents`, `events`, `analytics`, `workflows`, `cost`, and `tui`.
 
 ### Data Browsing
 
