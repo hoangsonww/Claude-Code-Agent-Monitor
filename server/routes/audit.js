@@ -134,9 +134,12 @@ function buildWhere(f) {
     params.push(...sigParams);
   }
   if (f.q) {
-    const pattern = `%${f.q}%`;
+    // Literal substring search: escape LIKE wildcards so `%` and `_` match
+    // themselves instead of acting as patterns, with an explicit ESCAPE char on
+    // both predicates.
+    const pattern = `%${f.q.replace(/[\\%_]/g, "\\$&")}%`;
     clauses.push(
-      "(r.target LIKE ? OR EXISTS (SELECT 1 FROM tool_risk_signals y WHERE y.event_id = r.event_id AND y.match LIKE ?))"
+      "(r.target LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM tool_risk_signals y WHERE y.event_id = r.event_id AND y.match LIKE ? ESCAPE '\\'))"
     );
     params.push(pattern, pattern);
   }
@@ -308,18 +311,26 @@ router.get("/export", (req, res, next) => {
     const parsed = parseFilters(req);
     if (parsed.error) return badRequest(res, parsed.error);
     const format = req.query.format === "json" ? "json" : "csv";
-    indexStatus();
+    // A single budgeted step — never a synchronous drain-to-completion. When the
+    // index is still back-filling the export is explicitly marked partial in
+    // both formats and the background pump keeps working, so the download is
+    // never silently mistaken for the full set.
+    const status = indexStatus();
+    const complete = status.indexing.complete !== false;
     const limit = clampInt(req.query.limit, MAX_EXPORT_ROWS, 1, MAX_EXPORT_ROWS);
     const rows = listRows(buildWhere(parsed.filters), limit, 0);
     const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader("X-Tool-Risk-Index-Complete", String(complete));
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="tool-risk-audit-${stamp}.${format}"`
+      `attachment; filename="tool-risk-audit-${stamp}${complete ? "" : "-partial"}.${format}"`
     );
     if (format === "json") {
       return res.json({
         generated_at: new Date().toISOString(),
         ruleset_version: RULESET_VERSION,
+        complete,
+        indexing: status.indexing,
         events: rows,
       });
     }
@@ -337,7 +348,19 @@ router.get("/export", (req, res, next) => {
       "event_id",
       "payload_missing",
     ];
-    const lines = [header.join(",")];
+    const lines = [];
+    if (!complete) {
+      const { last_event_id: last, max_event_id: max } = status.indexing;
+      const pct = max ? Math.floor((last / max) * 100) : 0;
+      // A leading `#` note (ignored by common CSV readers' comment handling)
+      // flags the partial export without disturbing the header/column layout.
+      lines.push(
+        csvCell(
+          `# PARTIAL EXPORT — index still building (${pct}% of ${max} events). Re-run after indexing completes for the full set.`
+        )
+      );
+    }
+    lines.push(header.join(","));
     for (const r of rows) {
       lines.push(
         [

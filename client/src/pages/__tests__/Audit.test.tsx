@@ -351,6 +351,50 @@ describe("Tool Risk Audit page", () => {
     }
   });
 
+  it("keeps polling while only the list response is still indexing", async () => {
+    // /tools and /summary advance the shared index independently. Here /summary
+    // reports complete from the start but /tools lags: combining only the
+    // summary's state would stop polling while the table still omits rows.
+    const POLL_MS = 2000;
+    const incomplete = {
+      indexing: { complete: false, last_event_id: 10, max_event_id: 100 },
+      coverage: { scanned: 10, degraded: 0 },
+    };
+    const complete = {
+      indexing: { complete: true, last_event_id: 100, max_event_id: 100 },
+      coverage: { scanned: 100, degraded: 0 },
+    };
+    // Summary is complete throughout; the list is incomplete until its 3rd call.
+    summary.mockResolvedValue(summaryResponse(complete));
+    let listCalls = 0;
+    list.mockImplementation(async () => listResponse(++listCalls >= 3 ? complete : incomplete));
+
+    vi.useFakeTimers();
+    try {
+      renderAudit();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(list).toHaveBeenCalledTimes(1);
+      // Combined state is incomplete (list lags), so polling continues.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
+      });
+      expect(list).toHaveBeenCalledTimes(2);
+      // The list now completes too → both complete → polling stops.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
+      });
+      expect(list).toHaveBeenCalledTimes(3);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS * 3);
+      });
+      expect(list).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ignores a superseded load when the filters change mid-request", async () => {
     // Let the initial load settle so the signal chips are available to click.
     renderAudit();

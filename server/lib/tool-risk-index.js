@@ -22,6 +22,14 @@ const TOOL_CALL_EVENT_TYPES = Object.freeze(["PreToolUse", "codex_tool_call"]);
 const ID_WINDOW = 5000;
 const DEFAULT_BUDGET_MS = 200;
 const MAX_TARGET_CHARS = 1000;
+/**
+ * Upper bound on the payload text materialized in one transaction slice. An id
+ * window alone does not bound memory: 5,000 Write events with 256 KiB payloads
+ * would load ~1.2 GiB before classification. A slice stops reading once this
+ * many bytes of `data`/`summary` have accumulated, so the heap stays bounded no
+ * matter how large individual payloads are.
+ */
+const MAX_WINDOW_BYTES = 8 * 1024 * 1024;
 
 function createToolRiskIndex(db) {
   const getState = db.prepare("SELECT value FROM tool_risk_state WHERE key = ?");
@@ -64,11 +72,33 @@ function createToolRiskIndex(db) {
     })();
   };
 
-  /** Classify one id window and advance the watermark atomically. */
-  const processWindow = db.transaction((from, to) => {
-    const rows = selectWindow.all(from, to, ...TOOL_CALL_EVENT_TYPES);
+  /**
+   * Classify a byte-bounded slice of the id window `(from, to]`, advance the
+   * watermark atomically, and return the id reached. Rows are streamed with
+   * `.iterate()` and buffered only until `MAX_WINDOW_BYTES` of payload text has
+   * accumulated; reading stops there and the cursor is closed before any write,
+   * so at most one slice of payloads is ever held in memory. When the slice is
+   * cut short the watermark advances to the last buffered id (the next call
+   * resumes after it); when the whole window is consumed it advances to `to`.
+   */
+  const processSlice = db.transaction((from, to) => {
+    const batch = [];
+    let bytes = 0;
+    let reached = to;
+    let truncated = false;
+    for (const row of selectWindow.iterate(from, to, ...TOOL_CALL_EVENT_TYPES)) {
+      batch.push(row);
+      bytes +=
+        (typeof row.data === "string" ? row.data.length : 0) +
+        (typeof row.summary === "string" ? row.summary.length : 0);
+      if (bytes >= MAX_WINDOW_BYTES) {
+        reached = row.id;
+        truncated = true;
+        break;
+      }
+    }
     let degraded = 0;
-    for (const row of rows) {
+    for (const row of batch) {
       const result = classifyToolEvent({
         tool_name: row.tool_name,
         summary: row.summary,
@@ -94,9 +124,11 @@ function createToolRiskIndex(db) {
         insertSignal.run(row.id, s.signal, s.severity, s.rule, s.match, s.host || null);
       }
     }
-    bumpCounter("scanned", rows.length);
+    bumpCounter("scanned", batch.length);
     bumpCounter("degraded", degraded);
-    setState.run("last_event_id", String(to));
+    const watermark = truncated ? reached : to;
+    setState.run("last_event_id", String(watermark));
+    return watermark;
   });
 
   /**
@@ -113,8 +145,11 @@ function createToolRiskIndex(db) {
     if (last > max) last = max;
     while (last < max) {
       const to = Math.min(last + ID_WINDOW, max);
-      processWindow(last, to);
-      last = to;
+      // processSlice returns the id actually reached: `to` when it consumed the
+      // whole window, or an earlier id when it stopped at the byte budget. The
+      // deadline is re-checked after every slice, so a window packed with large
+      // payloads cannot block past budgetMs.
+      last = processSlice(last, to);
       if (Date.now() >= deadline) break;
     }
     return { complete: last >= max, last_event_id: last, max_event_id: max };

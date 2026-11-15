@@ -50,6 +50,22 @@ function sinceToIso(value, now = Date.now()) {
   return new Date(now - Number(m[1]) * unit).toISOString();
 }
 
+/**
+ * Decide whether the "still indexing" warning should show, given both audit
+ * responses. `/summary` and `/tools` advance the shared index independently, so
+ * either may still be back-filling; warn when either is incomplete and report
+ * the laggard's progress. Returns null when both responses are complete.
+ * @returns {{pct: number} | null}
+ */
+function indexingProgress(summary, list) {
+  const si = summary?.indexing || {};
+  const li = list?.indexing || {};
+  if (si.complete !== false && li.complete !== false) return null;
+  const last = Math.min(si.last_event_id ?? Infinity, li.last_event_id ?? Infinity);
+  const max = Math.max(si.max_event_id ?? 0, li.max_event_id ?? 0);
+  return { pct: max && Number.isFinite(last) ? Math.floor((last / max) * 100) : 0 };
+}
+
 async function cmdAudit({ opts }) {
   const signal = opts.signal || undefined;
   const bad = signal?.find((s) => !SIGNALS.includes(s));
@@ -82,10 +98,9 @@ async function cmdAudit({ opts }) {
       .map((s) => `${PAINT[s](s)} ${c.bold(String(summary.by_severity[s] ?? 0))}`)
       .join(c.dim("  ·  "))
   );
-  if (!list.indexing?.complete) {
-    const { last_event_id: last, max_event_id: max } = list.indexing || {};
-    const pct = max ? Math.floor((last / max) * 100) : 0;
-    console.log(c.yellow(`Indexing tool history… ${pct}% — re-run for complete results.`));
+  const progress = indexingProgress(summary, list);
+  if (progress) {
+    console.log(c.yellow(`Indexing tool history… ${progress.pct}% — re-run for complete results.`));
   }
   if (list.coverage?.degraded > 0) {
     console.log(
@@ -134,4 +149,4 @@ function register(program) {
   ).action(run(cmdAudit, { serverOnly: "the risk index is built and queried by the server" }));
 }
 
-module.exports = { register, sinceToIso };
+module.exports = { register, sinceToIso, indexingProgress };

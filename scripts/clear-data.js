@@ -48,6 +48,13 @@ if (!fs.existsSync(DB_PATH)) {
 const db = new Database(DB_PATH);
 db.pragma("foreign_keys = OFF");
 
+// This script opens the database file directly (not through server/db.js), so an
+// older database may predate the Tool Risk Audit tables. Guard every derived-table
+// delete behind an existence check so cleanup still completes on such databases.
+const hasTable = (name) =>
+  !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+const TOOL_RISK_TABLES = ["tool_risk_signals", "tool_risk_events", "tool_risk_state"];
+
 const counts = {
   token_usage: db.prepare("SELECT COUNT(*) as n FROM token_usage").get()?.n ?? 0,
   events: db.prepare("SELECT COUNT(*) as n FROM events").get()?.n ?? 0,
@@ -110,13 +117,17 @@ if (DEMO_ONLY) {
     // does not fire — delete the derived rows explicitly, scoped to the fixture
     // sessions so unrelated history and the scan watermark (tool_risk_state) stay
     // intact. Signals go first because they are matched via tool_risk_events.
-    db.prepare(
-      `DELETE FROM tool_risk_signals WHERE event_id IN (
+    if (hasTable("tool_risk_signals") && hasTable("tool_risk_events")) {
+      db.prepare(
+        `DELETE FROM tool_risk_signals WHERE event_id IN (
          SELECT event_id FROM tool_risk_events WHERE session_id IN (${placeholders}))`
-    ).run(...FIXTURE_SESSION_IDS);
-    db.prepare(`DELETE FROM tool_risk_events WHERE session_id IN (${placeholders})`).run(
-      ...FIXTURE_SESSION_IDS
-    );
+      ).run(...FIXTURE_SESSION_IDS);
+    }
+    if (hasTable("tool_risk_events")) {
+      db.prepare(`DELETE FROM tool_risk_events WHERE session_id IN (${placeholders})`).run(
+        ...FIXTURE_SESSION_IDS
+      );
+    }
     db.prepare(`DELETE FROM events WHERE session_id IN (${placeholders})`).run(
       ...FIXTURE_SESSION_IDS
     );
@@ -140,9 +151,9 @@ if (DEMO_ONLY) {
   // it explicitly, or flagged command/path targets, matches, and session IDs
   // survive the wipe and stay queryable through the audit list/export APIs.
   // Mirrors the /api/settings/clear-data endpoint in server/routes/settings.js.
-  db.exec(
-    "DELETE FROM tool_risk_signals; DELETE FROM tool_risk_events; DELETE FROM tool_risk_state;"
-  );
+  for (const t of TOOL_RISK_TABLES) {
+    if (hasTable(t)) db.exec(`DELETE FROM ${t}`);
+  }
   console.log("Database cleared.");
 }
 

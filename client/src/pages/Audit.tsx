@@ -408,11 +408,13 @@ export function Audit() {
     [baseFilters, severity, signals]
   );
 
-  // A filter change returns to the first page and collapses open rows.
+  // A filter — or global data-scope — change returns to the first page and
+  // collapses open rows, so a stale offset can't hide a smaller scope's only
+  // matching call behind an empty page.
   useEffect(() => {
     setPage(0);
     setExpanded(new Set());
-  }, [listFilters]);
+  }, [listFilters, scope]);
 
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
@@ -428,7 +430,18 @@ export function Audit() {
       setRows(list.events);
       setTotal(list.total);
       setSummary(sum);
-      setStatus({ indexing: sum.indexing, coverage: sum.coverage });
+      // Each request advances the shared index independently, so /tools and
+      // /summary can report different completion. Treat the index as complete
+      // only when both responses are — otherwise polling would stop (and the
+      // indexing notice vanish) while one response still omits flagged calls.
+      setStatus({
+        indexing: {
+          complete: list.indexing.complete && sum.indexing.complete,
+          last_event_id: Math.min(list.indexing.last_event_id, sum.indexing.last_event_id),
+          max_event_id: Math.max(list.indexing.max_event_id, sum.indexing.max_event_id),
+        },
+        coverage: sum.coverage,
+      });
       setError(null);
     } catch (err) {
       if (!mounted.current || seq !== loadSeq.current) return;
@@ -701,6 +714,10 @@ export function Audit() {
                         aria-expanded={open}
                         onClick={() => toggleRow(row.event_id)}
                         onKeyDown={(e) => {
+                          // Only act on keys aimed at the row itself. A nested
+                          // session link gets its own Enter/Space activation —
+                          // calling preventDefault here would hijack it.
+                          if (e.target !== e.currentTarget) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             toggleRow(row.event_id);

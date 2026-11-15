@@ -168,6 +168,11 @@ const NETWORK_COMMAND_RE =
 const URL_RE = /\bhttps?:\/\/[^\s"'<>|;)]+/gi;
 const SCP_HOST_RE =
   /\b(?:ssh|scp|sftp|rsync)\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}):/i;
+// Plain `ssh [opts] [user@]host [command]` — no `host:path` colon, so SCP_HOST_RE
+// misses it. The destination must look like an FQDN or IPv4 and be followed by
+// whitespace/end (not a colon), which keeps it distinct from the SCP form.
+const SSH_DEST_RE =
+  /\bssh\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})(?=\s|$)/i;
 
 /** Write targets that are sensitive even when inside nothing in particular. */
 const SENSITIVE_WRITE_RE =
@@ -224,6 +229,24 @@ function expandHome(p, cwd) {
   if (!p.startsWith("~")) return p;
   const m = /^(\/(?:home|Users)\/[^/]+|\/root|[a-z]:[\\/]Users[\\/][^\\/]+)/i.exec(cwd || "");
   return m ? m[1] + p.slice(1) : p;
+}
+
+/**
+ * Resolve `target` to an absolute path against `cwd` so a relative write like
+ * `.claude/settings.json` is tested the same as its absolute form. Expands `~`
+ * first; leaves the value untouched when `cwd` is unknown or the two use
+ * different path flavours (nothing is guessed). Used only for the sensitive-path
+ * check — the original, unresolved path is still reported as the signal `match`.
+ */
+function resolveForSensitive(target, cwd) {
+  const expanded = expandHome(target, cwd);
+  if (!cwd || expanded.startsWith("~")) return expanded;
+  const win = isWindowsPath(cwd);
+  // Cannot compare a POSIX target under a Windows cwd (or vice versa).
+  if (win ? expanded.startsWith("/") : isWindowsPath(expanded)) return expanded;
+  const lib = win ? path.win32 : path.posix;
+  if (lib.isAbsolute(expanded)) return expanded;
+  return lib.resolve(lib.resolve(cwd), expanded);
 }
 
 /**
@@ -302,6 +325,8 @@ function classifyCommand(command, out, seen) {
     }
     const scp = SCP_HOST_RE.exec(command);
     if (scp && !LOCAL_HOST_RE.test(scp[1])) hosts.add(scp[1].toLowerCase());
+    const ssh = SSH_DEST_RE.exec(command);
+    if (ssh && !LOCAL_HOST_RE.test(ssh[1])) hosts.add(ssh[1].toLowerCase());
     for (const host of hosts) {
       pushSignal(out, seen, {
         signal: "egress",
@@ -327,7 +352,7 @@ function classifyPath(filePath, tool, cwd, out, seen) {
     }
   }
   if (!WRITE_TOOLS.has(tool)) return;
-  const sensitive = SENSITIVE_WRITE_RE.test(expandHome(filePath, cwd));
+  const sensitive = SENSITIVE_WRITE_RE.test(resolveForSensitive(filePath, cwd));
   const outside = isOutsideCwd(filePath, cwd);
   if (outside || sensitive) {
     pushSignal(out, seen, {

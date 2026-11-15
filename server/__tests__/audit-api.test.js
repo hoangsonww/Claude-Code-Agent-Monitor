@@ -126,6 +126,15 @@ describe("tool risk audit API", () => {
     assert.equal((await get("/tools?limit=2&offset=1")).body.events.length, 2);
   });
 
+  it("treats the text query as a literal substring, not a LIKE pattern", async () => {
+    // `_` is a LIKE single-char wildcard; escaped, it must not match the dot in
+    // "settings.json". `%` must match nothing rather than every row.
+    assert.equal((await get(`/tools?q=${encodeURIComponent("settings_json")}`)).body.total, 0);
+    assert.equal((await get(`/tools?q=${encodeURIComponent("%")}`)).body.total, 0);
+    // A literal dot query still finds the real target.
+    assert.equal((await get(`/tools?q=${encodeURIComponent("settings.json")}`)).body.total, 1);
+  });
+
   it("returns the full stored event behind a flagged row only", async () => {
     const { body } = await get("/tools?signal=remote-exec");
     const id = body.events[0].event_id;
@@ -183,6 +192,14 @@ describe("tool risk audit API", () => {
     const json = await get("/export?format=json&signal=privilege");
     assert.equal(json.body.events.length, 2);
     assert.equal(json.body.ruleset_version, 1);
+    // A finished index is reported as complete in both the body and a header, so
+    // a partial export can never be mistaken for the full set (the "-partial"
+    // filename suffix and leading CSV note appear only when incomplete).
+    assert.equal(json.body.complete, true);
+    assert.equal(json.body.indexing.complete, true);
+    assert.equal(json.headers.get("x-tool-risk-index-complete"), "true");
+    assert.equal(csv.headers.get("x-tool-risk-index-complete"), "true");
+    assert.match(lines[0], /^created_at,/);
   });
 
   it("indexes new events incrementally and drops them with their session", async () => {

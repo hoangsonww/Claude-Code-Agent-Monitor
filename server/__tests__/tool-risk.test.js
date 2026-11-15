@@ -140,6 +140,14 @@ describe("tool-risk classifier", () => {
       bash("scp dist.tgz deploy@build.example.net:/srv").signals[0].host,
       "build.example.net"
     );
+    // A plain `ssh [user@]host cmd` has no `host:path` colon but is still egress.
+    assert.equal(
+      bash("ssh deploy@build.example.net 'uptime'").signals[0].host,
+      "build.example.net"
+    );
+    assert.equal(bash("ssh -p 2222 ops.example.org").signals[0].host, "ops.example.org");
+    // Local SSH destinations are not egress.
+    assert.deepEqual(bash("ssh me@localhost").signals, []);
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);
   });
 
@@ -152,6 +160,11 @@ describe("tool-risk classifier", () => {
     const settings = write("/home/dev/.claude/settings.json");
     assert.deepEqual(rules(settings), ["sensitive-path-write"]);
     assert.equal(settings.signals[0].severity, "high");
+    // The same write expressed relative to cwd resolves to the same sensitive
+    // target, and keeps the original (unresolved) path as the signal match.
+    const relSettings = write(".claude/settings.json");
+    assert.deepEqual(rules(relSettings), ["sensitive-path-write"]);
+    assert.equal(relSettings.signals[0].match, ".claude/settings.json");
     assert.equal(write("/etc/hosts").signals[0].severity, "high");
     // Windows paths compare case-insensitively.
     assert.deepEqual(write("c:\\work\\app\\src\\a.ts", "C:\\Work\\App").signals, []);
