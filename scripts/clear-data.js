@@ -105,6 +105,18 @@ if (DEMO_ONLY) {
   ];
   const placeholders = FIXTURE_SESSION_IDS.map(() => "?").join(",");
   const tx = db.transaction(() => {
+    // Remove the Tool Risk Audit rows derived from these fixture events before
+    // the events themselves. Foreign keys are OFF here, so the ON DELETE CASCADE
+    // does not fire — delete the derived rows explicitly, scoped to the fixture
+    // sessions so unrelated history and the scan watermark (tool_risk_state) stay
+    // intact. Signals go first because they are matched via tool_risk_events.
+    db.prepare(
+      `DELETE FROM tool_risk_signals WHERE event_id IN (
+         SELECT event_id FROM tool_risk_events WHERE session_id IN (${placeholders}))`
+    ).run(...FIXTURE_SESSION_IDS);
+    db.prepare(`DELETE FROM tool_risk_events WHERE session_id IN (${placeholders})`).run(
+      ...FIXTURE_SESSION_IDS
+    );
     db.prepare(`DELETE FROM events WHERE session_id IN (${placeholders})`).run(
       ...FIXTURE_SESSION_IDS
     );
@@ -123,6 +135,14 @@ if (DEMO_ONLY) {
 } else {
   console.log(`⚠️  Wiping ${totalRows.toLocaleString()} rows…`);
   db.exec("DELETE FROM token_usage; DELETE FROM events; DELETE FROM agents; DELETE FROM sessions;");
+  // The Tool Risk Audit index (tool_risk_events/_signals/_state) is derived from
+  // events. Foreign keys are OFF, so the ON DELETE CASCADE does not fire — clear
+  // it explicitly, or flagged command/path targets, matches, and session IDs
+  // survive the wipe and stay queryable through the audit list/export APIs.
+  // Mirrors the /api/settings/clear-data endpoint in server/routes/settings.js.
+  db.exec(
+    "DELETE FROM tool_risk_signals; DELETE FROM tool_risk_events; DELETE FROM tool_risk_state;"
+  );
   console.log("Database cleared.");
 }
 

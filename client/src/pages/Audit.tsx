@@ -370,6 +370,18 @@ export function Audit() {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [scope] = useDataScope();
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Request-generation guard: each load() claims the next number; a response
+  // whose number is no longer current has been superseded and must not write state.
+  const loadSeq = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  // Advances after every completed load so the index poll below re-arms each tick.
+  const [pollTick, setPollTick] = useState(0);
 
   // Debounce the search box into the query filter.
   useEffect(() => {
@@ -403,21 +415,29 @@ export function Audit() {
   }, [listFilters]);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     try {
       const [list, sum] = await Promise.all([
         api.audit.list({ ...listFilters, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
         api.audit.summary(baseFilters),
       ]);
+      // Drop a response a newer load (filter/page/scope change) or an unmount has
+      // superseded — otherwise the stale result overwrites the current query's rows.
+      if (!mounted.current || seq !== loadSeq.current) return;
       setRows(list.events);
       setTotal(list.total);
       setSummary(sum);
       setStatus({ indexing: sum.indexing, coverage: sum.coverage });
       setError(null);
     } catch (err) {
+      if (!mounted.current || seq !== loadSeq.current) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (mounted.current && seq === loadSeq.current) {
+        setLoading(false);
+        setPollTick((t) => t + 1);
+      }
     }
     // `scope` re-runs the load when the global data scope changes (api injects it).
   }, [listFilters, baseFilters, page, scope]);
@@ -426,13 +446,16 @@ export function Audit() {
     void load();
   }, [load]);
 
-  // Poll while the server is still back-filling the index.
+  // Poll while the server is still back-filling the index. `pollTick` advances
+  // after every completed load, so this effect re-arms even when `indexing` and
+  // `load` keep the same identity across consecutive incomplete responses —
+  // without it a single timeout fires and polling stalls on partial rows.
   const indexing = status ? !status.indexing.complete : false;
   useEffect(() => {
     if (!indexing) return;
     const id = setTimeout(() => void load(), INDEX_POLL_MS);
     return () => clearTimeout(id);
-  }, [indexing, load]);
+  }, [indexing, load, pollTick]);
 
   // New tool calls may add flagged rows: refresh, debounced.
   useEffect(() => {

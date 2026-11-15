@@ -130,7 +130,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { ToolRiskListResponse, ToolRiskSummary } from "../../lib/types";
 import { Audit, highlightMatch } from "../Audit";
@@ -303,6 +303,86 @@ describe("Tool Risk Audit page", () => {
     renderAudit();
     expect(await screen.findByText("No risky tool calls found")).toBeInTheDocument();
     expect(screen.getByText("No external hosts")).toBeInTheDocument();
+  });
+
+  it("keeps polling while the index stays incomplete, then stops once it completes", async () => {
+    // Mirrors INDEX_POLL_MS in Audit.tsx.
+    const POLL_MS = 2000;
+    const incomplete = {
+      indexing: { complete: false, last_event_id: 10, max_event_id: 100 },
+      coverage: { scanned: 10, degraded: 0 },
+    };
+    const complete = {
+      indexing: { complete: true, last_event_id: 100, max_event_id: 100 },
+      coverage: { scanned: 100, degraded: 0 },
+    };
+    // First two polls report incomplete indexing; the third reports complete.
+    let polls = 0;
+    summary.mockImplementation(async () => summaryResponse(++polls >= 3 ? complete : incomplete));
+    list.mockResolvedValue(listResponse());
+
+    vi.useFakeTimers();
+    try {
+      renderAudit();
+      // Initial load (poll #1): incomplete. act() flushes the state update so the
+      // poll effect commits and schedules the next tick.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(summary).toHaveBeenCalledTimes(1);
+      // Poll #2: still incomplete. A single-shot effect would stop polling here,
+      // because `indexing` and `load` keep the same identity across this response.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
+      });
+      expect(summary).toHaveBeenCalledTimes(2);
+      // Poll #3: completes — proves polling continued through the incomplete run.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
+      });
+      expect(summary).toHaveBeenCalledTimes(3);
+      // Index complete: no further polls are scheduled.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS * 3);
+      });
+      expect(summary).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a superseded load when the filters change mid-request", async () => {
+    // Let the initial load settle so the signal chips are available to click.
+    renderAudit();
+    await screen.findByText("1 flagged tool call");
+
+    // The next list request (first filter change) hangs; the one after it
+    // resolves immediately with a distinct, newer result (total 2).
+    let resolveStale: (value: ToolRiskListResponse) => void = () => {};
+    list.mockReset();
+    list
+      .mockImplementationOnce(
+        () => new Promise<ToolRiskListResponse>((resolve) => (resolveStale = resolve))
+      )
+      .mockImplementation(async () => listResponse({ total: 2 }));
+
+    // Two filter changes in quick succession → two loads, out of order.
+    fireEvent.click(screen.getByRole("button", { name: /Credentials/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Destructive/ }));
+
+    // The newer request resolves first and is shown.
+    expect(await screen.findByText("2 flagged tool calls")).toBeInTheDocument();
+
+    // The superseded request resolves late with stale data. act() flushes any
+    // resulting state update, so if the guard were missing this would overwrite
+    // the table with the stale total and the assertion below would catch it.
+    await act(async () => {
+      resolveStale(listResponse({ total: 99 }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("99 flagged tool calls")).not.toBeInTheDocument();
+    expect(screen.getByText("2 flagged tool calls")).toBeInTheDocument();
   });
 });
 
