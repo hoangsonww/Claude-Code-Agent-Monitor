@@ -6386,6 +6386,41 @@ exports[`screen snapshots > Session detail 1`] = `
         </svg>
         Timeline (0/0)
       </button>
+      <button
+        class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-300"
+      >
+        <svg
+          class="lucide lucide-git-commit-horizontal w-4 h-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="3"
+          />
+          <line
+            x1="3"
+            x2="9"
+            y1="12"
+            y2="12"
+          />
+          <line
+            x1="15"
+            x2="21"
+            y1="12"
+            y2="12"
+          />
+        </svg>
+        Commits
+      </button>
     </div>
     <div>
       <div

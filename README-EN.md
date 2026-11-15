@@ -315,7 +315,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Dashboard** | Persistent **Monitor** and **Health** tabs combine fleet totals, active hierarchies, recent activity, weighted success/cache/error/heap health, storage, tools, models, subagent effectiveness, and compaction metrics. Health refreshes every 5 seconds from `/api/settings/info` and `/api/workflows`. |
 | **Kanban Board** | Agent columns cover Working, Waiting, Completed, and Error; session columns add Active and Abandoned. Cards page 10 at a time, subscribe only to the active WebSocket view, preserve full titles, and explain waiting reasons such as permission input, turn completion, prompt idle, or interruption. |
 | **Sessions** | Searchable, filterable, server-paginated history with visible-page cost calculation and a temporary in-memory Codex startup row. Its provider selector narrows to Claude Code, Cursor, or Codex while respecting the product scope chosen in onboarding or Settings. Search covers `id`, `name`, and `cwd` with a 300 ms debounce. Names resolve from explicit title, AI title, then the first meaningful user prompt. Cursor replaces a temporary first-prompt fallback with the native generated title only when ingestion metadata proves CCAM owns the current name; manual and ambiguous legacy names remain unchanged. |
-| **Session Detail** | Live stats, active work, tool usage, subagents, tokens, hierarchy, filtered event timelines, `tool_use_id` grouping, and tool-specific renderers. Conversation view renders queued turns, system notices, Markdown, highlighted code, and styled tools; waiting banners show the reason and elapsed time. |
+| **Session Detail** | Live stats, active work, tool usage, subagents, tokens, hierarchy, filtered event timelines, `tool_use_id` grouping, and tool-specific renderers. Conversation view renders queued turns, system notices, Markdown, highlighted code, and styled tools; waiting banners show the reason and elapsed time. A Commits tab correlates the session with the git commits authored in its working directory during its active window (best-effort by author date). |
 | **Activity Feed** | Pausable real-time events with shared filters, server pagination, grouping, project/session/subagent origin, session links, and consistent Claude/Codex status badges. |
 | **Analytics** | Model tokens, tool frequency, Sunday-aligned activity heatmaps, session trends, connection state, layout-matched loading skeletons, and paged long legends. |
 | **Command Palette** | `Cmd/Ctrl+K` searches recent commands, all routes, live server-side sessions, page actions, project directories, subviews, filters, Settings, Agent Config, preferences, scope, and language. It supports subsequence ranking, `>`/`@`/`#` scopes, full keyboard control, translated labels, quiet search failure, and navigation-only handling for destructive actions. |
@@ -679,7 +679,7 @@ ccam watch -n 5 <command …>           # re-run any command on an interval
 
 # Data
 ccam sessions [--status s] [--q text] [--cwd dir] [--sort price] [--limit n]
-ccam sessions get|stats|cost|agents|events|transcripts <id>
+ccam sessions get|stats|cost|agents|events|commits|transcripts <id>
 ccam sessions transcript <id>         # the conversation as a readable chat log
 ccam sessions rename <id> <name…> | update <id> | create | facets
 ccam agents [list|get|update|create]  # agents; ccam session <id> = sessions get

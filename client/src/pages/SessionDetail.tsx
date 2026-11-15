@@ -40,6 +40,8 @@
  *   its exports before changing assumptions here.
  * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
  *   review its exports before changing assumptions here.
+ * - `../components/SessionCommits` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
  * - `../components/SessionOverview` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `../components/Skeleton` — repository-local contract consumed by this module; review its
@@ -273,6 +275,7 @@ import {
   ChevronDown,
   ChevronRight,
   GitBranch,
+  GitCommit,
   MessageSquare,
   List,
   AlertCircle,
@@ -336,9 +339,10 @@ import type {
   WorkflowRun,
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
+import { SessionCommits } from "../components/SessionCommits";
 
 /** Tab keys in render order — also the order `1`…`3` and `[`/`]` address them. */
-const DETAIL_TABS = ["agents", "conversation", "timeline"] as const;
+const DETAIL_TABS = ["agents", "conversation", "timeline", "commits"] as const;
 /** Session Detail tab: agents, conversation, or timeline. */
 type DetailTab = (typeof DETAIL_TABS)[number];
 
@@ -1101,6 +1105,20 @@ export function SessionDetail() {
           <List className="w-4 h-4" />
           {t("detail.timeline", { shown: events.length, total: eventsTotal })}
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("commits");
+            setTranscriptNotFound(false);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "commits"
+              ? "border-violet-500 text-violet-400"
+              : "border-transparent text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          <GitCommit className="w-4 h-4" />
+          {t("detail.commits")}
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -1494,6 +1512,12 @@ export function SessionDetail() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {visitedTabs.has("commits") && (
+        <div hidden={activeTab !== "commits"}>
+          <SessionCommits sessionId={session.id} />
         </div>
       )}
     </div>

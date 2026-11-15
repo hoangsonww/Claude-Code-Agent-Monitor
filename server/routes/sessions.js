@@ -53,9 +53,22 @@ const {
   cursorSessionFamilyIds,
   resolveCursorSessionId,
 } = require("../lib/cursor-session-identity");
+const { listSessionCommits, getCommitStat } = require("../lib/session-commits");
 
 const router = Router();
 const MAX_TASK_PROGRESS_ROWS = 100;
+
+// Correlating a session with `git log` shells out to the local git binary, which
+// isn't free on a large repo. Cache each session's commit result for a short
+// window so re-renders, polling, and the list badge don't re-run git on every
+// hit. Keyed by session id; the value also pins the window end so a still-open
+// session recomputes once it has clearly moved on.
+const COMMIT_CACHE_TTL_MS = 15_000;
+const commitCache = new Map();
+
+function cachedCommitKey(session) {
+  return `${session.id}|${session.cwd || ""}|${session.started_at || ""}|${session.ended_at || ""}`;
+}
 
 // A Cursor `/resume` shell is merged into its canonical conversation. Keep old
 // bookmarks and live clients working by resolving the durable alias before any
@@ -617,6 +630,89 @@ router.get("/:id/stats", (req, res) => {
     subagent_types: subagentTypes.filter((r) => r.subagent_type !== "compaction"),
     tokens,
   });
+});
+
+/**
+ * GET /:id/commits — Commits authored in the session's `cwd` during its active
+ * window (issue #291). Correlation is best-effort by author date; a human
+ * committing in the same repo during the same window would also appear.
+ *
+ * Degrades silently: when `cwd` is not a git repo, git is unavailable, or no
+ * commits fall in the window, it returns `repo:false`/an empty list with 200 so
+ * the client can simply hide the panel — never an error.
+ */
+router.get("/:id/commits", async (req, res, next) => {
+  try {
+    const sessionId = req.params.id;
+    const session = stmts.getSession.get(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+    }
+    if (!sessionIsInScope(session, req)) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+    }
+    if (!session.cwd) {
+      return res.json({ session_id: sessionId, repo: false, commits: [], truncated: false });
+    }
+
+    const key = cachedCommitKey(session);
+    const hit = commitCache.get(key);
+    let result;
+    if (hit && Date.now() - hit.at < COMMIT_CACHE_TTL_MS) {
+      result = hit.value;
+    } else {
+      result = await listSessionCommits({
+        cwd: session.cwd,
+        startedAt: session.started_at,
+        endedAt: session.ended_at,
+      });
+      commitCache.set(key, { at: Date.now(), value: result });
+      // Keep the cache from growing without bound across many sessions.
+      if (commitCache.size > 500) {
+        const oldest = commitCache.keys().next().value;
+        if (oldest !== undefined) commitCache.delete(oldest);
+      }
+    }
+
+    res.json({
+      session_id: sessionId,
+      repo: result.repo,
+      root: result.root,
+      count: result.commits.length,
+      truncated: result.truncated,
+      commits: result.commits,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /:id/commits/:hash — Per-file stat for one correlated commit (the
+ * collapsed diff preview). Returns `{ files, insertions, deletions }`, or 404
+ * when the commit can't be read in the session's repo.
+ */
+router.get("/:id/commits/:hash", async (req, res, next) => {
+  try {
+    const session = stmts.getSession.get(req.params.id);
+    if (!session) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+    }
+    if (!sessionIsInScope(session, req)) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+    }
+    const stat = session.cwd
+      ? await getCommitStat({ cwd: session.cwd, hash: req.params.hash })
+      : null;
+    if (!stat) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Commit not found in session repository" } });
+    }
+    res.json({ session_id: req.params.id, hash: req.params.hash, ...stat });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/", (req, res) => {
