@@ -145,15 +145,22 @@ if (DEMO_ONLY) {
   );
 } else {
   console.log(`⚠️  Wiping ${totalRows.toLocaleString()} rows…`);
-  db.exec("DELETE FROM token_usage; DELETE FROM events; DELETE FROM agents; DELETE FROM sessions;");
   // The Tool Risk Audit index (tool_risk_events/_signals/_state) is derived from
   // events. Foreign keys are OFF, so the ON DELETE CASCADE does not fire — clear
   // it explicitly, or flagged command/path targets, matches, and session IDs
   // survive the wipe and stay queryable through the audit list/export APIs.
   // Mirrors the /api/settings/clear-data endpoint in server/routes/settings.js.
-  for (const t of TOOL_RISK_TABLES) {
-    if (hasTable(t)) db.exec(`DELETE FROM ${t}`);
-  }
+  // One transaction: if any delete fails, nothing is removed (no source rows
+  // gone while audit targets remain).
+  const wipe = db.transaction(() => {
+    db.exec(
+      "DELETE FROM token_usage; DELETE FROM events; DELETE FROM agents; DELETE FROM sessions;"
+    );
+    for (const t of TOOL_RISK_TABLES) {
+      if (hasTable(t)) db.exec(`DELETE FROM ${t}`);
+    }
+  });
+  wipe();
   console.log("Database cleared.");
 }
 

@@ -127,6 +127,25 @@ describe("clear-data.js wipes the derived Tool Risk Audit tables", () => {
     assert.equal(count("tool_risk_state"), 0, "tool_risk_state");
   });
 
+  it("full wipe is all-or-nothing when an audit delete fails", async () => {
+    insertSession.run(KEEP_ID, "Real work", "/home/dev/app");
+    seedFlagged(KEEP_ID, "rm -rf /tmp/build");
+    db.exec(
+      "CREATE TRIGGER block_signal_delete BEFORE DELETE ON tool_risk_signals BEGIN SELECT RAISE(ABORT, 'blocked'); END"
+    );
+    try {
+      const { code } = await run("--yes");
+      assert.notEqual(code, 0);
+      // Nothing was removed: source rows and audit rows are still together.
+      assert.equal(count("sessions"), 1, "sessions");
+      assert.equal(count("events"), 1, "events");
+      assert.equal(count("tool_risk_events"), 1, "tool_risk_events");
+      assert.equal(count("tool_risk_signals"), 1, "tool_risk_signals");
+    } finally {
+      db.exec("DROP TRIGGER IF EXISTS block_signal_delete");
+    }
+  });
+
   it("--demo-only --yes clears only fixture-derived rows, keeping real history and the watermark", async () => {
     insertSession.run(FIXTURE_ID, "Demo fixture", "/home/dev/app");
     const fixtureEvent = seedFlagged(FIXTURE_ID, "rm -rf /demo");

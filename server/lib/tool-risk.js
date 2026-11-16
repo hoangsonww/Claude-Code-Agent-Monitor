@@ -169,10 +169,34 @@ const URL_RE = /\bhttps?:\/\/[^\s"'<>|;)]+/gi;
 const SCP_HOST_RE =
   /\b(?:ssh|scp|sftp|rsync)\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}):/i;
 // Plain `ssh [opts] [user@]host [command]` — no `host:path` colon, so SCP_HOST_RE
-// misses it. The destination must look like an FQDN or IPv4 and be followed by
-// whitespace/end (not a colon), which keeps it distinct from the SCP form.
-const SSH_DEST_RE =
-  /\bssh\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})(?=\s|$)/i;
+// misses it. sshDestinations() parses the argv: options (and the values of the
+// options that take one) are skipped, the first positional argument is the
+// destination, and everything after it is the remote command — never a host.
+const SSH_INVOCATION_RE = /(?:^|[\s(`&|;])ssh\s+([^\n|;&]*)/gi;
+const SSH_OPTS_WITH_VALUE = new Set("BbcDEeFIiJLlmOoPpQRSWw".split(""));
+const HOST_SHAPE_RE = /^(?:[a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})$/i;
+
+/** Destination hosts of every `ssh` invocation in a command line. */
+function sshDestinations(command) {
+  const hosts = [];
+  for (const m of command.matchAll(SSH_INVOCATION_RE)) {
+    const args = m[1].trim().split(/\s+/).filter(Boolean);
+    for (let k = 0; k < args.length; k++) {
+      const arg = args[k].replace(/^["']|["']$/g, "");
+      if (arg === "--") continue;
+      if (arg.startsWith("-") && arg.length > 1) {
+        // `-p 22` takes the next token; `-p22` / `-oFoo=bar` carry it inline.
+        if (arg.length === 2 && SSH_OPTS_WITH_VALUE.has(arg[1])) k++;
+        continue;
+      }
+      let host = arg.replace(/^ssh:\/\//i, "").replace(/^[^@]*@/, "");
+      host = host.replace(/:\d+$/, "");
+      if (HOST_SHAPE_RE.test(host)) hosts.push(host.toLowerCase());
+      break; // first positional argument is the destination; the rest is the remote command
+    }
+  }
+  return hosts;
+}
 
 /** Write targets that are sensitive even when inside nothing in particular. */
 const SENSITIVE_WRITE_RE =
@@ -325,8 +349,9 @@ function classifyCommand(command, out, seen) {
     }
     const scp = SCP_HOST_RE.exec(command);
     if (scp && !LOCAL_HOST_RE.test(scp[1])) hosts.add(scp[1].toLowerCase());
-    const ssh = SSH_DEST_RE.exec(command);
-    if (ssh && !LOCAL_HOST_RE.test(ssh[1])) hosts.add(ssh[1].toLowerCase());
+    for (const host of sshDestinations(command)) {
+      if (!LOCAL_HOST_RE.test(host)) hosts.add(host);
+    }
     for (const host of hosts) {
       pushSignal(out, seen, {
         signal: "egress",

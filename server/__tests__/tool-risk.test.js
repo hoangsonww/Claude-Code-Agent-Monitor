@@ -148,6 +148,18 @@ describe("tool-risk classifier", () => {
     assert.equal(bash("ssh -p 2222 ops.example.org").signals[0].host, "ops.example.org");
     // Local SSH destinations are not egress.
     assert.deepEqual(bash("ssh me@localhost").signals, []);
+    // Only the destination counts — hosts inside the remote command do not.
+    assert.deepEqual(bash("ssh localhost echo build.example.net").signals, []);
+    assert.deepEqual(
+      bash("ssh -i ~/.ssh/k -o StrictHostKeyChecking=no ops.example.org ping 8.8.8.8")
+        .signals.filter((x) => x.signal === "egress")
+        .map((x) => x.host),
+      ["ops.example.org"]
+    );
+    assert.equal(
+      bash("ssh ssh://deploy@build.example.net:2222").signals[0].host,
+      "build.example.net"
+    );
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);
   });
 
