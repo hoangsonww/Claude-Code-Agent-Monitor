@@ -10,13 +10,14 @@ paths:
   - "README-VN.md"
   - "README-KO.md"
   - "README-ES.md"
+  - "README-PT.md"
   - "docs/I18N.md"
 ---
 
 # i18n Parity Rules (binding for every coding agent)
 
 The dashboard is localized to **English (`en`), Simplified Chinese (`zh`),
-Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`)** across five independent
+Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), and Brazilian Portuguese (`pt`)** across five independent
 surfaces. English is the source of truth on all of them, and **a change is not
 done until every supported language carries it in the same PR** — a fallback to
 English is a safety net, never a completed translation.
@@ -41,11 +42,11 @@ audit fails on a stale mirror.
 - **Editing `README.md`** → keep the English-only landing concise and preserve
   links to `README-EN.md` plus every localized full guide.
 - **Editing `README-EN.md`** → mirror the same edit at the corresponding section of
-  `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four,
+  `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, and `README-PT.md`. All five,
   every time. They are full mirrors, not summaries.
 - **Editing user-visible text in `wiki/index.html`** → follow
   [`.claude/rules/wiki-i18n.md`](./wiki-i18n.md) and ship `zh` + `vi` + `ko` +
-  `es` entries in the same change, then bump the wiki cache versions.
+  `es` + `pt` entries in the same change, then bump the wiki cache versions.
 - **Adding a language** → work through
   [`.claude/skills/i18n-parity/references/new-language-checklist.md`](../skills/i18n-parity/references/new-language-checklist.md)
   end to end. A complete README mirror, every app key, and a complete wiki
@@ -57,8 +58,8 @@ audit fails on a stale mirror.
 - **The Claude Code tool `Agent` and the UI noun "agent" are different things.**
   The tool name is an identifier and stays literal in every locale. The UI noun
   (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
-  deliberately `agente` / `subagente` in `es` — `i18n.test.ts` asserts both
-  halves. The Spanish exception never applies to the tool name.
+  deliberately `agente` / `subagente` in `es` and `pt` — `i18n.test.ts` asserts both
+  halves. The Spanish/Portuguese exception never applies to the tool name.
 - The root landing page `index.html` and repository landing `README.md` are
   **English-only by design**. The complete localized guide set begins with
   `README-EN.md`.

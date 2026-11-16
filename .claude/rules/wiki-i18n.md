@@ -10,9 +10,9 @@ paths:
 # Wiki Internationalization Rules
 
 The static wiki (`wiki/index.html`) is fully localized to English, Simplified
-Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). English is
+Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), and Brazilian Portuguese (`pt`). English is
 the DOM source of truth; `wiki/script.js` swaps text at runtime. **Any new or
-changed user-visible wiki text MUST ship with `zh` + `vi` + `ko` + `es`
+changed user-visible wiki text MUST ship with `zh` + `vi` + `ko` + `es` + `pt`
 translations in the same change** — otherwise it falls back to English and the
 page is half-translated.
 
@@ -23,7 +23,7 @@ page is half-translated.
   `.t-label`, `.main-content h2/h3/h4/th`, `.hero-desc`) plus the `TEXTNODE_SEL`
   trailing text nodes (`.nav-link`, `.hero-badge`) — is keyed by plain text in
   the `T` dictionary inside `wiki/script.js`. Add the new English text as a key
-  with its `zh`, `vi`, `ko`, and `es` values there. Note `th` is matched by both
+  with its `zh`, `vi`, `ko`, `es`, and `pt` values there. Note `th` is matched by both
   passes: as a label in `PLAIN` and as body content in `HTML_SEL`.
 - Body content — `.main-content p:not(.hero-desc)`, `li`, `td`, `th`,
   `.screenshot-caption`, `.callout-body > strong`, `.route-desc`, and the footer

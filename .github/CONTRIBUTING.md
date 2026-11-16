@@ -212,7 +212,7 @@ npm run test:client         # client unit tests only
 ## Translations and Internationalization
 
 The dashboard ships in **English (`en`), Simplified Chinese (`zh`), Vietnamese
-(`vi`), Korean (`ko`), and Spanish (`es`)** across five independent surfaces.
+(`vi`), Korean (`ko`), Spanish (`es`), and Brazilian Portuguese (`pt`)** across five independent surfaces.
 English is the source of truth on all of them, and **a change is not merged
 until every supported language carries it in the same PR** — falling back to
 English is a safety net, not a completed translation.
@@ -221,7 +221,7 @@ English is a safety net, not a completed translation.
 |---|---|---|
 | Dashboard UI | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` |
 | Wiki page | English text in the `wiki/index.html` DOM | `wiki/script.js` + `wiki/i18n-content.js` |
-| Full mirrored guides | `README-EN.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` |
+| Full mirrored guides | `README-EN.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-PT.md` |
 | Language switchers | — | `Sidebar.tsx`, `paletteCommands.ts`, `nav.json`, `wiki/index.html` |
 | Locale-aware formatting | — | `client/src/lib/format.ts` |
 
@@ -230,10 +230,10 @@ locale*, with the same key path, value type, and `{{interpolation}}` tokens.
 
 **If you edit the concise `README.md` landing page**, preserve its links to all
 five complete guides. **If you edit `README-EN.md`**, mirror the same edit into
-all four translated guides. They are full mirrors, not summaries.
+all five translated guides. They are full mirrors, not summaries.
 
 **If you edit user-visible text in `wiki/index.html`**, add `zh` + `vi` + `ko` +
-`es` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
+`es` + `pt` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
 the matching `?v=` query strings).
 
 **If you are adding a new language**, three things must be complete: a full
@@ -255,7 +255,7 @@ prose around them.
 Note that the Claude Code **tool** named `Agent` and the **UI noun** for an
 agent are different things. The tool name stays literal in every locale; the UI
 noun (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
-deliberately `agente` / `subagente` in `es`. The Spanish exception never applies
+deliberately `agente` / `subagente` in `es` and `pt`. The Spanish/Portuguese exception never applies
 to the tool name.
 
 Before opening the PR:
