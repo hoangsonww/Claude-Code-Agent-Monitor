@@ -222,7 +222,7 @@ describe("i18n resources", () => {
     for (const namespace of namespaces) {
       const english = flattenResource(i18n.getResourceBundle("en", namespace));
 
-      for (const language of ["zh", "vi", "ko", "es"]) {
+      for (const language of ["zh", "vi", "ko", "es", "pt"]) {
         const locale = flattenResource(i18n.getResourceBundle(language, namespace));
 
         expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
@@ -266,6 +266,35 @@ describe("i18n resources", () => {
     await i18n.changeLanguage("es");
     expect(i18n.t("common:agent")).toBe("agente");
     expect(i18n.t("common:subagent")).toBe("subagente");
+
+    // Portuguese follows the Spanish convention: the UI noun is localized,
+    // while the Claude Code tool name stays literal.
+    await i18n.changeLanguage("pt");
+    expect(i18n.t("common:agent")).toBe("agente");
+    expect(i18n.t("common:subagent")).toBe("subagente");
+    expect(i18n.t("errors:toolLegend.agent")).toBe("Agent");
+  });
+
+  it("should provide Brazilian Portuguese translations for navigation keys", async () => {
+    await i18n.changeLanguage("pt");
+
+    expect(i18n.t("nav:dashboard")).toBe("Painel");
+    expect(i18n.t("nav:agentBoard")).toBe("Quadro Kanban");
+    expect(i18n.t("nav:languageShort.pt")).toBe("PT");
+  });
+
+  it("should support non-explicit Portuguese locale tags", async () => {
+    await i18n.changeLanguage("pt-BR");
+
+    expect(i18n.resolvedLanguage?.startsWith("pt")).toBe(true);
+    expect(i18n.t("nav:dashboard")).toBe("Painel");
+  });
+
+  it("pluralizes Portuguese counts", async () => {
+    await i18n.changeLanguage("pt");
+    expect(i18n.t("kanban:agentCount", { count: 1 })).toBe("1 agente acompanhado");
+    expect(i18n.t("kanban:agentCount", { count: 2 })).toBe("2 agentes acompanhados");
+    expect(i18n.t("sessions:sessionCount", { count: 2 })).toBe("2 sessões registradas");
   });
 
   it("should provide Spanish translations for navigation keys", async () => {
@@ -391,7 +420,7 @@ describe("i18n resources", () => {
       "hookGate.continue",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "pt"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "splash", key)).toBeTruthy();
       }
@@ -417,7 +446,7 @@ describe("i18n resources", () => {
       "pricing.gpt.tooltip.apiPricingBody",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "pt"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "settings", key)).toBeTruthy();
       }

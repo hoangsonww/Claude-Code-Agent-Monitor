@@ -2,7 +2,8 @@
  * @file index.ts
  * @description i18next bootstrap for the dashboard client. Registers bundled JSON
  * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`),
- * Korean (`ko`), and Spanish (`es`), wires browser language detection, and
+ * Korean (`ko`), Spanish (`es`), and Brazilian Portuguese (`pt`), wires
+ * browser language detection, and
  * exports the configured singleton consumed by `react-i18next`.
  *
  * ## Namespaces
@@ -30,7 +31,7 @@
  * **Area:** client localization
  * **Responsibility:**
  * i18next bootstrap for the dashboard client. Registers bundled JSON locale files for English
- * (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`), wires browser
+ * (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), and Brazilian Portuguese (`pt`), wires browser
  * language detection, and exports the configured singleton consumed by `react-i18next` . ##
  * Namespaces Translations are split by feature area (`dashboard`, `sessions` , `settings` , etc.)
  * so pages import only the keys they need via `useTranslation("ns")` . `common` is the default
@@ -396,6 +397,21 @@ import ccConfig_es from "./locales/es/ccConfig.json";
 import run_es from "./locales/es/run.json";
 import alerts_es from "./locales/es/alerts.json";
 import splash_es from "./locales/es/splash.json";
+import common_pt from "./locales/pt/common.json";
+import nav_pt from "./locales/pt/nav.json";
+import dashboard_pt from "./locales/pt/dashboard.json";
+import sessions_pt from "./locales/pt/sessions.json";
+import activity_pt from "./locales/pt/activity.json";
+import analytics_pt from "./locales/pt/analytics.json";
+import workflows_pt from "./locales/pt/workflows.json";
+import settings_pt from "./locales/pt/settings.json";
+import kanban_pt from "./locales/pt/kanban.json";
+import errors_pt from "./locales/pt/errors.json";
+import updates_pt from "./locales/pt/updates.json";
+import ccConfig_pt from "./locales/pt/ccConfig.json";
+import run_pt from "./locales/pt/run.json";
+import alerts_pt from "./locales/pt/alerts.json";
+import splash_pt from "./locales/pt/splash.json";
 
 i18n
   .use(LanguageDetector)
@@ -487,8 +503,25 @@ i18n
         alerts: alerts_es,
         splash: splash_es,
       },
+      pt: {
+        common: common_pt,
+        nav: nav_pt,
+        dashboard: dashboard_pt,
+        sessions: sessions_pt,
+        activity: activity_pt,
+        analytics: analytics_pt,
+        workflows: workflows_pt,
+        settings: settings_pt,
+        kanban: kanban_pt,
+        errors: errors_pt,
+        updates: updates_pt,
+        ccConfig: ccConfig_pt,
+        run: run_pt,
+        alerts: alerts_pt,
+        splash: splash_pt,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko", "es"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es", "pt"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [

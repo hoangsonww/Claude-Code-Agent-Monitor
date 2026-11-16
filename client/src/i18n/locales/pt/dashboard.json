@@ -1,0 +1,31 @@
+{
+  "title": "Painel",
+  "subtitle": "Visão em tempo real da atividade dos agentes",
+  "totalSessions": "Total de sessões",
+  "activeAgents": "Agentes ativos",
+  "activeSubagents": "Subagentes ativos",
+  "eventsToday": "Eventos hoje",
+  "totalEvents": "Total de eventos",
+  "totalCost": "Custo estimado da API",
+  "costInfoLabel": "Sobre a estimativa de custo da API",
+  "viewBoard": "Ver quadro",
+  "viewAll": "Ver tudo",
+  "activeAgentsSection": "Agentes ativos",
+  "recentActivity": "Atividade recente",
+  "noAgents": "Nenhum agente ativo",
+  "noAgentsDesc": "Os agentes aparecem aqui quando uma sessão monitorada está rodando.",
+  "noActivity": "Nenhuma atividade ainda",
+  "noActivityDesc": "Os eventos das sessões monitoradas aparecem aqui em tempo real.",
+  "failedConnect": "Falha ao conectar ao servidor",
+  "failedLoad": "Falha ao carregar os dados",
+  "activeTrend": " ativos",
+  "totalTrend": " em sessões ativas",
+  "tabs": {
+    "monitor": "Monitor",
+    "health": "Saúde"
+  },
+  "costEstimate": "Estimativa equivalente à API, não é cobrança de assinatura.",
+  "costScope": "Fontes: {{sources}} · Produtos: {{providers}}",
+  "costIncomplete": "Estimativa incompleta: parte do uso não tem preço aplicável ({{models}}).",
+  "reviewRates": "Revisar preços"
+}

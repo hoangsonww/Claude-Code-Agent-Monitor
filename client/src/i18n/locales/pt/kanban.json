@@ -1,0 +1,45 @@
+{
+  "title": "Quadro Kanban",
+  "subtitle": "Visão Kanban de todos os agentes por status",
+  "subtitleSessions": "Visão Kanban de todas as sessões por status",
+  "viewToggle": {
+    "agents": "Agentes",
+    "sessions": "Sessões"
+  },
+  "noAgents": "Nenhum agente acompanhado ainda",
+  "noAgentsDesc": "Inicie uma sessão de agente monitorada com os hooks instalados para ver os agentes aqui.",
+  "agentCount_one": "{{count}} agente acompanhado",
+  "agentCount_other": "{{count}} agentes acompanhados",
+  "noAgentsInColumn": "Nenhum agente",
+  "noSessions": "Nenhuma sessão acompanhada ainda",
+  "noSessionsDesc": "Inicie uma sessão de agente monitorada com os hooks instalados para ver as sessões aqui.",
+  "sessionCount_one": "{{count}} sessão acompanhada",
+  "sessionCount_other": "{{count}} sessões acompanhadas",
+  "noSessionsInColumn": "Nenhuma sessão",
+  "ran": "rodou ",
+  "running": "rodando ",
+  "session": {
+    "anonymous": "Sessão sem título",
+    "agentSummary_one": "{{count}} agente",
+    "agentSummary_other": "{{count}} agentes",
+    "subagentSummary_one": "{{count}} subagente",
+    "subagentSummary_other": "{{count}} subagentes",
+    "turnSummary_one": "{{count}} turno",
+    "turnSummary_other": "{{count}} turnos"
+  },
+  "tooltip": {
+    "agent": {
+      "working": "O agente está processando trabalho agora.\n\nEle volta para Aguardando quando este turno terminar.",
+      "waiting": "O agente terminou o turno ou precisa de uma resposta humana, como aprovar uma permissão.\n\nEle volta a trabalhar quando a sessão continuar.",
+      "completed": "O agente encerrou de vez nesta sessão.\n\nNenhuma atividade nova será registrada para este agente.",
+      "error": "O agente registrou um erro e não vai continuar até a sessão ser retomada ou tentada de novo."
+    },
+    "session": {
+      "active": "A sessão está no meio de um turno — um agente está trabalhando e o usuário não está bloqueando nada. Esse estado é breve: a sessão volta para Aguardando quando o turno termina.",
+      "waiting": "A sessão está esperando por você. Um turno pode ter terminado, ou o agente pode precisar de permissão ou de uma entrada.\n\nProcure aqui as sessões que esperam sua resposta.",
+      "completed": "A sessão foi totalmente encerrada porque a CLI saiu normalmente ou ela foi fechada explicitamente.\n\nTodos os agentes desta sessão também estão concluídos.",
+      "error": "A sessão terminou com erro — uma falha irrecuperável ou um erro da API interrompeu a execução.",
+      "abandoned": "A sessão ficou parada sem um sinal de saída normal. É marcada como abandonada após 5+ minutos sem atividade (por exemplo depois de /resume, queda de rede ou CLI encerrada à força). Diferente de Concluída: nenhuma saída real foi observada."
+    }
+  }
+}
