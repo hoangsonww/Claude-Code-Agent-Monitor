@@ -262,6 +262,31 @@ describe("Antigravity (agy) review follow-ups", () => {
     );
   });
 
+  it("clears the main agent's ended_at when a completed conversation resumes", async () => {
+    const RESUME_ID = "cccccccc-dddd-4eee-8fff-000000000000";
+    writeTranscript(RESUME_ID, [
+      { type: "USER_INPUT", content: "Old work", created_at: "2026-11-01T10:00:00Z" },
+    ]);
+    await ingest.syncAgySessions(dbModule);
+    // A later (still old) update is what stamps ended_at on the main agent.
+    appendTranscript(RESUME_ID, [
+      { type: "USER_INPUT", content: "Old follow-up", created_at: "2026-11-01T10:05:00Z" },
+    ]);
+    await ingest.syncAgySessions(dbModule);
+    const done = dbModule.stmts.getAgent.get(`${RESUME_ID}-main`);
+    assert.equal(done.status, "completed");
+    assert.ok(done.ended_at, "completed agent should carry ended_at");
+
+    appendTranscript(RESUME_ID, [
+      { type: "USER_INPUT", content: "Back at it", created_at: new Date().toISOString() },
+    ]);
+    await ingest.syncAgySessions(dbModule);
+    assert.equal(dbModule.stmts.getSession.get(RESUME_ID).status, "active");
+    const resumed = dbModule.stmts.getAgent.get(`${RESUME_ID}-main`);
+    assert.equal(resumed.status, "working");
+    assert.equal(resumed.ended_at, null);
+  });
+
   it("follows index renames and keeps tracking them, but never a manual name", async () => {
     setIndexTitle(CONV_ID, "Dark theme v2");
     await ingest.syncAgySessions(dbModule);

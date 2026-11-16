@@ -307,6 +307,9 @@ function ingestAgyConversation(dbModule, conversationId, summary = null, options
         null,
         mainId
       );
+      // updateAgent keeps ended_at via COALESCE, so a resumed conversation
+      // would stay "working" with its old completion time. Clear it.
+      if (recent) stmts.reactivateAgent.run(mainId);
     }
 
     const fromPrompt = Number(meta.agy_prompts) || 0;
