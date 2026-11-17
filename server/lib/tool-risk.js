@@ -166,36 +166,110 @@ const CREDENTIAL_RULES = Object.freeze([
 const NETWORK_COMMAND_RE =
   /\b(?:curl|wget|nc|ncat|netcat|ssh|scp|sftp|rsync|ftp|telnet|iwr|irm|invoke-webrequest|invoke-restmethod)\b/;
 const URL_RE = /\bhttps?:\/\/[^\s"'<>|;)]+/gi;
+// `scp`/`sftp`/`rsync` name a remote as `[user@]host:path`. `ssh` never does, so it
+// is handled by parseSsh() instead.
 const SCP_HOST_RE =
-  /\b(?:ssh|scp|sftp|rsync)\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}):/i;
-// Plain `ssh [opts] [user@]host [command]` — no `host:path` colon, so SCP_HOST_RE
-// misses it. sshDestinations() parses the argv: options (and the values of the
-// options that take one) are skipped, the first positional argument is the
-// destination, and everything after it is the remote command — never a host.
-const SSH_INVOCATION_RE = /(?:^|[\s(`&|;])ssh\s+([^\n|;&]*)/gi;
+  /\b(?:scp|sftp|rsync)\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}):/i;
+// Plain `ssh [opts] [user@]host [command]`. parseSsh() tokenizes the argv the way a
+// POSIX shell would (quotes and backslash escapes, without executing anything):
+// options (and the values of the options that take one) are skipped, the first
+// positional argument is the destination, and everything after it is the remote
+// command — it runs on the remote host, so it is never a local egress destination.
+const SSH_START_RE = /(?:^|[\s(`&|;])ssh(?=\s)/gi;
 const SSH_OPTS_WITH_VALUE = new Set("BbcDEeFIiJLlmOoPpQRSWw".split(""));
 const HOST_SHAPE_RE = /^(?:[a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})$/i;
 
-/** Destination hosts of every `ssh` invocation in a command line. */
-function sshDestinations(command) {
+/**
+ * Shell-style word splitting from `from`, stopping at an unquoted `|`, `;`, `&` or
+ * newline. Returns the words (quotes removed) with their [start, end) offsets in
+ * `command`, plus the offset where the simple command ends.
+ */
+function shellWords(command, from) {
+  const words = [];
+  let i = from;
+  let word = null;
+  let start = 0;
+  const close = (end) => {
+    if (word !== null) words.push({ text: word, start, end });
+    word = null;
+  };
+  while (i < command.length) {
+    const c = command[i];
+    if (c === "'" || c === '"') {
+      if (word === null) {
+        word = "";
+        start = i;
+      }
+      const q = c;
+      i++;
+      while (i < command.length && command[i] !== q) {
+        if (q === '"' && command[i] === "\\" && i + 1 < command.length) i++;
+        word += command[i++];
+      }
+      i++; // closing quote (or end of string)
+      continue;
+    }
+    if (c === "\\" && i + 1 < command.length) {
+      if (word === null) {
+        word = "";
+        start = i;
+      }
+      word += command[i + 1];
+      i += 2;
+      continue;
+    }
+    if (c === "\n" || c === "|" || c === ";" || c === "&") break;
+    if (/\s/.test(c)) {
+      close(i);
+      i++;
+      continue;
+    }
+    if (word === null) {
+      word = "";
+      start = i;
+    }
+    word += c;
+    i++;
+  }
+  close(i);
+  return { words, end: i };
+}
+
+/**
+ * Every `ssh` invocation in a command line: the destination hosts, and the
+ * [start, end) spans of the remote commands (which must not be scanned for
+ * local egress).
+ */
+function parseSsh(command) {
   const hosts = [];
-  for (const m of command.matchAll(SSH_INVOCATION_RE)) {
-    const args = m[1].trim().split(/\s+/).filter(Boolean);
-    for (let k = 0; k < args.length; k++) {
-      const arg = args[k].replace(/^["']|["']$/g, "");
+  const remote = [];
+  for (const m of command.matchAll(SSH_START_RE)) {
+    const { words, end } = shellWords(command, m.index + m[0].length);
+    for (let k = 0; k < words.length; k++) {
+      const arg = words[k].text;
       if (arg === "--") continue;
       if (arg.startsWith("-") && arg.length > 1) {
-        // `-p 22` takes the next token; `-p22` / `-oFoo=bar` carry it inline.
+        // `-p 22` takes the next word; `-p22` / `-oFoo=bar` carry it inline.
         if (arg.length === 2 && SSH_OPTS_WITH_VALUE.has(arg[1])) k++;
         continue;
       }
       let host = arg.replace(/^ssh:\/\//i, "").replace(/^[^@]*@/, "");
       host = host.replace(/:\d+$/, "");
       if (HOST_SHAPE_RE.test(host)) hosts.push(host.toLowerCase());
-      break; // first positional argument is the destination; the rest is the remote command
+      // first positional argument is the destination; the rest is the remote command
+      if (words[k].end < end) remote.push([words[k].end, end]);
+      break;
     }
   }
-  return hosts;
+  return { hosts, remote };
+}
+
+/** `command` with the given [start, end) spans blanked out (offsets preserved). */
+function blankSpans(command, spans) {
+  if (!spans.length) return command;
+  const chars = command.split("");
+  for (const [s, e] of spans) for (let i = s; i < e; i++) chars[i] = " ";
+  return chars.join("");
 }
 
 /** Write targets that are sensitive even when inside nothing in particular. */
@@ -343,13 +417,17 @@ function classifyCommand(command, out, seen) {
   }
   if (NETWORK_COMMAND_RE.test(lower)) {
     const hosts = new Set();
-    for (const url of command.match(URL_RE) || []) {
+    // An ssh remote command runs on the remote host: its URLs and host:path
+    // arguments are not egress from this machine, so they are blanked first.
+    const ssh = parseSsh(command);
+    const local = blankSpans(command, ssh.remote);
+    for (const url of local.match(URL_RE) || []) {
       const host = hostOf(url);
       if (host && !LOCAL_HOST_RE.test(host)) hosts.add(host);
     }
-    const scp = SCP_HOST_RE.exec(command);
+    const scp = SCP_HOST_RE.exec(local);
     if (scp && !LOCAL_HOST_RE.test(scp[1])) hosts.add(scp[1].toLowerCase());
-    for (const host of sshDestinations(command)) {
+    for (const host of ssh.hosts) {
       if (!LOCAL_HOST_RE.test(host)) hosts.add(host);
     }
     for (const host of hosts) {

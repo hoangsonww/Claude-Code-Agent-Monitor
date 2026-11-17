@@ -160,6 +160,29 @@ describe("tool-risk classifier", () => {
       bash("ssh ssh://deploy@build.example.net:2222").signals[0].host,
       "build.example.net"
     );
+    // A quoted option value with spaces is one argument, so the destination after it is found.
+    assert.equal(bash('ssh -i "/tmp/my key" ops.example.org').signals[0].host, "ops.example.org");
+    assert.equal(
+      bash("ssh -i '/tmp/my key' -p 22 ops.example.org").signals[0].host,
+      "ops.example.org"
+    );
+    assert.equal(bash("ssh -i /tmp/my\\ key ops.example.org").signals[0].host, "ops.example.org");
+    // The remote command runs on the remote host: host:port and URLs in it are not local egress.
+    assert.deepEqual(bash("ssh localhost echo build.example.net:123").signals, []);
+    assert.deepEqual(bash("ssh localhost curl https://build.example.net/x").signals, []);
+    assert.deepEqual(
+      bash("ssh ops.example.org 'scp a deploy@build.example.net:/srv'")
+        .signals.filter((x) => x.signal === "egress")
+        .map((x) => x.host),
+      ["ops.example.org"]
+    );
+    // ...but a command after the ssh invocation is local again.
+    assert.deepEqual(
+      bash("ssh localhost uptime; curl https://build.example.net/x")
+        .signals.filter((x) => x.signal === "egress")
+        .map((x) => x.host),
+      ["build.example.net"]
+    );
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);
   });
 
