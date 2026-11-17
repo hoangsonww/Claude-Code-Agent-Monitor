@@ -183,6 +183,27 @@ describe("tool-risk classifier", () => {
         .map((x) => x.host),
       ["build.example.net"]
     );
+    const egress = (cmd) =>
+      bash(cmd)
+        .signals.filter((x) => x.signal === "egress")
+        .map((x) => x.host);
+    // ...also after the `)` that closes a command substitution around the ssh call.
+    assert.deepEqual(egress('echo "$(ssh localhost uptime)"; curl https://build.example.net/x'), [
+      "build.example.net",
+    ]);
+    // A grouped option still consumes its value: `-vp 22` is verbose + port 22.
+    assert.deepEqual(egress("ssh -vp 22 ops.example.org"), ["ops.example.org"]);
+    // A $(...) or backtick substitution outside single quotes runs locally, before ssh.
+    assert.deepEqual(egress('ssh localhost "echo $(curl https://build.example.net/x)"'), [
+      "build.example.net",
+    ]);
+    assert.deepEqual(egress("ssh localhost echo `curl https://build.example.net/x`"), [
+      "build.example.net",
+    ]);
+    // ...but inside single quotes it is literal text for the remote shell.
+    assert.deepEqual(egress("ssh localhost 'echo $(curl https://build.example.net/x)'"), []);
+    // An ssh named in a remote command runs on that remote host: only the first hop counts.
+    assert.deepEqual(egress("ssh ops.example.org ssh build.example.net"), ["ops.example.org"]);
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);
   });
 

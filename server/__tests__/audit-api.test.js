@@ -18,6 +18,7 @@ process.env.DASHBOARD_DB_PATH = path.join(TMP, "dashboard.db");
 
 const { db } = require("../db");
 const { getToolRiskIndex, createToolRiskIndex } = require("../lib/tool-risk-index");
+const { RULESET_VERSION } = require("../lib/tool-risk");
 
 const insertSession = db.prepare("INSERT INTO sessions (id, name, cwd) VALUES (?, ?, ?)");
 const insertEvent = db.prepare(
@@ -191,7 +192,7 @@ describe("tool risk audit API", () => {
     assert.ok(lines[1].includes(`"'=cmd|`), lines[1]);
     const json = await get("/export?format=json&signal=privilege");
     assert.equal(json.body.events.length, 2);
-    assert.equal(json.body.ruleset_version, 1);
+    assert.equal(json.body.ruleset_version, RULESET_VERSION);
     // A finished index is reported as complete in both the body and a header, so
     // a partial export can never be mistaken for the full set (the "-partial"
     // filename suffix and leading CSV note appear only when incomplete).
@@ -223,6 +224,30 @@ describe("tool risk audit API", () => {
     db.prepare("DELETE FROM tool_risk_events").run();
     const state = getToolRiskIndex().refresh({ budgetMs: 10000 });
     assert.equal(state.complete, true);
+    assert.equal(db.prepare("SELECT COUNT(*) AS c FROM tool_risk_events").get().c, 6);
+  });
+
+  it("drops signals stored by an older ruleset and reclassifies from scratch", () => {
+    // an index built by ruleset 1 (before shell-aware ssh parsing) holds a stale egress row
+    const flagged = db.prepare("SELECT event_id FROM tool_risk_events LIMIT 1").get().event_id;
+    db.prepare(
+      "INSERT INTO tool_risk_signals (event_id, signal, severity, rule, match, host) VALUES (?, 'egress', 'low', 'network-command', 'stale.example.net', 'stale.example.net')"
+    ).run(flagged);
+    db.prepare("UPDATE tool_risk_state SET value = '1' WHERE key = 'ruleset_version'").run();
+
+    const state = getToolRiskIndex().refresh({ budgetMs: 10000 });
+    assert.equal(state.complete, true);
+    assert.equal(RULESET_VERSION, 2);
+    assert.equal(
+      db.prepare("SELECT value FROM tool_risk_state WHERE key = 'ruleset_version'").get().value,
+      String(RULESET_VERSION)
+    );
+    assert.equal(
+      db
+        .prepare("SELECT COUNT(*) AS c FROM tool_risk_signals WHERE host = 'stale.example.net'")
+        .get().c,
+      0
+    );
     assert.equal(db.prepare("SELECT COUNT(*) AS c FROM tool_risk_events").get().c, 6);
   });
 
@@ -271,7 +296,7 @@ describe("tool risk audit API", () => {
 
   it("describes the built-in ruleset", async () => {
     const { body } = await get("/rules");
-    assert.equal(body.ruleset_version, 1);
+    assert.equal(body.ruleset_version, RULESET_VERSION);
     assert.ok(body.rules.some((r) => r.id === "pipe-to-shell" && r.severity === "critical"));
     assert.ok(body.rules.every((r) => body.signals.includes(r.signal)));
   });

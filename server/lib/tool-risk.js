@@ -12,7 +12,7 @@
 const path = require("path");
 
 /** Bump whenever a rule changes so the derived audit index is rebuilt. */
-const RULESET_VERSION = 1;
+const RULESET_VERSION = 2; // 2: shell-aware ssh parsing (remote commands are not local egress)
 
 const SIGNALS = Object.freeze([
   "privilege",
@@ -171,104 +171,178 @@ const URL_RE = /\bhttps?:\/\/[^\s"'<>|;)]+/gi;
 const SCP_HOST_RE =
   /\b(?:scp|sftp|rsync)\b[^\n|;]*?\s(?:[\w.-]+@)?([a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}):/i;
 // Plain `ssh [opts] [user@]host [command]`. parseSsh() tokenizes the argv the way a
-// POSIX shell would (quotes and backslash escapes, without executing anything):
-// options (and the values of the options that take one) are skipped, the first
-// positional argument is the destination, and everything after it is the remote
-// command — it runs on the remote host, so it is never a local egress destination.
+// POSIX shell would (quotes, backslash escapes and command substitutions, without
+// executing anything): options (and the values of the options that take one, also
+// inside a group like `-vp 22`) are skipped, the first positional argument is the
+// destination, and everything after it is the remote command — it runs on the remote
+// host, so it is never a local egress destination. The exception is a `$(...)` or
+// backtick substitution outside single quotes: the local shell runs it before ssh
+// starts, so it stays visible to the egress scan.
 const SSH_START_RE = /(?:^|[\s(`&|;])ssh(?=\s)/gi;
 const SSH_OPTS_WITH_VALUE = new Set("BbcDEeFIiJLlmOoPpQRSWw".split(""));
 const HOST_SHAPE_RE = /^(?:[a-z0-9][\w.-]*\.[a-z]{2,}|\d{1,3}(?:\.\d{1,3}){3})$/i;
 
+/** Offset of the `)` closing the `$(` whose `(` is at `open` (quote-aware, nested). */
+function closeSubstitution(command, open) {
+  let depth = 1;
+  let quote = null;
+  for (let j = open + 1; j < command.length; j++) {
+    const c = command[j];
+    if (quote) {
+      if (c === "\\" && quote === '"') j++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') quote = c;
+    else if (c === "\\") j++;
+    else if (c === "(") depth++;
+    else if (c === ")" && --depth === 0) return j;
+  }
+  return command.length - 1;
+}
+
+/** Offset of the backtick closing the one at `open`. */
+function closeBacktick(command, open) {
+  for (let j = open + 1; j < command.length; j++) {
+    if (command[j] === "\\") j++;
+    else if (command[j] === "`") return j;
+  }
+  return command.length - 1;
+}
+
 /**
- * Shell-style word splitting from `from`, stopping at an unquoted `|`, `;`, `&` or
- * newline. Returns the words (quotes removed) with their [start, end) offsets in
- * `command`, plus the offset where the simple command ends.
+ * Shell-style word splitting from `from`, stopping at an unquoted `|`, `;`, `&`,
+ * `)` (end of an enclosing substitution or subshell) or newline. Returns the words
+ * (quotes removed) with their [start, end) offsets in `command`, the offset where
+ * the simple command ends, and the [start, end) spans of the `$(...)` / backtick
+ * substitutions the local shell would evaluate (those outside single quotes).
  */
 function shellWords(command, from) {
   const words = [];
+  const subs = [];
   let i = from;
   let word = null;
   let start = 0;
+  const open = () => {
+    if (word === null) {
+      word = "";
+      start = i;
+    }
+  };
   const close = (end) => {
     if (word !== null) words.push({ text: word, start, end });
     word = null;
   };
+  // `$(` or a backtick at `i`: record the substitution, add its text, return the next offset
+  const substitution = () => {
+    const end = command[i] === "`" ? closeBacktick(command, i) : closeSubstitution(command, i + 1);
+    subs.push([i, end + 1]);
+    word += command.slice(i, end + 1);
+    return end + 1;
+  };
   while (i < command.length) {
     const c = command[i];
-    if (c === "'" || c === '"') {
-      if (word === null) {
-        word = "";
-        start = i;
-      }
-      const q = c;
+    if (c === "'") {
+      open();
+      const end = command.indexOf("'", i + 1);
+      const stop = end === -1 ? command.length : end;
+      word += command.slice(i + 1, stop);
+      i = stop + 1; // literal: nothing inside single quotes is evaluated
+      continue;
+    }
+    if (c === '"') {
+      open();
       i++;
-      while (i < command.length && command[i] !== q) {
-        if (q === '"' && command[i] === "\\" && i + 1 < command.length) i++;
-        word += command[i++];
+      while (i < command.length && command[i] !== '"') {
+        if (command[i] === "\\" && i + 1 < command.length) {
+          word += command[i + 1];
+          i += 2;
+        } else if ((command[i] === "$" && command[i + 1] === "(") || command[i] === "`") {
+          i = substitution();
+        } else {
+          word += command[i++];
+        }
       }
       i++; // closing quote (or end of string)
       continue;
     }
     if (c === "\\" && i + 1 < command.length) {
-      if (word === null) {
-        word = "";
-        start = i;
-      }
+      open();
       word += command[i + 1];
       i += 2;
       continue;
     }
-    if (c === "\n" || c === "|" || c === ";" || c === "&") break;
+    if ((c === "$" && command[i + 1] === "(") || c === "`") {
+      open();
+      i = substitution();
+      continue;
+    }
+    if (c === "\n" || c === "|" || c === ";" || c === "&" || c === ")") break;
     if (/\s/.test(c)) {
       close(i);
       i++;
       continue;
     }
-    if (word === null) {
-      word = "";
-      start = i;
-    }
+    open();
     word += c;
     i++;
   }
   close(i);
-  return { words, end: i };
+  return { words, end: i, subs };
 }
 
+const inSpan = (pos, spans) => spans.some(([s, e]) => pos >= s && pos < e);
+
 /**
- * Every `ssh` invocation in a command line: the destination hosts, and the
- * [start, end) spans of the remote commands (which must not be scanned for
- * local egress).
+ * Every `ssh` invocation in a command line: the destination hosts, the [start, end)
+ * spans of the remote commands (which must not be scanned for local egress), and
+ * the spans inside them that the local shell still evaluates (substitutions).
  */
 function parseSsh(command) {
   const hosts = [];
   const remote = [];
+  const local = [];
   for (const m of command.matchAll(SSH_START_RE)) {
-    const { words, end } = shellWords(command, m.index + m[0].length);
+    const at = m.index + m[0].length - 3; // the "ssh" word itself
+    // an ssh named inside an earlier remote command runs on that remote host
+    if (inSpan(at, remote) && !inSpan(at, local)) continue;
+    const { words, end, subs } = shellWords(command, m.index + m[0].length);
     for (let k = 0; k < words.length; k++) {
       const arg = words[k].text;
       if (arg === "--") continue;
       if (arg.startsWith("-") && arg.length > 1) {
-        // `-p 22` takes the next word; `-p22` / `-oFoo=bar` carry it inline.
-        if (arg.length === 2 && SSH_OPTS_WITH_VALUE.has(arg[1])) k++;
+        // `-p 22` and `-vp 22` take the next word; `-p22` / `-oFoo=bar` carry it inline.
+        const group = arg.slice(1);
+        for (let g = 0; g < group.length; g++) {
+          if (SSH_OPTS_WITH_VALUE.has(group[g])) {
+            if (g === group.length - 1) k++;
+            break;
+          }
+        }
         continue;
       }
       let host = arg.replace(/^ssh:\/\//i, "").replace(/^[^@]*@/, "");
       host = host.replace(/:\d+$/, "");
       if (HOST_SHAPE_RE.test(host)) hosts.push(host.toLowerCase());
       // first positional argument is the destination; the rest is the remote command
-      if (words[k].end < end) remote.push([words[k].end, end]);
+      const from = words[k].end;
+      if (from < end) {
+        remote.push([from, end]);
+        for (const s of subs) if (s[0] >= from) local.push(s);
+      }
       break;
     }
   }
-  return { hosts, remote };
+  return { hosts, remote, local };
 }
 
-/** `command` with the given [start, end) spans blanked out (offsets preserved). */
-function blankSpans(command, spans) {
+/** `command` with the [start, end) spans blanked out, except the `keep` spans (offsets preserved). */
+function blankSpans(command, spans, keep = []) {
   if (!spans.length) return command;
   const chars = command.split("");
-  for (const [s, e] of spans) for (let i = s; i < e; i++) chars[i] = " ";
+  for (const [s, e] of spans) {
+    for (let i = s; i < e; i++) if (!inSpan(i, keep)) chars[i] = " ";
+  }
   return chars.join("");
 }
 
@@ -420,7 +494,7 @@ function classifyCommand(command, out, seen) {
     // An ssh remote command runs on the remote host: its URLs and host:path
     // arguments are not egress from this machine, so they are blanked first.
     const ssh = parseSsh(command);
-    const local = blankSpans(command, ssh.remote);
+    const local = blankSpans(command, ssh.remote, ssh.local);
     for (const url of local.match(URL_RE) || []) {
       const host = hostOf(url);
       if (host && !LOCAL_HOST_RE.test(host)) hosts.add(host);
