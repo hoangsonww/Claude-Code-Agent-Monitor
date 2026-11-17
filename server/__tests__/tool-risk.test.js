@@ -202,6 +202,13 @@ describe("tool-risk classifier", () => {
     ]);
     // ...but inside single quotes it is literal text for the remote shell.
     assert.deepEqual(egress("ssh localhost 'echo $(curl https://build.example.net/x)'"), []);
+    // Process substitutions run locally too.
+    assert.deepEqual(egress("ssh localhost cat <(curl https://build.example.net/x)"), [
+      "build.example.net",
+    ]);
+    assert.deepEqual(egress("ssh localhost tee >(curl -T - https://build.example.net/up)"), [
+      "build.example.net",
+    ]);
     // An ssh named in a remote command runs on that remote host: only the first hop counts.
     assert.deepEqual(egress("ssh ops.example.org ssh build.example.net"), ["ops.example.org"]);
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);

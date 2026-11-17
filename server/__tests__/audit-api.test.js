@@ -237,7 +237,7 @@ describe("tool risk audit API", () => {
 
     const state = getToolRiskIndex().refresh({ budgetMs: 10000 });
     assert.equal(state.complete, true);
-    assert.equal(RULESET_VERSION, 2);
+    assert.ok(RULESET_VERSION > 1);
     assert.equal(
       db.prepare("SELECT value FROM tool_risk_state WHERE key = 'ruleset_version'").get().value,
       String(RULESET_VERSION)

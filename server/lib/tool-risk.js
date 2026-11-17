@@ -12,7 +12,7 @@
 const path = require("path");
 
 /** Bump whenever a rule changes so the derived audit index is rebuilt. */
-const RULESET_VERSION = 2; // 2: shell-aware ssh parsing (remote commands are not local egress)
+const RULESET_VERSION = 3; // 2: shell-aware ssh parsing (remote commands are not local egress); 3: process substitutions run locally
 
 const SIGNALS = Object.freeze([
   "privilege",
@@ -233,7 +233,7 @@ function shellWords(command, from) {
     if (word !== null) words.push({ text: word, start, end });
     word = null;
   };
-  // `$(` or a backtick at `i`: record the substitution, add its text, return the next offset
+  // `$(`, `<(`, `>(` or a backtick at `i`: record the substitution, add its text, return the next offset
   const substitution = () => {
     const end = command[i] === "`" ? closeBacktick(command, i) : closeSubstitution(command, i + 1);
     subs.push([i, end + 1]);
@@ -272,7 +272,8 @@ function shellWords(command, from) {
       i += 2;
       continue;
     }
-    if ((c === "$" && command[i + 1] === "(") || c === "`") {
+    // `$(...)`, backticks and (unquoted only) process substitutions `<(...)` / `>(...)`
+    if (((c === "$" || c === "<" || c === ">") && command[i + 1] === "(") || c === "`") {
       open();
       i = substitution();
       continue;
