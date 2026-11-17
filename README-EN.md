@@ -301,7 +301,7 @@ The responsive dark interface covers the full workflow. Every preview uses a mob
   <em>⌘ <strong>Command Palette</strong> · one keyboard launcher for pages, sessions, projects, filters, and actions</em>
 </p>
 
-The sidebar links Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, and Settings. The sections below describe the complete behavior behind these views.
+The sidebar links Dashboard, Kanban Board, Sessions, Activity Feed, Tool Risk Audit, Analytics, Workflows, Agent Config, Run Agent, and Settings. The sections below describe the complete behavior behind these views.
 
 ---
 
@@ -317,6 +317,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Sessions** | Searchable, filterable, server-paginated history with visible-page cost calculation and a temporary in-memory Codex startup row. Its provider selector narrows to Claude Code, Cursor, or Codex while respecting the product scope chosen in onboarding or Settings. Search covers `id`, `name`, and `cwd` with a 300 ms debounce. Names resolve from explicit title, AI title, then the first meaningful user prompt. Cursor replaces a temporary first-prompt fallback with the native generated title only when ingestion metadata proves CCAM owns the current name; manual and ambiguous legacy names remain unchanged. |
 | **Session Detail** | Live stats, active work, tool usage, subagents, tokens, hierarchy, filtered event timelines, `tool_use_id` grouping, and tool-specific renderers. Conversation view renders queued turns, system notices, Markdown, highlighted code, and styled tools; waiting banners show the reason and elapsed time. |
 | **Activity Feed** | Pausable real-time events with shared filters, server pagination, grouping, project/session/subagent origin, session links, and consistent Claude/Codex status badges. |
+| **Tool Risk Audit** | Read-only security lens over executed tool calls (`/audit`). A declarative ruleset flags privilege escalation (`sudo`, `chmod 777`), destructive commands (`rm -rf`, `git push --force`, `DROP TABLE`), remote code execution (`curl … \| sh`, unpinned `npx`), credential access (`.env`, `~/.ssh`, `*.pem`), network egress grouped by host, and writes outside the session's project. Each row shows its severity and the exact matched text, opens the full stored event, and exports to CSV/JSON; calls with no stored input are checked by summary and counted as such. Never blocks or alters tool execution. |
 | **Analytics** | Model tokens, tool frequency, Sunday-aligned activity heatmaps, session trends, connection state, layout-matched loading skeletons, and paged long legends. |
 | **Command Palette** | `Cmd/Ctrl+K` searches recent commands, all routes, live server-side sessions, page actions, project directories, subviews, filters, Settings, Agent Config, preferences, scope, and language. It supports subsequence ranking, `>`/`@`/`#` scopes, full keyboard control, translated labels, quiet search failure, and navigation-only handling for destructive actions. |
 | **One Shortcut** | `Cmd/Ctrl+K` is the sole global dashboard chord, including inside fields. Removed multi-key navigation avoids hidden modes; Tabby retains `Cmd/Ctrl+B`. |
@@ -691,6 +692,7 @@ ccam workflows [session <id>]         # workflow intelligence + patterns
 ccam runs [list|get <run-id>]         # Workflow-tool runs
 ccam run list|history|start|follow|send|stop …   # dashboard-launched agents
 ccam cost [--session id] [--daily]    # per-model cost, surcharges, unpriced models
+ccam audit [--since 7d] [--severity high] [--signal destructive,…]   # Tool Risk Audit
 
 # Alerts & webhooks
 ccam alerts [--unacked] | ack <id> | ack-all
@@ -1157,6 +1159,18 @@ npm run openapi:yaml
 | `POST`   | `/api/alerts/rules`      | Create a rule (`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
 | `PATCH`  | `/api/alerts/rules/:id`  | Update name / config / enabled / cooldown (rule type is immutable)     |
 | `DELETE` | `/api/alerts/rules/:id`  | Delete a rule and its fired-alert history                              |
+
+### Tool Risk Audit
+
+Read-only; every request first advances the incremental risk index within a small time budget.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/audit/tools` | Flagged tool calls, newest first, with matched signals (`signal`, `severity`, `min_severity`, `session_id`, `project`, `host`, `q`, `from`, `to`, `limit`, `offset`) |
+| `GET` | `/api/audit/tools/:eventId` | Full stored event behind one flagged call |
+| `GET` | `/api/audit/summary` | Counts per severity, signal, project and egress host (same filters) |
+| `GET` | `/api/audit/export` | Filtered rows as `?format=csv` (formula-injection safe) or `json`, up to 10,000 |
+| `GET` | `/api/audit/rules` | The built-in ruleset with each rule's signal and severity |
 
 ### Webhooks
 
@@ -1983,6 +1997,7 @@ graph LR
     S["/sessions"] --> SESS["Sessions<br/>server-paginated table"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
+    AU["/audit"] --> AUDIT["Audit<br/>tool risk lens + export"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 visualizations + drill-in"]
     CC["/cc-config"] --> CCCONFIG["CcConfig<br/>12-tab Claude Code config inspector + editor"]
@@ -2223,6 +2238,7 @@ agent-dashboard/
 |           |-- Sessions.tsx       # Server-paginated sessions table
 |           |-- SessionDetail.tsx  # Single session deep dive
 |           |-- ActivityFeed.tsx   # Real-time event stream
+|           |-- Audit.tsx          # Read-only Tool Risk Audit
 |           |-- Analytics.tsx      # Token usage, heatmap, trends
 |           |-- Workflows.tsx      # D3.js workflow visualizations and session drill-in
 |           |-- Settings.tsx       # Model pricing, notifications, hooks, export, cleanup

@@ -48,6 +48,13 @@ if (!fs.existsSync(DB_PATH)) {
 const db = new Database(DB_PATH);
 db.pragma("foreign_keys = OFF");
 
+// This script opens the database file directly (not through server/db.js), so an
+// older database may predate the Tool Risk Audit tables. Guard every derived-table
+// delete behind an existence check so cleanup still completes on such databases.
+const hasTable = (name) =>
+  !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+const TOOL_RISK_TABLES = ["tool_risk_signals", "tool_risk_events", "tool_risk_state"];
+
 const counts = {
   token_usage: db.prepare("SELECT COUNT(*) as n FROM token_usage").get()?.n ?? 0,
   events: db.prepare("SELECT COUNT(*) as n FROM events").get()?.n ?? 0,
@@ -105,6 +112,22 @@ if (DEMO_ONLY) {
   ];
   const placeholders = FIXTURE_SESSION_IDS.map(() => "?").join(",");
   const tx = db.transaction(() => {
+    // Remove the Tool Risk Audit rows derived from these fixture events before
+    // the events themselves. Foreign keys are OFF here, so the ON DELETE CASCADE
+    // does not fire — delete the derived rows explicitly, scoped to the fixture
+    // sessions so unrelated history and the scan watermark (tool_risk_state) stay
+    // intact. Signals go first because they are matched via tool_risk_events.
+    if (hasTable("tool_risk_signals") && hasTable("tool_risk_events")) {
+      db.prepare(
+        `DELETE FROM tool_risk_signals WHERE event_id IN (
+         SELECT event_id FROM tool_risk_events WHERE session_id IN (${placeholders}))`
+      ).run(...FIXTURE_SESSION_IDS);
+    }
+    if (hasTable("tool_risk_events")) {
+      db.prepare(`DELETE FROM tool_risk_events WHERE session_id IN (${placeholders})`).run(
+        ...FIXTURE_SESSION_IDS
+      );
+    }
     db.prepare(`DELETE FROM events WHERE session_id IN (${placeholders})`).run(
       ...FIXTURE_SESSION_IDS
     );
@@ -122,7 +145,22 @@ if (DEMO_ONLY) {
   );
 } else {
   console.log(`⚠️  Wiping ${totalRows.toLocaleString()} rows…`);
-  db.exec("DELETE FROM token_usage; DELETE FROM events; DELETE FROM agents; DELETE FROM sessions;");
+  // The Tool Risk Audit index (tool_risk_events/_signals/_state) is derived from
+  // events. Foreign keys are OFF, so the ON DELETE CASCADE does not fire — clear
+  // it explicitly, or flagged command/path targets, matches, and session IDs
+  // survive the wipe and stay queryable through the audit list/export APIs.
+  // Mirrors the /api/settings/clear-data endpoint in server/routes/settings.js.
+  // One transaction: if any delete fails, nothing is removed (no source rows
+  // gone while audit targets remain).
+  const wipe = db.transaction(() => {
+    db.exec(
+      "DELETE FROM token_usage; DELETE FROM events; DELETE FROM agents; DELETE FROM sessions;"
+    );
+    for (const t of TOOL_RISK_TABLES) {
+      if (hasTable(t)) db.exec(`DELETE FROM ${t}`);
+    }
+  });
+  wipe();
   console.log("Database cleared.");
 }
 

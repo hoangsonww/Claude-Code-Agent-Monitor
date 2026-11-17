@@ -301,7 +301,7 @@ La interfaz oscura y adaptable cubre todo el flujo de trabajo. Cada vista previa
   <em>⌘ <strong>Paleta de comandos</strong> · un iniciador de teclado para páginas, sesiones, proyectos, filtros y acciones</em>
 </p>
 
-La barra lateral enlaza Panel, Tablero Kanban, Sesiones, Feed de Actividad, Analíticas, Flujos, Configuración del agente, Ejecutar agente y Configuración. Las secciones siguientes describen el comportamiento completo detrás de estas vistas.
+La barra lateral enlaza Panel, Tablero Kanban, Sesiones, Feed de Actividad, Auditoría de riesgo, Analíticas, Flujos, Configuración del agente, Ejecutar agente y Configuración. Las secciones siguientes describen el comportamiento completo detrás de estas vistas.
 
 ---
 ## Características
@@ -316,6 +316,7 @@ El panel cubre todo el ciclo de vida de los agentes locales. Los contratos opera
 | **Sesiones** | Historial con búsqueda, filtros y paginación del servidor, cálculo del costo de la página visible y una fila temporal en memoria para el inicio de Codex. El selector de proveedor permite limitar a Claude Code, Cursor o Codex respetando el ámbito de producto elegido durante la incorporación o en Settings. La búsqueda cubre `id`, `name` y `cwd` con un debounce de 300 ms. Los nombres se obtienen del título explícito, el título de IA y, por último, el primer prompt relevante del usuario. El título nativo generado por Cursor solo sustituye el nombre provisional del primer prompt cuando los metadatos de ingestión demuestran que CCAM posee el nombre actual; los nombres manuales y los heredados de propiedad ambigua no cambian. |
 | **Detalles de la sesión** | Estadísticas en vivo, trabajo activo, uso de herramientas, subagentes, tokens, jerarquía, cronologías filtradas, agrupación por `tool_use_id` y renderizadores específicos por herramienta. La vista Conversación muestra turnos en cola, avisos del sistema, Markdown, código resaltado y herramientas con estilo. Los avisos de espera muestran el motivo y el tiempo transcurrido. |
 | **Feed de Actividad** | Eventos en tiempo real que se pueden pausar, con filtros compartidos, paginación del servidor, agrupación, origen por proyecto, sesión o subagente, enlaces a sesiones e insignias de estado coherentes para Claude y Codex. |
+| **Auditoría de riesgo** | Vista de seguridad de solo lectura sobre las llamadas a herramientas ya ejecutadas (`/audit`). Un conjunto de reglas declarativo marca escalada de privilegios (`sudo`, `chmod 777`), comandos destructivos (`rm -rf`, `git push --force`, `DROP TABLE`), ejecución remota de código (`curl … \| sh`, `npx` sin versión fija), acceso a credenciales (`.env`, `~/.ssh`, `*.pem`), salida de red agrupada por host y escrituras fuera del proyecto de la sesión. Cada fila muestra su gravedad y el texto exacto que coincidió, abre el evento completo almacenado y se exporta a CSV/JSON; las llamadas sin entrada guardada se revisan por su resumen y se cuentan aparte. Nunca bloquea ni modifica la ejecución de herramientas. |
 | **Analíticas** | Tokens por modelo, frecuencia de herramientas, mapas de calor de actividad alineados al domingo, tendencias de sesiones, estado de conexión, esqueletos de carga acordes al diseño y paginación de leyendas largas. |
 | **Paleta de comandos** | `Cmd/Ctrl+K` busca comandos recientes, todas las rutas, sesiones en vivo del servidor, acciones de página, directorios de proyectos, subvistas, filtros, Configuración, Configuración del agente, preferencias, alcance e idioma. Admite clasificación por subsecuencia, ámbitos `>`/`@`/`#`, control completo con teclado, etiquetas traducidas, fallo silencioso de búsqueda y solo navegación para las acciones destructivas. |
 | **Un solo atajo** | `Cmd/Ctrl+K` es la única combinación global del panel, incluso dentro de campos. La eliminación de la navegación con varias teclas evita modos ocultos. Tabby conserva `Cmd/Ctrl+B`. |
@@ -689,6 +690,7 @@ ccam workflows [session <id>]         # workflow intelligence + patterns
 ccam runs [list|get <run-id>]         # Workflow-tool runs
 ccam run list|history|start|follow|send|stop …   # dashboard-launched agents
 ccam cost [--session id] [--daily]    # per-model cost, surcharges, unpriced models
+ccam audit [--since 7d] [--severity high] [--signal destructive,…]   # auditoría de riesgo
 
 # Alerts & webhooks
 ccam alerts [--unacked] | ack <id> | ack-all
@@ -1147,6 +1149,18 @@ npm run openapi:yaml
 | `POST` | `/api/alerts/rules` | Crear una regla (`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
 | `PATCH` | `/api/alerts/rules/:id` | Actualizar nombre / configuración / habilitado / tiempo de espera (el tipo de regla es inmutable) |
 | `DELETE` | `/api/alerts/rules/:id` | Eliminar una regla y su historial de alertas activadas |
+
+### Auditoría de riesgo
+
+Solo lectura; cada solicitud primero avanza el índice de riesgo incremental dentro de un pequeño presupuesto de tiempo.
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/audit/tools` | Llamadas a herramientas marcadas, de la más reciente a la más antigua, con sus señales (`signal`, `severity`, `min_severity`, `session_id`, `project`, `host`, `q`, `from`, `to`, `limit`, `offset`) |
+| `GET` | `/api/audit/tools/:eventId` | Evento completo almacenado de una llamada marcada |
+| `GET` | `/api/audit/summary` | Recuentos por gravedad, señal, proyecto y host externo (mismos filtros) |
+| `GET` | `/api/audit/export` | Filas filtradas como `?format=csv` (a salvo de inyección de fórmulas) o `json`, hasta 10.000 |
+| `GET` | `/api/audit/rules` | El conjunto de reglas integrado con la señal y la gravedad de cada regla |
 
 ### Webhooks
 
@@ -1968,6 +1982,7 @@ graph LR
     S["/sessions"] --> SESS["Sessions<br/>server-paginated table"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
+    AU["/audit"] --> AUDIT["Audit<br/>vista de riesgo + exportación"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 visualizations + drill-in"]
     CC["/cc-config"] --> CCCONFIG["CcConfig<br/>12-tab Claude Code config inspector + editor"]
@@ -2207,6 +2222,7 @@ agent-dashboard/
 |           |-- Sessions.tsx       # Server-paginated sessions table
 |           |-- SessionDetail.tsx  # Single session deep dive
 |           |-- ActivityFeed.tsx   # Real-time event stream
+|           |-- Audit.tsx          # Auditoría de riesgo de solo lectura
 |           |-- Analytics.tsx      # Token usage, heatmap, trends
 |           |-- Workflows.tsx      # D3.js workflow visualizations and session drill-in
 |           |-- Settings.tsx       # Model pricing, notifications, hooks, export, cleanup

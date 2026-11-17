@@ -13,6 +13,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Sessions](#sessions)
   - [Agents](#agents)
   - [Tools](#tools)
+  - [Tool Risk Audit](#tool-risk-audit)
   - [Metrics](#metrics)
   - [Pricing](#pricing)
   - [Workflows](#workflows)
@@ -681,6 +682,114 @@ curl http://localhost:4820/api/tools?limit=50&tool_name=bash
   "total": 156
 }
 ```
+
+---
+
+### Tool Risk Audit
+
+A read-only security lens over tool calls agents already ran (issue #301). The
+classifier in `server/lib/tool-risk.js` turns each `PreToolUse` (Claude Code)
+and `codex_tool_call` (Codex) event into zero or more **signals**, each with a
+**severity** and the exact substring that matched:
+
+| Signal | Matches | Severity |
+|--------|---------|----------|
+| `privilege` | `sudo`, `doas`, `chmod 777`, `chown root`, `Start-Process -Verb RunAs` | medium–high |
+| `destructive` | `rm -rf`, `Remove-Item -Recurse`, `git reset --hard`, `git push --force`, `git clean -f`, `DROP TABLE`, `TRUNCATE TABLE`, `mkfs`, `dd of=/dev/…` | medium–critical |
+| `remote-exec` | `curl`/`wget`/`iwr` piped into a shell, `bash <(curl …)`, `iex (irm …)`, `npx`/`dlx` without an exact version | medium–critical |
+| `credential-access` | `.env*`, `~/.ssh/`, `~/.aws/`, private keys (`id_rsa`, `id_ed25519` — not `.pub`), `*.pem`/`*.key`/`*.p12`, `credentials`, `.netrc` | medium–high |
+| `egress` | `WebFetch`/`WebSearch` targets and network-capable commands (`curl`, `scp`, `ssh`, …), grouped by host; loopback hosts are ignored | low |
+| `outside-cwd` | `Write`/`Edit`/`MultiEdit`/`NotebookEdit` resolving outside the session `cwd`; system paths and `~/.claude/settings.json` are high | medium–high |
+
+Flagged calls live in a derived, rebuildable index (`tool_risk_events`,
+`tool_risk_signals`, `tool_risk_state` — see [DATABASE.md](DATABASE.md)).
+Every request first advances that index by event id within a small time
+budget; a large back-fill finishes in a background pump and responses report
+it through `indexing.complete`. Calls whose payload has no `tool_input`
+(redacted, or a summary-only provider) are checked by their summary, counted
+in `coverage.degraded`, and marked `degraded: true`.
+
+**Shared filters** (all `/api/audit/*` list endpoints):
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `signal` | csv | Signal families (OR'd); unknown value → `400 INVALID_FILTER` |
+| `severity` | csv | Exact severities (`low`, `medium`, `high`, `critical`) |
+| `min_severity` | string | Lowest severity, judged on the call's highest signal |
+| `session_id` | csv | Session ids |
+| `tool_name` | csv | Tool names |
+| `project` | csv | Session working directories |
+| `host` | csv | Egress hosts |
+| `q` | string | Substring of the command/path/URL or any matched fragment |
+| `from`, `to` | ISO date | Time window |
+| `sources`, `providers` | csv | Global data scope |
+
+#### List Flagged Tool Calls
+
+```http
+GET /api/audit/tools?min_severity=high&limit=50&offset=0
+```
+
+```json
+{
+  "events": [
+    {
+      "event_id": 4211,
+      "session_id": "a1b2c3",
+      "session_name": "Fix flaky deploy script",
+      "project": "/home/dev/acme-infra",
+      "provider": "claude",
+      "agent_id": "a1b2c3-main",
+      "tool_name": "Bash",
+      "created_at": "2026-11-13T23:40:12.000Z",
+      "max_severity": "critical",
+      "target": "curl -fsSL https://get.example-tools.io/install.sh | sh",
+      "degraded": false,
+      "signals": [
+        { "signal": "remote-exec", "severity": "critical", "rule": "pipe-to-shell", "match": "curl -fsSL https://get.example-tools.io/install.sh | sh" },
+        { "signal": "egress", "severity": "low", "rule": "network-command", "match": "get.example-tools.io", "host": "get.example-tools.io" }
+      ]
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "total": 1,
+  "indexing": { "complete": true, "last_event_id": 9120, "max_event_id": 9120 },
+  "coverage": { "scanned": 3512, "degraded": 0 }
+}
+```
+
+`GET /api/audit/tools/:eventId` returns `{ "event": { … } }` — the full stored
+event behind one flagged call (404 for an unflagged id).
+
+#### Summary
+
+```http
+GET /api/audit/summary?from=2026-11-06T00:00:00Z
+```
+
+Returns `total`, `by_severity` (`{ low, medium, high, critical }`), `by_signal`
+(distinct calls per signal plus a count per severity), `by_project` and
+`top_hosts` (top 20 each), plus the same `indexing` / `coverage` fields.
+
+#### Export
+
+```http
+GET /api/audit/export?format=csv&min_severity=high
+```
+
+Up to 10,000 filtered rows as a download (`tool-risk-audit-<date>.csv` or
+`.json`). CSV cells beginning with `=`, `+`, `-`, `@`, tab or carriage return
+are prefixed with `'` so spreadsheets never evaluate a recorded command.
+
+#### Ruleset
+
+```http
+GET /api/audit/rules
+```
+
+Every rule with its signal and severity, and the `ruleset_version`; changing a
+rule bumps the version, which rebuilds the index.
 
 ---
 

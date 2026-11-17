@@ -305,6 +305,7 @@ graph TD
     SESSIONS[routes/sessions.js<br/>Session CRUD]
     AGENTS[routes/agents.js<br/>Agent CRUD]
     EVENTS[routes/events.js<br/>Event listing]
+    AUDITR[routes/audit.js<br/>Tool Risk Audit]
     STATS[routes/stats.js<br/>Aggregate queries]
     PRICING[routes/pricing.js<br/>Cost calculation + pricing CRUD]
     SETTINGS[routes/settings.js<br/>System info + data management]
@@ -317,7 +318,7 @@ graph TD
 
     INDEX --> DB
     INDEX --> WS
-    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS & PRICING & SETTINGS & WORKFLOWS & ALERTSR & WEBHOOKSR
+    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & AUDITR & STATS & PRICING & SETTINGS & WORKFLOWS & ALERTSR & WEBHOOKSR
 
     HOOKS --> DB & WS & TC
     HOOKS --> ALERTS
@@ -331,6 +332,7 @@ graph TD
     SESSIONS --> DB & WS
     AGENTS --> DB & WS
     EVENTS --> DB
+    AUDITR --> DB
     STATS --> DB & WS
     PRICING --> DB
     WORKFLOWS --> DB
@@ -377,6 +379,7 @@ graph TD
 | `routes/sessions.js`      | Standard CRUD with pagination. GET includes agent count via LEFT JOIN and separates `has_token_usage` (durable usage buckets exist) from the computed cost, so a client never guesses coverage from a zero price. Optional `repo_remote_url` is a credential-free first-observed Git identity for clients mapping a repository across machine-local `cwd` paths. POST is idempotent on session ID. GET `/:id/transcript` also surfaces `custom-title` lines as synthetic `session_event` (rename) messages — deduped, with `ai-title` excluded — so TUI-only `/rename` (which writes no user/assistant turn) is still visible in the conversation viewer. It also surfaces `system`/`local_command` lines: newer Claude Code builds write a local slash command's invocation and captured output (`<command-name>`, `<local-command-stdout>`/`stderr`) as `system`/`local_command` entries with the TUI markup in a top-level `content` string (older builds used `user` messages), so the route re-emits those as user-side text and the client's `tuiSegments` parser renders the command pill + its output (e.g. `/color` → a `/color` pill plus "Session color set to: cyan"). Content-less `local_command` lines (e.g. `/clear`) and every other `system` subtype (`turn_duration`, `stop_hook_summary`, …) are dropped as noise |
 | `routes/agents.js`        | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`. Agent-list responses (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` via `pricing.attachAgentCosts` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (main agents get 0; their cost is the session total), so a subagent card shows only what that subagent spent rather than the session total |
 | `routes/events.js`        | Read-only event listing with session_id filter and pagination                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `routes/audit.js`         | Tool Risk Audit (read-only): `GET /api/audit/tools`, `/tools/:eventId`, `/summary`, `/export` (CSV/JSON) and `/rules` over the derived `tool_risk_*` index. `lib/tool-risk.js` is the declarative classifier; `lib/tool-risk-index.js` fills the index forward by event id in time-boxed windows plus a background pump |
 | `routes/stats.js`         | Single aggregate query returning total/active counts + status distributions                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `routes/metrics.js`       | Prometheus / OpenMetrics text-exposition endpoint (`GET /api/metrics`) — re-exposes the dashboard's live counters (sessions/agents by status, event + token totals, connected WebSocket clients, configured remote sources, process uptime/RSS, build version) in the v0.0.4 text format for scraping into Prometheus / Grafana. Read-only; reads the same `db.js` prepared statements the REST API uses, so numbers match the UI. Status series are enumerated so a gauge never drops out at zero. Mounted under `/api`, so it sits behind the Host-header (DNS-rebinding) guard and the optional `DASHBOARD_TOKEN` guard — a non-loopback scraper needs `DASHBOARD_ALLOWED_HOSTS` (+ token if set). A turnkey Prometheus + Grafana stack with four auto-provisioned dashboards lives in `monitoring/` (`npm run monitoring:up` or `npm run docker:full:up`) |
 | `monitoring/`             | Optional npm-managed or pinned-container Prometheus + Grafana stack that scrapes `GET /api/metrics`. Container paths use file-backed dashboard auth and Grafana admin credentials. The full Compose stack runs Prometheus 3.13.2 and Grafana 13.1.2 with four auto-provisioned dashboards. |
@@ -498,6 +501,7 @@ graph TD
     SESS["Sessions.tsx"]
     DETAIL["SessionDetail.tsx"]
     ACTIVITY["ActivityFeed.tsx"]
+    AUDIT_P["Audit.tsx"]
     SETTINGS_P["Settings.tsx"]
 
     ANALYTICS_P["Analytics.tsx"]
@@ -510,7 +514,7 @@ graph TD
     SHORTCUTS --> PALETTE
     SHORTCUTS --> TOAST
     PAGES_ANY["Any routed page"] -.->|usePaletteAction| SHORTCUTS
-    LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
+    LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & AUDIT_P & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
 
     DASH --> SC1["StatCard x6<br/>(sessions/agents/subagents/<br/>events today/total events/cost)<br/>3-column grid"]
     DASH --> AC1["AgentCard[]<br/>with collapsible subagent hierarchy"]
@@ -526,6 +530,7 @@ graph TD
     DETAIL --> CONV["ConversationView<br/>(MarkdownContent + CodeBlock<br/>+ ToolCallBlock per-tool styling)"]
     DETAIL --> TL["Event Timeline"]
     ACTIVITY --> FEED["Streaming Event List<br/>(click row → expand payload;<br/>Session btn → session detail)"]
+    AUDIT_P --> AUDITV["Tool Risk Audit<br/>(severity tiles + signal chips;<br/>flagged call → full event; CSV/JSON export)"]
     WORKFLOWS_P --> WFC["12 D3.js components<br/>(workflows/ directory)"]
 
     style APP fill:#6366f1,stroke:#818cf8,color:#fff
@@ -625,20 +630,21 @@ graph TD
         S[Sessions]
         SD[SessionDetail]
         AF[ActivityFeed]
+        AU[Audit]
         AN[Analytics]
         WF[Workflows]
         SET[Settings]
         NF[NotFound]
     end
 
-    APP --> D & K & S & SD & AF & AN & WF
-    D & K & S & SD & AF & AN & WF --> API
-    D & K & S & SD & AF & AN & WF --> EB
-    D & K & S & SD & AF & AN & WF --> FMT
+    APP --> D & K & S & SD & AF & AU & AN & WF
+    D & K & S & SD & AF & AU & AN & WF --> API
+    D & K & S & SD & AF & AU & AN & WF --> EB
+    D & K & S & SD & AF & AU & AN & WF --> FMT
     SET --> API
     SET --> EB
     SET --> FMT
-    D & K & S & AF & AN & WF --> DS
+    D & K & S & AF & AU & AN & WF --> DS
     DS --> API
     API --> TYPES
 
@@ -775,6 +781,7 @@ graph LR
     SESS_R["/sessions"] --> SESS[Sessions]
     DETAIL_R["/sessions/:id"] --> DETAIL[SessionDetail]
     ACT_R["/activity"] --> ACT[ActivityFeed]
+    AU_R["/audit"] --> AUP[Audit]
     AN_R["/analytics"] --> AN[Analytics]
     WF_R["/workflows"] --> WF[Workflows]
     CC_R["/cc-config"] --> CC[CcConfig]
@@ -792,6 +799,7 @@ graph LR
 | `/sessions`     | Sessions      | `GET /api/sessions?status=&q=&cwd={one-or-more repeated values}&providers={product-scope}&provider={claude\|cursor\|codex}&sort_by=&sort_desc=&include_transient=true&include_task_progress=true&limit=PAGE_SIZE&offset=page*PAGE_SIZE` — true server-side pagination. The singular `provider` filter intersects the plural global product scope. The selector offers only stored providers inside the product scope chosen in onboarding or Settings: Claude scope exposes Claude Code + Cursor, Codex scope exposes Codex, and Both exposes all three. `include_transient` is sent only for page zero and prepends the local in-memory Codex startup row without changing durable `total`; that row is non-navigable until the durable ID replaces it. Search, provider/project pickers, sort, and `status=waiting` remain server-side. The opt-in task flag attaches a bounded `todo_summary` only to visible rows; sessions with observable task state for their latest top-level work render an accessible micro-donut beside status, with a portal tooltip showing current work, owner labels, source, and up to five tasks. A newer work item without tracker state, or a finished/aborted turn with unfinished tracker state, returns `null` and removes the older donut; fully completed history remains visible. Kanban omits the task flag, so its high-volume list calls do not parse transcripts. |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` returns agents, events, workflows, prompt context, and a nullable owner-attributed `todo_snapshot` reduced from Claude Task*/TodoWrite or direct/unified-exec Codex `update_plan`. Top-level Claude/Codex work boundaries expire every older owner snapshot; a subagent's next turn expires only its own snapshot. Turn completion/abort also expires owner state that was never finalized, while fully completed history remains. Thus the latest work item can correctly return `null` when it uses no tracker or abandoned an unfinished one. The Agents tab places the full task-progress panel immediately after `SessionOverview`, before workflow runs, the agent tree, and cost breakdown; task rows paginate client-side at 10 per page. `GET /api/sessions/:id/stats` supplies overview metrics; transcript endpoints supply the cursor-paginated Conversation tab. Waiting and Run-page banners remain above the tabs. |
 | `/activity`     | ActivityFeed  | `GET /api/events?limit=100` — click row to expand inline payload; "Session →" button navigates to `/sessions/:id` |
+| `/audit`        | Audit         | `GET /api/audit/summary` (tiles, signal counts, top hosts) + `GET /api/audit/tools` (filtered, paginated); row expand → `GET /api/audit/tools/:eventId`; export → `GET /api/audit/export`. Polls while the index back-fills; refreshes (debounced) on new `PreToolUse` / `codex_tool_call` events |
 | `/analytics`    | Analytics     | `GET /api/analytics`                                   |
 | `/workflows`    | Workflows     | `GET /api/workflows?status=active\|completed`, `GET /api/workflows/session/:id` + WebSocket auto-refresh (3s debounce) |
 | `/cc-config`    | CcConfig      | 12-tab Claude Code configuration explorer. Reads via `GET /api/cc-config/{overview,skills,agents,commands,output-styles,plugins,marketplaces,mcp,hooks,hook-scripts,keybindings,statusline,settings,memory}`. Mutations for skills/agents/commands/output-styles/memory — including the per-project file-based auto-memory store (`*.md` under `~/.claude/projects/<slug>/memory/`, grouped by project and searchable in the Memory tab, with clickable `MEMORY.md` index links that scroll to + highlight the matching fact file) — via `PUT /api/cc-config/file` + `DELETE /api/cc-config/file` (timestamped backups, atomic writes). The Keybindings tab additionally offers a structured inline editor that persists via `PUT /api/cc-config/keybindings` (same backup-first, atomic-write guarantees). `GET /api/cc-config/file?path=…` for single-file viewer. `GET /api/cc-config/backups` for the recovery modal. Subscribes to `cc_config_changed` WS messages for live refresh on both dashboard mutations and external file edits picked up by `cc-watcher`. The Settings tab leads with a client-side **Current configuration** summary that resolves the `/config` options (model, verbose, theme, output style, effort, auto-compact, notifications, …) across user / project / project-local scopes, showing defaults when unset. Live / Offline indicator next to the title |
@@ -1093,6 +1101,29 @@ erDiagram
         INTEGER attempts "Attempt-chain length"
         TEXT error "Failure reason or NULL"
         TEXT created_at "ISO 8601"
+    }
+
+    events ||--o| tool_risk_events : "flagged as"
+    tool_risk_events ||--o{ tool_risk_signals : "matched by"
+
+    tool_risk_events {
+        INTEGER event_id PK "References events.id, ON DELETE CASCADE"
+        TEXT session_id "Owning session"
+        TEXT tool_name "Bash, Write, WebFetch, ..."
+        TEXT created_at "Tool call time (ISO 8601)"
+        TEXT max_severity "low|medium|high|critical"
+        INTEGER severity_rank "1-4 for min_severity filters"
+        TEXT target "Command, path or URL (max 1000 chars)"
+        INTEGER degraded "1 when no tool_input was stored"
+    }
+
+    tool_risk_signals {
+        INTEGER event_id FK "References tool_risk_events.event_id, ON DELETE CASCADE"
+        TEXT signal "privilege|destructive|remote-exec|credential-access|egress|outside-cwd"
+        TEXT severity "low|medium|high|critical"
+        TEXT rule "Stable rule id, e.g. pipe-to-shell"
+        TEXT match "Exact matched text"
+        TEXT host "Egress host or NULL"
     }
 ```
 

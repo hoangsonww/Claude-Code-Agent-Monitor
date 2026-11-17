@@ -1,0 +1,65 @@
+{
+  "title": "Tool Risk Audit",
+  "subtitle": "Commands, file writes and fetches your agents ran that match a risk rule",
+  "readOnly": "Read-only: this view never blocks or changes what agents run.",
+  "exportCsv": "Export CSV",
+  "exportJson": "Export JSON",
+  "exportFailed": "Export failed: {{message}}",
+  "indexing": "Indexing tool history… {{percent}}%",
+  "coverage": "{{degraded}} of {{scanned}} tool calls had no stored input (payload redacted or summary-only); only their summaries were checked.",
+  "flagged_one": "{{count}} flagged tool call",
+  "flagged_other": "{{count}} flagged tool calls",
+  "severity": {
+    "label": "Severity",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "critical": "Critical"
+  },
+  "signals": {
+    "privilege": "Privilege",
+    "destructive": "Destructive",
+    "remote-exec": "Remote exec",
+    "credential-access": "Credentials",
+    "egress": "Egress",
+    "outside-cwd": "Outside project"
+  },
+  "signalHelp": {
+    "privilege": "sudo, doas, chmod 777, chown root, elevated processes",
+    "destructive": "rm -rf, git reset --hard, git push --force, DROP TABLE, disk wipes",
+    "remote-exec": "Downloads piped into a shell, npx of an unpinned package",
+    "credential-access": ".env, SSH keys, .pem files, credentials, ~/.aws, ~/.ssh",
+    "egress": "Hosts reached by WebFetch, WebSearch or network commands",
+    "outside-cwd": "File writes that land outside the session's project or in system paths"
+  },
+  "search": "Search commands, paths and hosts…",
+  "range": {
+    "label": "Time range",
+    "24h": "Last 24 hours",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "all": "All time"
+  },
+  "clearFilters": "Clear filters",
+  "topHosts": "Top egress hosts",
+  "noHosts": "No external hosts",
+  "columns": {
+    "time": "Time",
+    "severity": "Severity",
+    "tool": "Tool",
+    "target": "Command / path",
+    "signals": "Signals",
+    "session": "Session"
+  },
+  "why": "Why it was flagged",
+  "rule": "Rule",
+  "matched": "Matched",
+  "summaryOnly": "summary only",
+  "loadingEvent": "Loading the full event…",
+  "eventUnavailable": "The full event is no longer available.",
+  "viewSession": "View session",
+  "empty": "No risky tool calls found",
+  "emptyDesc": "Nothing in this range matched the built-in ruleset. Bash commands, file writes and fetches are checked as they arrive.",
+  "emptyFiltered": "No flagged tool calls match these filters",
+  "loadFailed": "Could not load the audit: {{message}}"
+}

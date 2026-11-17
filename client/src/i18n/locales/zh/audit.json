@@ -1,0 +1,65 @@
+{
+  "title": "工具风险审计",
+  "subtitle": "代理执行的命令、文件写入和网络请求中命中风险规则的部分",
+  "readOnly": "只读：此视图不会阻止或更改代理执行的任何操作。",
+  "exportCsv": "导出 CSV",
+  "exportJson": "导出 JSON",
+  "exportFailed": "导出失败：{{message}}",
+  "indexing": "正在索引工具历史… {{percent}}%",
+  "coverage": "{{scanned}} 次工具调用中有 {{degraded}} 次没有保存输入（payload 已脱敏或仅有摘要），只检查了其摘要。",
+  "flagged_one": "{{count}} 次被标记的工具调用",
+  "flagged_other": "{{count}} 次被标记的工具调用",
+  "severity": {
+    "label": "严重程度",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "严重"
+  },
+  "signals": {
+    "privilege": "权限提升",
+    "destructive": "破坏性操作",
+    "remote-exec": "远程执行",
+    "credential-access": "凭据访问",
+    "egress": "外部连接",
+    "outside-cwd": "项目外写入"
+  },
+  "signalHelp": {
+    "privilege": "sudo、doas、chmod 777、chown root、提权进程",
+    "destructive": "rm -rf、git reset --hard、git push --force、DROP TABLE、磁盘擦除",
+    "remote-exec": "下载内容直接交给 shell 执行、未固定版本的 npx 包",
+    "credential-access": ".env、SSH 密钥、.pem 文件、credentials、~/.aws、~/.ssh",
+    "egress": "WebFetch、WebSearch 或网络命令访问的主机",
+    "outside-cwd": "写入会话项目之外或系统路径的文件"
+  },
+  "search": "搜索命令、路径和主机…",
+  "range": {
+    "label": "时间范围",
+    "24h": "最近 24 小时",
+    "7d": "最近 7 天",
+    "30d": "最近 30 天",
+    "all": "全部"
+  },
+  "clearFilters": "清除筛选",
+  "topHosts": "最常访问的外部主机",
+  "noHosts": "没有外部主机",
+  "columns": {
+    "time": "时间",
+    "severity": "严重程度",
+    "tool": "工具",
+    "target": "命令 / 路径",
+    "signals": "信号",
+    "session": "会话"
+  },
+  "why": "标记原因",
+  "rule": "规则",
+  "matched": "匹配内容",
+  "summaryOnly": "仅摘要",
+  "loadingEvent": "正在加载完整事件…",
+  "eventUnavailable": "完整事件已不可用。",
+  "viewSession": "查看会话",
+  "empty": "未发现高风险工具调用",
+  "emptyDesc": "此时间范围内没有内容命中内置规则。Bash 命令、文件写入和网络请求会在到达时被检查。",
+  "emptyFiltered": "没有符合这些筛选条件的被标记调用",
+  "loadFailed": "无法加载审计：{{message}}"
+}

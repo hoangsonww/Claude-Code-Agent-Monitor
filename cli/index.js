@@ -26,6 +26,7 @@ const COMMAND_MODULES = [
   require("./commands/monitor"),
   require("./commands/data"),
   require("./commands/insights"),
+  require("./commands/audit"),
   require("./commands/alerts"),
   require("./commands/pricing"),
   require("./commands/sources"),

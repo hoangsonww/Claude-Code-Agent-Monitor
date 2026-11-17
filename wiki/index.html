@@ -1305,6 +1305,19 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-rose">🛡️</div>
+                  <h3 id="feat-tool-risk-audit">Tool Risk Audit</h3>
+                  <p>
+                    A read-only security lens over every tool call your agents ran. A declarative
+                    ruleset flags privilege escalation, destructive commands, piped installers and
+                    unpinned <code>npx</code>, credential access (<code>.env</code>, <code>~/.ssh</code>,
+                    keys), network egress grouped by host, and writes outside the project. Each row
+                    shows its severity and the exact matched text and opens the full event; filter by
+                    signal, severity or host, export CSV/JSON, or run <code>ccam audit</code> on a
+                    headless machine.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-indigo">⚙️</div>
                   <h3>Settings &amp; Management</h3>
                   <p>
@@ -7313,7 +7326,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=124" defer></script>
+    <script src="i18n-content.js?v=125" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

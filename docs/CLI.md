@@ -232,6 +232,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 | `ccam run follow <id>` (alias `logs`) | **Stream a run's output** (assistant text, `⚙` tool calls, results, final cost) until it ends; `Ctrl+C` detaches without stopping it; NDJSON with `--json` |
 | `ccam run send <id> --text msg --yes` · `ccam run stop <id> --yes` | Follow-up message / stop |
 | `ccam cost [--session id] [--daily] [--days n]` | Total estimated cost with a per-model chart, a daily sparkline (`--daily` for the per-day chart), server-tool surcharges, and a warning listing models with usage but **no pricing rule** |
+| `ccam audit [--since 7d] [--severity low\|medium\|high\|critical] [--signal list] [--session id] [--project cwd] [--host h] [--search text] [--limit n]` | Tool Risk Audit: severity totals plus flagged tool calls (privilege, destructive, remote-exec, credential-access, egress, outside-cwd) with the matched command or path. `--since` takes `30m`, `24h`, `7d`, `2w` or `all`; `--json` returns `{ summary, events, total, indexing, coverage }`. Server-only (the risk index is built by the server) |
 
 ### Alerts & Webhooks
 

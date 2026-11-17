@@ -69,6 +69,8 @@
  *   before changing assumptions here.
  * - `./pages/Analytics` — repository-local contract consumed by this module; review its exports
  *   before changing assumptions here.
+ * - `./pages/Audit` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
  * - `./pages/CcConfig` — repository-local contract consumed by this module; review its exports
  *   before changing assumptions here.
  * - `./pages/Dashboard` — repository-local contract consumed by this module; review its exports
@@ -234,6 +236,7 @@ import { KanbanBoard } from "./pages/KanbanBoard";
 import { Sessions } from "./pages/Sessions";
 import { SessionDetail } from "./pages/SessionDetail";
 import { ActivityFeed } from "./pages/ActivityFeed";
+import { Audit } from "./pages/Audit";
 import { Analytics } from "./pages/Analytics";
 import { Workflows } from "./pages/Workflows";
 import { Settings } from "./pages/Settings";
@@ -289,6 +292,7 @@ export default function App() {
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:id" element={<SessionDetail />} />
           <Route path="activity" element={<ActivityFeed />} />
+          <Route path="audit" element={<Audit />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="workflows" element={<Workflows />} />
           <Route path="cc-config" element={<CcConfig />} />

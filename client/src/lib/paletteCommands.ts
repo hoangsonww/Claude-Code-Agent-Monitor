@@ -277,6 +277,7 @@
 
 import {
   Activity,
+  ShieldAlert,
   ArrowLeft,
   ArrowRight,
   ArrowUpDown,
@@ -548,7 +549,7 @@ export const PAGE_ACTION_COMMANDS: {
   },
 ];
 
-/** The nine sidebar destinations. */
+/** The ten sidebar destinations. */
 export const PAGE_COMMANDS: {
   to: string;
   icon: LucideIcon;
@@ -558,6 +559,7 @@ export const PAGE_COMMANDS: {
   { to: "/kanban", icon: Columns3, navKey: "nav:agentBoard" },
   { to: "/sessions", icon: FolderOpen, navKey: "nav:sessions" },
   { to: "/activity", icon: Activity, navKey: "nav:activityFeed" },
+  { to: "/audit", icon: ShieldAlert, navKey: "nav:audit" },
   { to: "/analytics", icon: BarChart3, navKey: "nav:analytics" },
   { to: "/workflows", icon: Workflow, navKey: "nav:workflows" },
   { to: "/cc-config", icon: Boxes, navKey: "nav:ccConfig" },

@@ -1,0 +1,65 @@
+{
+  "title": "Auditoría de riesgo de herramientas",
+  "subtitle": "Comandos, escrituras de archivos y descargas de tus agentes que coinciden con una regla de riesgo",
+  "readOnly": "Solo lectura: esta vista nunca bloquea ni cambia lo que ejecutan los agentes.",
+  "exportCsv": "Exportar CSV",
+  "exportJson": "Exportar JSON",
+  "exportFailed": "Error al exportar: {{message}}",
+  "indexing": "Indexando el historial de herramientas… {{percent}}%",
+  "coverage": "{{degraded}} de {{scanned}} llamadas a herramientas no tenían la entrada guardada (payload ocultado o solo resumen); solo se revisó su resumen.",
+  "flagged_one": "{{count}} llamada marcada",
+  "flagged_other": "{{count}} llamadas marcadas",
+  "severity": {
+    "label": "Gravedad",
+    "low": "Baja",
+    "medium": "Media",
+    "high": "Alta",
+    "critical": "Crítica"
+  },
+  "signals": {
+    "privilege": "Privilegios",
+    "destructive": "Destructivo",
+    "remote-exec": "Ejecución remota",
+    "credential-access": "Credenciales",
+    "egress": "Salida de red",
+    "outside-cwd": "Fuera del proyecto"
+  },
+  "signalHelp": {
+    "privilege": "sudo, doas, chmod 777, chown root, procesos elevados",
+    "destructive": "rm -rf, git reset --hard, git push --force, DROP TABLE, borrado de discos",
+    "remote-exec": "Descargas enviadas a un shell, npx de un paquete sin versión fija",
+    "credential-access": ".env, claves SSH, archivos .pem, credentials, ~/.aws, ~/.ssh",
+    "egress": "Hosts contactados por WebFetch, WebSearch o comandos de red",
+    "outside-cwd": "Escrituras de archivos fuera del proyecto de la sesión o en rutas del sistema"
+  },
+  "search": "Buscar comandos, rutas y hosts…",
+  "range": {
+    "label": "Periodo",
+    "24h": "Últimas 24 horas",
+    "7d": "Últimos 7 días",
+    "30d": "Últimos 30 días",
+    "all": "Todo"
+  },
+  "clearFilters": "Limpiar filtros",
+  "topHosts": "Hosts externos más contactados",
+  "noHosts": "Sin hosts externos",
+  "columns": {
+    "time": "Hora",
+    "severity": "Gravedad",
+    "tool": "Herramienta",
+    "target": "Comando / ruta",
+    "signals": "Señales",
+    "session": "Sesión"
+  },
+  "why": "Por qué se marcó",
+  "rule": "Regla",
+  "matched": "Coincidencia",
+  "summaryOnly": "solo resumen",
+  "loadingEvent": "Cargando el evento completo…",
+  "eventUnavailable": "El evento completo ya no está disponible.",
+  "viewSession": "Ver sesión",
+  "empty": "No se encontraron llamadas de riesgo",
+  "emptyDesc": "Nada en este periodo coincidió con las reglas integradas. Los comandos Bash, las escrituras de archivos y las descargas se revisan al llegar.",
+  "emptyFiltered": "Ninguna llamada marcada coincide con estos filtros",
+  "loadFailed": "No se pudo cargar la auditoría: {{message}}"
+}

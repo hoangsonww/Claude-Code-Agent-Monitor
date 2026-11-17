@@ -164,18 +164,32 @@ router.get("/info", async (req, res, next) => {
 // POST /api/settings/clear-data — delete all sessions, agents, events, tokens
 router.post("/clear-data", (_req, res) => {
   const counts = getTableCounts();
+  // Foreign keys stay off around the whole wipe (pragma cannot change inside a
+  // transaction), and the deletes run in one transaction so a mid-wipe failure
+  // rolls the clear back instead of leaving the database half-emptied. The
+  // pragma is always restored, even if the transaction throws.
   db.pragma("foreign_keys = OFF");
-  db.prepare("DELETE FROM token_usage").run();
-  db.prepare("DELETE FROM events").run();
-  db.prepare("DELETE FROM agents").run();
-  db.prepare("DELETE FROM sessions").run();
-  // Fired alerts reference the cleared sessions — wipe the feed too. Alert
-  // *rules* survive: they're user configuration, like model_pricing.
-  db.prepare("DELETE FROM alert_events").run();
-  // Webhook delivery log is an audit trail of those fired alerts — wipe it too.
-  // Webhook *targets* survive, like alert rules and pricing.
-  db.prepare("DELETE FROM webhook_deliveries").run();
-  db.pragma("foreign_keys = ON");
+  try {
+    db.transaction(() => {
+      db.prepare("DELETE FROM token_usage").run();
+      db.prepare("DELETE FROM events").run();
+      db.prepare("DELETE FROM agents").run();
+      db.prepare("DELETE FROM sessions").run();
+      // Fired alerts reference the cleared sessions — wipe the feed too. Alert
+      // *rules* survive: they're user configuration, like model_pricing.
+      db.prepare("DELETE FROM alert_events").run();
+      // Webhook delivery log is an audit trail of those fired alerts — wipe it
+      // too. Webhook *targets* survive, like alert rules and pricing.
+      db.prepare("DELETE FROM webhook_deliveries").run();
+      // The Tool Risk Audit index is derived from events; with foreign keys off
+      // its cascade does not fire, so clear it (and its scan watermark) too.
+      db.prepare("DELETE FROM tool_risk_signals").run();
+      db.prepare("DELETE FROM tool_risk_events").run();
+      db.prepare("DELETE FROM tool_risk_state").run();
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
   res.json({ ok: true, cleared: counts });
 });
 

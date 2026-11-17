@@ -300,7 +300,7 @@ flowchart LR
   <em>⌘ <strong>Command Palette</strong> · 페이지, 세션, 프로젝트, 필터, 작업을 위한 단일 키보드 실행기</em>
 </p>
 
-사이드바는 Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, Settings로 이동합니다. 아래 섹션에서 이 보기의 전체 동작을 설명합니다.
+사이드바는 Dashboard, Kanban Board, Sessions, Activity Feed, Tool Risk Audit, Analytics, Workflows, Agent Config, Run Agent, Settings로 이동합니다. 아래 섹션에서 이 보기의 전체 동작을 설명합니다.
 
 ---
 
@@ -316,6 +316,7 @@ flowchart LR
 | **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. Provider 선택기는 온보딩 또는 Settings에서 선택한 제품 범위를 유지하면서 Claude Code, Cursor, Codex로 좁힐 수 있습니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. Cursor의 네이티브 생성 제목은 수집 메타데이터가 현재 이름을 CCAM이 소유함을 입증할 때만 임시 첫 프롬프트 대체 이름을 갱신하며, 수동 이름과 소유권이 불분명한 레거시 이름은 그대로 유지됩니다. |
 | **Session Detail** | 실시간 통계, 활성 작업, 도구 사용량, Subagent, 토큰, 계층, 필터링된 이벤트 타임라인, `tool_use_id` 그룹화, 도구별 렌더러를 제공합니다. Conversation 보기는 대기 중인 턴, 시스템 알림, Markdown, 구문 강조 코드, 스타일이 적용된 도구를 렌더링하고, 대기 배너에는 사유와 경과 시간을 표시합니다. |
 | **Activity Feed** | 공유 필터, 서버 페이지네이션, 그룹화, 프로젝트/세션/Subagent 출처, 세션 링크, 일관된 Claude/Codex 상태 배지를 갖춘 일시 정지 가능한 실시간 이벤트를 제공합니다. |
+| **Tool Risk Audit** | 실행된 도구 호출에 대한 읽기 전용 보안 화면(`/audit`)입니다. 선언형 규칙 세트가 권한 상승(`sudo`, `chmod 777`), 파괴적 명령(`rm -rf`, `git push --force`, `DROP TABLE`), 원격 코드 실행(`curl … \| sh`, 버전이 고정되지 않은 `npx`), 자격 증명 접근(`.env`, `~/.ssh`, `*.pem`), 호스트별로 묶은 외부 연결, 세션 프로젝트 외부 쓰기를 표시합니다. 각 행은 심각도와 정확히 일치한 텍스트를 보여 주고, 저장된 전체 이벤트를 열 수 있으며, CSV/JSON으로 내보낼 수 있습니다. 입력이 저장되지 않은 호출은 요약으로 검사하고 따로 집계합니다. 도구 실행을 차단하거나 변경하지 않습니다. |
 | **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. |
 | **Command Palette** | `Cmd/Ctrl+K`로 최근 명령, 모든 경로, 실시간 서버 세션, 페이지 작업, 프로젝트 디렉터리, 하위 보기, 필터, Settings, Agent Config, 기본 설정, 범위, 언어를 검색합니다. 부분 수열 순위, `>`/`@`/`#` 범위, 전체 키보드 제어, 번역된 레이블, 조용한 검색 실패, 파괴적 작업에 대한 탐색 전용 처리를 지원합니다. |
 | **One Shortcut** | `Cmd/Ctrl+K`는 입력 필드 안을 포함한 대시보드 전체의 유일한 전역 조합입니다. 여러 키 탐색을 제거해 숨은 모드를 피하고, Tabby는 `Cmd/Ctrl+B`를 유지합니다. |
@@ -693,6 +694,7 @@ ccam workflows [session <id>]         # 워크플로 인텔리전스 + 패턴
 ccam runs [list|get <run-id>]         # Workflow 도구 실행
 ccam run list|history|start|follow|send|stop …   # 대시보드에서 실행한 에이전트
 ccam cost [--session id] [--daily]    # 모델별 비용, 부가 요금, 가격 미지정 모델
+ccam audit [--since 7d] [--severity high] [--signal destructive,…]   # Tool Risk Audit
 
 # 알림 & 웹훅
 ccam alerts [--unacked] | ack <id> | ack-all
@@ -1153,6 +1155,18 @@ npm run openapi:yaml
 | `POST`   | `/api/alerts/rules`      | 규칙 생성(`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
 | `PATCH`  | `/api/alerts/rules/:id`  | 이름 / 설정 / 활성화 / 쿨다운 업데이트(규칙 유형은 변경 불가)          |
 | `DELETE` | `/api/alerts/rules/:id`  | 규칙과 해당 발생 알림 기록 삭제                                        |
+
+### Tool Risk Audit
+
+읽기 전용입니다. 모든 요청은 먼저 짧은 시간 예산 안에서 증분 위험 색인을 갱신합니다.
+
+| 메서드 | 경로 | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/audit/tools` | 표시된 도구 호출(최신순)과 일치한 신호 (`signal`, `severity`, `min_severity`, `session_id`, `project`, `host`, `q`, `from`, `to`, `limit`, `offset`) |
+| `GET` | `/api/audit/tools/:eventId` | 표시된 호출 하나에 해당하는 저장된 전체 이벤트 |
+| `GET` | `/api/audit/summary` | 심각도, 신호, 프로젝트, 외부 호스트별 집계 (동일한 필터) |
+| `GET` | `/api/audit/export` | 필터링된 행을 `?format=csv`(수식 주입 방지) 또는 `json`으로 내보내기, 최대 10,000행 |
+| `GET` | `/api/audit/rules` | 기본 규칙 세트와 각 규칙의 신호 및 심각도 |
 
 ### Webhook
 
@@ -1978,6 +1992,7 @@ graph LR
     S["/sessions"] --> SESS["Sessions<br/>server-paginated table"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
+    AU["/audit"] --> AUDIT["Audit<br/>도구 위험 화면 + 내보내기"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 visualizations + drill-in"]
     CC["/cc-config"] --> CCCONFIG["CcConfig<br/>12-tab Claude Code config inspector + editor"]
@@ -2208,6 +2223,7 @@ agent-dashboard/
 |           |-- Sessions.tsx       # 서버 페이지네이션 세션 테이블
 |           |-- SessionDetail.tsx  # 단일 세션 심층 분석
 |           |-- ActivityFeed.tsx   # 실시간 이벤트 스트림
+|           |-- Audit.tsx          # 읽기 전용 Tool Risk Audit
 |           |-- Analytics.tsx      # 토큰 사용량, 히트맵, 추세
 |           |-- Workflows.tsx      # D3.js 워크플로 시각화 및 세션 드릴인
 |           |-- Settings.tsx       # 모델 가격, 알림, Hook, 내보내기, 정리

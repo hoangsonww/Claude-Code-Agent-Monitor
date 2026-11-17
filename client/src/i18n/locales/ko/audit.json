@@ -1,0 +1,65 @@
+{
+  "title": "도구 위험 감사",
+  "subtitle": "에이전트가 실행한 명령, 파일 쓰기, 네트워크 요청 중 위험 규칙에 해당하는 항목",
+  "readOnly": "읽기 전용: 이 화면은 에이전트의 실행을 차단하거나 변경하지 않습니다.",
+  "exportCsv": "CSV 내보내기",
+  "exportJson": "JSON 내보내기",
+  "exportFailed": "내보내기 실패: {{message}}",
+  "indexing": "도구 기록 색인 중… {{percent}}%",
+  "coverage": "도구 호출 {{scanned}}건 중 {{degraded}}건은 입력이 저장되지 않아(payload 마스킹 또는 요약만 존재) 요약만 검사했습니다.",
+  "flagged_one": "표시된 도구 호출 {{count}}건",
+  "flagged_other": "표시된 도구 호출 {{count}}건",
+  "severity": {
+    "label": "심각도",
+    "low": "낮음",
+    "medium": "보통",
+    "high": "높음",
+    "critical": "치명적"
+  },
+  "signals": {
+    "privilege": "권한 상승",
+    "destructive": "파괴적 작업",
+    "remote-exec": "원격 실행",
+    "credential-access": "자격 증명",
+    "egress": "외부 연결",
+    "outside-cwd": "프로젝트 외부"
+  },
+  "signalHelp": {
+    "privilege": "sudo, doas, chmod 777, chown root, 관리자 권한 프로세스",
+    "destructive": "rm -rf, git reset --hard, git push --force, DROP TABLE, 디스크 삭제",
+    "remote-exec": "다운로드를 셸로 바로 실행, 버전이 고정되지 않은 npx 패키지",
+    "credential-access": ".env, SSH 키, .pem 파일, credentials, ~/.aws, ~/.ssh",
+    "egress": "WebFetch, WebSearch 또는 네트워크 명령이 접속한 호스트",
+    "outside-cwd": "세션 프로젝트 외부 또는 시스템 경로에 대한 파일 쓰기"
+  },
+  "search": "명령, 경로, 호스트 검색…",
+  "range": {
+    "label": "기간",
+    "24h": "최근 24시간",
+    "7d": "최근 7일",
+    "30d": "최근 30일",
+    "all": "전체"
+  },
+  "clearFilters": "필터 지우기",
+  "topHosts": "가장 많이 접속한 외부 호스트",
+  "noHosts": "외부 호스트 없음",
+  "columns": {
+    "time": "시간",
+    "severity": "심각도",
+    "tool": "도구",
+    "target": "명령 / 경로",
+    "signals": "신호",
+    "session": "세션"
+  },
+  "why": "표시된 이유",
+  "rule": "규칙",
+  "matched": "일치 항목",
+  "summaryOnly": "요약만",
+  "loadingEvent": "전체 이벤트를 불러오는 중…",
+  "eventUnavailable": "전체 이벤트를 더 이상 사용할 수 없습니다.",
+  "viewSession": "세션 보기",
+  "empty": "위험한 도구 호출이 없습니다",
+  "emptyDesc": "이 기간에는 기본 규칙에 해당하는 항목이 없습니다. Bash 명령, 파일 쓰기, 네트워크 요청은 도착하는 즉시 검사됩니다.",
+  "emptyFiltered": "이 필터에 맞는 표시된 호출이 없습니다",
+  "loadFailed": "감사를 불러올 수 없습니다: {{message}}"
+}
