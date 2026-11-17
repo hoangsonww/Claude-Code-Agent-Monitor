@@ -1,0 +1,192 @@
+{
+  "title": "Executar agente",
+  "subtitle": "Inicie um agente de código local direto no painel.",
+  "provider": {
+    "aria": "Provedor da execução",
+    "kicker": "Executar agente",
+    "chooseTitle": "Qual agente você quer executar?",
+    "chooseDescription": "Escolha um agente local interativo. Dá para trocar antes de iniciar uma nova execução.",
+    "choose": "Escolher",
+    "cancel": "Cancelar",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Inicie sessões do Claude Code com streaming ao vivo, conversa e as mesmas análises por hooks do seu terminal.",
+      "description": "Rode o Claude Code em modo conversa ou como tarefa única."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Inicie uma thread interativa nativa do Codex com respostas ao vivo, atividade de ferramentas e turnos de continuação.",
+      "description": "Rode uma thread persistente do app-server do Codex a partir da sua CLI local já logada.",
+      "interactiveLabel": "Thread interativa do Codex",
+      "interactiveHint": "Inicia uma thread local persistente com respostas ao vivo, atividade de ferramentas, cancelamento e turnos de continuação."
+    }
+  },
+  "mode": {
+    "label": "Modo",
+    "conversation": "Conversa",
+    "conversationHint": "Vários turnos - continue mandando mensagens enquanto o agente trabalha.",
+    "headless": "Tarefa única",
+    "headlessHint": "Um prompt, uma resposta. A entrada padrão fecha depois de iniciar."
+  },
+  "fields": {
+    "prompt": "Prompt",
+    "promptPlaceholder": "Pergunte qualquer coisa ao Claude…",
+    "cwd": "Diretório de trabalho",
+    "cwdHint": "Caminho absoluto. O padrão é o cwd do próprio painel.",
+    "cwdPlaceholder": "Digite para buscar ou cole um caminho absoluto…",
+    "cwdGroups": {
+      "dashboard": "Servidor do painel",
+      "home": "Pasta pessoal",
+      "recent": "Recentes - usados pelo Claude Code"
+    },
+    "cwdNoMatches": "Nada encontrado. Digite um caminho absoluto para usá-lo direto.",
+    "model": "Modelo",
+    "modelInheritLabel": "Padrão (recomendado)",
+    "modelCustom": "Personalizado…",
+    "modelCustomPlaceholder": "id do modelo (ex.: claude-opus-4-7-20260101)",
+    "permissionMode": "Modo de permissão",
+    "permissionAcceptEdits": "acceptEdits (recomendado)",
+    "permissionDefault": "default (pedidos interativos - sessões sem terminal podem travar)",
+    "permissionPlan": "plan (planejamento só leitura)",
+    "permissionBypass": "bypassPermissions (PERIGO - libera tudo sem perguntar)",
+    "approvalUntrusted": "Não confiável (pergunta antes de comandos não confiáveis)",
+    "approvalOnRequest": "Sob demanda (o Codex decide quando perguntar)",
+    "approvalNever": "Nunca (devolve falhas de execução direto)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Só leitura",
+    "sandboxWorkspaceWrite": "Escrita no workspace",
+    "sandboxDanger": "Acesso total perigoso",
+    "modelLiveCatalog": "Catálogo ao vivo da sua CLI do Codex logada",
+    "modelCuratedCatalog": "O Claude Code não publica a lista de modelos da conta; escolha um dos apelidos estáveis ou digite outro ID de modelo.",
+    "modelCustomClaudeHint": "Para um modelo Claude antigo ou específico da conta, digite o valor exato de --model.",
+    "effort": "Esforço de raciocínio",
+    "effortHint": "Define o quanto o modelo pensa antes de responder. Mais alto = mais tokens de raciocínio, mais lento, mais profundo. Vazio herda o padrão do modelo."
+  },
+  "actions": {
+    "start": "Executar",
+    "starting": "Iniciando…",
+    "send": "Enviar",
+    "sending": "Enviando…",
+    "stop": "Parar",
+    "stopping": "Parando…",
+    "newRun": "Nova execução",
+    "viewSession": "Ver sessão"
+  },
+  "status": {
+    "idle": "Ocioso",
+    "spawning": "Iniciando…",
+    "running": "Rodando",
+    "completed": "Concluído",
+    "error": "Erro",
+    "killed": "Encerrado",
+    "abandoned": "Abandonado"
+  },
+  "binary": {
+    "missing": "A CLI `claude` não está no seu PATH. Instale o Claude Code ou ajuste o PATH para o painel conseguir iniciá-la.",
+    "found": "Usando {{path}}"
+  },
+  "concurrency": {
+    "active_one": "{{count}} execução já em andamento",
+    "active_other": "{{count}} execuções já em andamento",
+    "viewActive": "Execuções do painel",
+    "atCap": "Limite de execuções simultâneas atingido ({{max}}). Pare uma das execuções para iniciar outra."
+  },
+  "hint": {
+    "shortcut": "Cmd+Enter / Ctrl+Enter para enviar",
+    "permissionWarning": "bypassPermissions libera TODAS as chamadas de ferramenta sem confirmar. Use só com prompts confiáveis.",
+    "headlessExplain": "O modo sem terminal é melhor para tarefas roteirizadas em que você sabe exatamente o que quer. A sessão não pode fazer perguntas de volta e trava em pedidos de permissão, a menos que você fique em acceptEdits."
+  },
+  "empty": {
+    "title": "Nada ainda",
+    "body": "Digite um prompt e clique em Executar. A saída aparece aqui enquanto o modelo pensa, chama ferramentas e responde."
+  },
+  "events": {
+    "you": "Você",
+    "claude": "Claude",
+    "tool": "Ferramenta",
+    "toolResult": "Resultado da ferramenta",
+    "system": "Sistema",
+    "thinking": "Pensando",
+    "expand": "Expandir",
+    "collapse": "Recolher"
+  },
+  "footer": {
+    "duration": "Duração",
+    "cost": "Custo",
+    "turns": "Turnos",
+    "exitCode": "Código de saída",
+    "sessionId": "ID da sessão"
+  },
+  "errors": {
+    "startFailed": "Não foi possível iniciar: {{message}}",
+    "sendFailed": "Não foi possível enviar: {{message}}",
+    "killFailed": "Não foi possível parar: {{message}}",
+    "attachFailed": "Não foi possível conectar à execução: {{message}}"
+  },
+  "runs": {
+    "switcher": "Execuções do painel",
+    "switcherEmpty": "Nenhuma execução ativa",
+    "attached": "Conectado a uma execução existente",
+    "started": "Iniciada {{when}}",
+    "viewActive": "Execuções do painel",
+    "viewActive_other": "{{count}} execuções do painel",
+    "scopeNote": "Mostra só as execuções iniciadas por este painel.",
+    "allSessionsLink": "Ver todas as sessões do Claude Code →",
+    "viewLabel": "Ver"
+  },
+  "resume": {
+    "label": "Sessão de origem",
+    "freshOption": "Nova sessão",
+    "freshHint": "Inicia uma sessão nova do Claude Code.",
+    "resumeOption": "Retomar sessão existente",
+    "resumeHint": "Escolha uma sessão do histórico e continue a conversa. O cwd fica travado no original.",
+    "pickSession": "Escolha uma sessão…",
+    "search": "Buscar por ID, cwd ou status…",
+    "noSessions": "Nenhuma sessão encontrada.",
+    "originalCwd": "cwd original",
+    "preview": "Última atividade",
+    "selectedBadge": "Retomando",
+    "clear": "Limpar seleção"
+  },
+  "limitations": {
+    "title": "Rodando o Claude no navegador",
+    "subtitle": "mesmo binário, outra interface",
+    "peek": "A maioria dos recursos da TUI funciona. Alguns interativos não.",
+    "why": "Por quê",
+    "intro": "Por baixo, iniciamos o mesmo binário `claude` que seu terminal usa - mas o stream-json (a única interface programática que o Claude expõe) é uma mangueira de mão única, não a TUI interativa. Tudo que depende de uma sessão de terminal rodando - pedidos de permissão no lugar, a sobreposição de atalhos, mudanças de configuração no meio da sessão - precisa ser definido ao iniciar, não no meio da conversa.",
+    "supported": "Funciona aqui",
+    "limited": "Só na CLI",
+    "tldr": "Se um recurso não estiver aqui, abra a mesma sessão no terminal com `claude --resume <session-id>` - os dois lados compartilham a mesma transcrição JSONL em disco, então você nunca perde contexto ao trocar de interface.",
+    "dismiss": "Entendi",
+    "minimize": "Minimizar",
+    "restore": "Mostrar notas sobre execução no navegador",
+    "expand": "Ler mais",
+    "collapse": "Recolher"
+  },
+  "tokens": {
+    "label": "Contexto",
+    "input": "Entrada",
+    "output": "Saída",
+    "cacheRead": "Acerto de cache",
+    "cost": "Custo"
+  },
+  "autocomplete": {
+    "slashHint": "Digite / para comandos de barra",
+    "fileHint": "Digite @ para citar um arquivo",
+    "noMatches": "Nada encontrado",
+    "groupBuiltin": "Nativos (só na CLI - não rodam daqui)",
+    "groupUser": "Comandos do usuário",
+    "groupProject": "Comandos do projeto",
+    "groupFiles": "Arquivos no cwd"
+  },
+  "statusHeader": {
+    "model": "Modelo",
+    "effort": "Esforço",
+    "permissionMode": "Modo",
+    "cwd": "Cwd",
+    "session": "Sessão",
+    "envelopes": "Eventos",
+    "duration": "Tempo decorrido"
+  }
+}

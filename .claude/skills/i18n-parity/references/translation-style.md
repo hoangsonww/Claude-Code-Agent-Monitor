@@ -31,11 +31,14 @@ words** — but the repo does not treat them identically in every locale, and
 |---|---|---|
 | `zh` / `vi` / `ko` | `Agent` (literal) | `Subagent` (literal) |
 | `es` | `agente` | `subagente` |
+| `pt` | `agente` | `subagente` |
 
 Spanish localizing the pair is deliberate and asserted, not drift — Spanish has
 no comfortable way to carry the bare English noun through inflected prose. So
 keep `Agent` literal in `zh`, `vi`, and `ko` (`运行 Agent`, `Chạy Agent`,
 `Agent 실행`) and follow the Spanish convention in `es` (`Ejecutar agente`).
+Brazilian Portuguese (`pt`) made the same call for the same reason
+(`Executar agente`), and `i18n.test.ts` asserts its row too.
 **If you add a locale, decide this explicitly and add its row to the test** —
 do not leave it to whichever phrasing the first translated string happens to use.
 
@@ -46,33 +49,33 @@ needs no `wiki/i18n-content.js` entry — it correctly falls back to English.
 
 Established renderings. Match these; do not introduce a synonym.
 
-| English | `zh` | `vi` | `ko` | `es` |
-|---|---|---|---|---|
-| Dashboard | 仪表盘 | Tổng quan | 대시보드 | Panel |
-| Kanban Board | Kanban 看板 | Bảng Kanban | 칸반 보드 | Tablero Kanban |
-| Sessions | 会话 | Phiên | 세션 | Sesiones |
-| Activity Feed | 活动流 | Luồng hoạt động | 활동 피드 | Feed de Actividad |
-| Analytics | 分析 | Phân tích | 분석 | Analíticas |
-| Workflows | 工作流 | Quy trình | 워크플로 | Flujos |
-| Alerts | 警报 | Cảnh báo | 알림 | Alertas |
-| Agent Config | Agent 配置 | Cấu hình Agent | Agent 설정 | Configuración del agente |
-| Run Agent | 运行 Agent | Chạy Agent | Agent 실행 | Ejecutar agente |
-| Settings | 设置 | Cài đặt | 설정 | Configuración |
-| Live | 在线 | Trực tiếp | 실시간 | En vivo |
-| Disconnected | 已断开 | Mất kết nối | 연결 끊김 | Desconectado |
+| English | `zh` | `vi` | `ko` | `es` | `pt` |
+|---|---|---|---|---|---|
+| Dashboard | 仪表盘 | Tổng quan | 대시보드 | Panel | Painel |
+| Kanban Board | Kanban 看板 | Bảng Kanban | 칸반 보드 | Tablero Kanban | Quadro Kanban |
+| Sessions | 会话 | Phiên | 세션 | Sesiones | Sessões |
+| Activity Feed | 活动流 | Luồng hoạt động | 활동 피드 | Feed de Actividad | Feed de atividade |
+| Analytics | 分析 | Phân tích | 분석 | Analíticas | Análises |
+| Workflows | 工作流 | Quy trình | 워크플로 | Flujos | Fluxos |
+| Alerts | 警报 | Cảnh báo | 알림 | Alertas | Alertas |
+| Agent Config | Agent 配置 | Cấu hình Agent | Agent 설정 | Configuración del agente | Config. do agente |
+| Run Agent | 运行 Agent | Chạy Agent | Agent 실행 | Ejecutar agente | Executar agente |
+| Settings | 设置 | Cài đặt | 설정 | Configuración | Configurações |
+| Live | 在线 | Trực tiếp | 실시간 | En vivo | Ao vivo |
+| Disconnected | 已断开 | Mất kết nối | 연결 끊김 | Desconectado | Desconectado |
 
 ### Session status vocabulary
 
 These five values appear in filters, badges, charts, the Kanban columns, and
 every state-machine diagram in the docs. Keep them identical everywhere.
 
-| English | `zh` | `vi` | `ko` | `es` |
-|---|---|---|---|---|
-| Active | 活跃 | Đang hoạt động | 활성 | Activas |
-| Waiting | 等待中 | Đang chờ | 대기 중 | En espera |
-| Completed | 已完成 | Hoàn tất | 완료됨 | Completadas |
-| Error | 错误 | Lỗi | 오류 | Error |
-| Abandoned | 已废弃 | Bị bỏ dở | 중단됨 | Abandonadas |
+| English | `zh` | `vi` | `ko` | `es` | `pt` |
+|---|---|---|---|---|---|
+| Active | 活跃 | Đang hoạt động | 활성 | Activas | Ativas |
+| Waiting | 等待中 | Đang chờ | 대기 중 | En espera | Aguardando |
+| Completed | 已完成 | Hoàn tất | 완료됨 | Completadas | Concluídas |
+| Error | 错误 | Lỗi | 오류 | Error | Erro |
+| Abandoned | 已废弃 | Bị bỏ dở | 중단됨 | Abandonadas | Abandonadas |
 
 When adding a new locale, extend both tables in this file with its column before
 you start translating — deciding the vocabulary once up front is what keeps 15

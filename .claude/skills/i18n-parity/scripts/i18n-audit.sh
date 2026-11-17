@@ -73,6 +73,7 @@ readme_for() {
     vi) echo "README-VN.md" ;;
     ko) echo "README-KO.md" ;;
     es) echo "README-ES.md" ;;
+    pt) echo "README-PT.md" ;;
     *) echo "" ;;
   esac
 }

@@ -45,6 +45,12 @@ const COUNTED_DOCS = [
     repositorySkills: /77개 스킬/,
   },
   {
+    file: path.join(REPO_ROOT, "README-PT.md"),
+    plugin: /\*\*14 plugins\*\*/,
+    pluginSkills: /66 skills de plugin/,
+    repositorySkills: /77 skills no total do repositório/,
+  },
+  {
     file: path.join(REPO_ROOT, "README-VN.md"),
     plugin: /14 plugin/,
     pluginSkills: /66 skill/,
