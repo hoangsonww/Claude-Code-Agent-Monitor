@@ -2,7 +2,7 @@
  * @file index.ts
  * @description i18next bootstrap for the dashboard client. Registers bundled JSON
  * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`),
- * Korean (`ko`), and Spanish (`es`), wires browser language detection, and
+ * Korean (`ko`), Spanish (`es`), and Hebrew (`he`), wires browser language detection, and
  * exports the configured singleton consumed by `react-i18next`.
  *
  * ## Namespaces
@@ -30,7 +30,7 @@
  * **Area:** client localization
  * **Responsibility:**
  * i18next bootstrap for the dashboard client. Registers bundled JSON locale files for English
- * (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`), wires browser
+ * (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), and Hebrew (`he`), wires browser
  * language detection, and exports the configured singleton consumed by `react-i18next` . ##
  * Namespaces Translations are split by feature area (`dashboard`, `sessions` , `settings` , etc.)
  * so pages import only the keys they need via `useTranslation("ns")` . `common` is the default
@@ -396,6 +396,21 @@ import ccConfig_es from "./locales/es/ccConfig.json";
 import run_es from "./locales/es/run.json";
 import alerts_es from "./locales/es/alerts.json";
 import splash_es from "./locales/es/splash.json";
+import common_he from "./locales/he/common.json";
+import nav_he from "./locales/he/nav.json";
+import dashboard_he from "./locales/he/dashboard.json";
+import sessions_he from "./locales/he/sessions.json";
+import activity_he from "./locales/he/activity.json";
+import analytics_he from "./locales/he/analytics.json";
+import workflows_he from "./locales/he/workflows.json";
+import settings_he from "./locales/he/settings.json";
+import kanban_he from "./locales/he/kanban.json";
+import errors_he from "./locales/he/errors.json";
+import updates_he from "./locales/he/updates.json";
+import ccConfig_he from "./locales/he/ccConfig.json";
+import run_he from "./locales/he/run.json";
+import alerts_he from "./locales/he/alerts.json";
+import splash_he from "./locales/he/splash.json";
 
 i18n
   .use(LanguageDetector)
@@ -487,8 +502,25 @@ i18n
         alerts: alerts_es,
         splash: splash_es,
       },
+      he: {
+        common: common_he,
+        nav: nav_he,
+        dashboard: dashboard_he,
+        sessions: sessions_he,
+        activity: activity_he,
+        analytics: analytics_he,
+        workflows: workflows_he,
+        settings: settings_he,
+        kanban: kanban_he,
+        errors: errors_he,
+        updates: updates_he,
+        ccConfig: ccConfig_he,
+        run: run_he,
+        alerts: alerts_he,
+        splash: splash_he,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko", "es"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es", "he"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [
@@ -516,6 +548,25 @@ i18n
       lookupLocalStorage: "i18nextLng",
     },
   });
+
+/** UI languages written right-to-left; the document flips direction for these. */
+const RTL_LANGUAGES = new Set(["he"]);
+
+/**
+ * Keep `<html dir>` and `<html lang>` in step with the active UI language so Hebrew lays the
+ * whole dashboard out right-to-left (see the `[dir="rtl"]` rules in `index.css`).
+ *
+ * @param language - The language i18next just resolved, e.g. `he` or `en-US`.
+ */
+function applyDocumentDirection(language: string | undefined): void {
+  if (typeof document === "undefined") return;
+  const base = (language ?? "en").toLowerCase().split("-")[0];
+  document.documentElement.dir = RTL_LANGUAGES.has(base) ? "rtl" : "ltr";
+  document.documentElement.lang = base;
+}
+
+applyDocumentDirection(i18n.resolvedLanguage ?? i18n.language);
+i18n.on("languageChanged", applyDocumentDirection);
 
 /** Configured i18next instance — import side effects run {@link init}. */
 export default i18n;

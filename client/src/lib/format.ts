@@ -363,12 +363,12 @@ function parseDate(iso: string): Date {
 }
 
 /** The five UI languages the dashboard localizes formatting for. */
-type SupportedLanguage = "en" | "zh" | "vi" | "ko" | "es";
+type SupportedLanguage = "en" | "zh" | "vi" | "ko" | "es" | "he";
 
 /**
  * Resolve the active i18next language down to one of the five {@link SupportedLanguage}
  * codes, defaulting to English for anything unrecognized.
- * @returns `"en" | "zh" | "vi" | "ko" | "es"`.
+ * @returns `"en" | "zh" | "vi" | "ko" | "es" | "he"`.
  * @remarks Reads `resolvedLanguage` first (the language i18next actually settled on after
  *   detection/fallback), then `language`, then `"en"`. The value is lowercased and its
  *   region subtag stripped (`split("-")[0]`), so `"en-US"`, `"zh-Hans-CN"` etc. collapse
@@ -381,6 +381,7 @@ function getCurrentLanguage(): SupportedLanguage {
     language === "vi" ||
     language === "ko" ||
     language === "es" ||
+    language === "he" ||
     language === "en"
   ) {
     return language;
@@ -392,7 +393,7 @@ function getCurrentLanguage(): SupportedLanguage {
  * Maps the active i18next language to a `toLocaleString` BCP-47 locale tag,
  * so date/number formatting matches the UI's chosen language. Falls back to
  * "en-US" for any language not explicitly supported.
- * @returns One of `"zh-CN" | "vi-VN" | "ko-KR" | "es-ES" | "en-US"`.
+ * @returns One of `"zh-CN" | "vi-VN" | "ko-KR" | "es-ES" | "he-IL" | "en-US"`.
  * @remarks The region subtag matters: it drives clock convention (English/Korean use
  *   12-hour AM/PM here via the `hour: "2-digit"` options, Chinese/Vietnamese lean 24-hour),
  *   month-name localization, and digit-group/decimal separators used by {@link fmtCostFull}.
@@ -403,6 +404,7 @@ export function getCurrentLocale(): string {
   if (language === "vi") return "vi-VN"; // Vietnamese
   if (language === "ko") return "ko-KR"; // Korean
   if (language === "es") return "es-ES"; // Spanish (Spain)
+  if (language === "he") return "he-IL"; // Hebrew (Israel)
   return "en-US"; // default: US English
 }
 

@@ -59,14 +59,16 @@
     "zh": "Chino",
     "vi": "Vietnamita",
     "ko": "Coreano",
-    "es": "Español"
+    "es": "Español",
+    "he": "Hebreo"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "he": "עב"
   },
   "palette": {
     "title": "Paleta de comandos",

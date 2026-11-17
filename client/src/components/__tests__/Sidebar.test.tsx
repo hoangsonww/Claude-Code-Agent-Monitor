@@ -46,7 +46,7 @@
  *   test selection.
  *
  * ## Named test contracts
- * - `should expose all five languages through the custom dropdown` — executable behavior named by
+ * - `should expose all six languages through the custom dropdown` — executable behavior named by
  *   this suite; preserve the observable contract or update the test with rationale.
  * - `should have correct navigation hrefs` — executable behavior named by this suite; preserve the
  *   observable contract or update the test with rationale.
@@ -168,7 +168,7 @@
  * - should show "Disconnected" when WebSocket is not connected
  * - should show version number
  * - should have correct navigation hrefs
- * - should expose all five languages through the custom dropdown
+ * - should expose all six languages through the custom dropdown
  * - should switch to Vietnamese when Vietnamese option is clicked
  * - should switch to Korean when Korean option is clicked
  * - should use an icon-only trigger and an unconstrained floating menu when collapsed
@@ -261,7 +261,7 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/activity");
   });
 
-  it("should expose all five languages through the custom dropdown", async () => {
+  it("should expose all six languages through the custom dropdown", async () => {
     const user = userEvent.setup();
     renderSidebar(true);
 
@@ -272,6 +272,7 @@ describe("Sidebar", () => {
     expect(screen.getByRole("option", { name: "Vietnamese VI" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Korean 한국어" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Spanish ES" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Hebrew עב" })).toBeInTheDocument();
   });
 
   it("should switch to Vietnamese when Vietnamese option is clicked", async () => {

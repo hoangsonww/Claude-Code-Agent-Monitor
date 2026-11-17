@@ -59,14 +59,16 @@
     "zh": "Chinese",
     "vi": "Vietnamese",
     "ko": "Korean",
-    "es": "Spanish"
+    "es": "Spanish",
+    "he": "Hebrew"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "he": "עב"
   },
   "palette": {
     "title": "Command palette",

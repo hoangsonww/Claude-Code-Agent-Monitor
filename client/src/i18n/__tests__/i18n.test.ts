@@ -222,7 +222,7 @@ describe("i18n resources", () => {
     for (const namespace of namespaces) {
       const english = flattenResource(i18n.getResourceBundle("en", namespace));
 
-      for (const language of ["zh", "vi", "ko", "es"]) {
+      for (const language of ["zh", "vi", "ko", "es", "he"]) {
         const locale = flattenResource(i18n.getResourceBundle(language, namespace));
 
         expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
@@ -285,6 +285,29 @@ describe("i18n resources", () => {
     expect(i18n.t("run:fields.prompt")).toBe("Instrucción");
     expect(i18n.t("settings:hooks.title")).toBe("Configuración de ganchos");
     expect(i18n.t("workflows:runs.promptLabel")).toBe("Instrucción");
+  });
+
+  it("should provide Hebrew translations and translate the Agent noun", async () => {
+    await i18n.changeLanguage("he");
+
+    expect(i18n.t("nav:dashboard")).toBe("לוח בקרה");
+    expect(i18n.t("nav:agentBoard")).toBe("לוח קנבן");
+    expect(i18n.t("nav:languageShort.he")).toBe("עב");
+    expect(i18n.t("common:agent")).toBe("סוכן");
+    expect(i18n.t("common:subagent")).toBe("תת-סוכן");
+    expect(i18n.t("errors:toolLegend.agent")).toBe("Agent");
+    expect(i18n.t("kanban:agentCount", { count: 2 })).toBe("2 סוכנים במעקב");
+  });
+
+  it("should support non-explicit Hebrew locale tags and switch the document to right-to-left", async () => {
+    await i18n.changeLanguage("he-IL");
+
+    expect(i18n.resolvedLanguage?.startsWith("he")).toBe(true);
+    expect(i18n.t("nav:dashboard")).toBe("לוח בקרה");
+    expect(document.documentElement.dir).toBe("rtl");
+
+    await i18n.changeLanguage("en");
+    expect(document.documentElement.dir).toBe("ltr");
   });
 
   it("should support non-explicit Spanish locale tags", async () => {
@@ -391,7 +414,7 @@ describe("i18n resources", () => {
       "hookGate.continue",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "he"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "splash", key)).toBeTruthy();
       }
@@ -417,7 +440,7 @@ describe("i18n resources", () => {
       "pricing.gpt.tooltip.apiPricingBody",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "he"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "settings", key)).toBeTruthy();
       }

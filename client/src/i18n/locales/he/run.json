@@ -1,0 +1,192 @@
+{
+  "title": "הפעלת סוכן",
+  "subtitle": "הפעלת סוכן קוד מקומי ישירות מתוך הלוח.",
+  "provider": {
+    "aria": "ספק ההפעלה",
+    "kicker": "הפעלת סוכן",
+    "chooseTitle": "איזה סוכן להפעיל?",
+    "chooseDescription": "בחר סוכן מקומי אינטראקטיבי. אפשר להחליף לפני שמתחילים הפעלה חדשה.",
+    "choose": "בחר",
+    "cancel": "ביטול",
+    "beta": "בטא",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "הפעלת סשנים של Claude Code עם תצוגה חיה, שיחה, ואותו ניתוח מבוסס hooks כמו בטרמינל.",
+      "description": "הפעל את Claude Code במצב שיחה או כמשימה חד-פעמית."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "הפעלת שיחת Codex אינטראקטיבית עם תשובות חיות, פעילות כלים וסבבי המשך.",
+      "description": "הפעל שיחת Codex קבועה מה-CLI המקומי שמחובר לחשבון שלך.",
+      "interactiveLabel": "שיחת Codex אינטראקטיבית",
+      "interactiveHint": "פותח שיחה מקומית קבועה עם תשובות חיות, פעילות כלים, אפשרות לעצור וסבבי המשך."
+    }
+  },
+  "mode": {
+    "label": "מצב",
+    "conversation": "שיחה",
+    "conversationHint": "כמה סבבים: אפשר להמשיך לכתוב בזמן שהסוכן עובד.",
+    "headless": "חד-פעמי",
+    "headlessHint": "הנחיה אחת, תשובה אחת. אחרי ההפעלה אי אפשר לשלוח עוד."
+  },
+  "fields": {
+    "prompt": "הנחיה",
+    "promptPlaceholder": "שאל את Claude כל דבר…",
+    "cwd": "תיקיית עבודה",
+    "cwdHint": "נתיב מלא. ברירת המחדל היא התיקייה של הלוח עצמו.",
+    "cwdPlaceholder": "הקלד לחיפוש או הדבק נתיב מלא…",
+    "cwdGroups": {
+      "dashboard": "שרת הלוח",
+      "home": "תיקיית הבית",
+      "recent": "אחרונות - בשימוש של Claude Code"
+    },
+    "cwdNoMatches": "אין התאמות. הקלד נתיב מלא כדי להשתמש בו ישירות.",
+    "model": "מודל",
+    "modelInheritLabel": "ברירת מחדל (מומלץ)",
+    "modelCustom": "אחר…",
+    "modelCustomPlaceholder": "מזהה מודל (למשל claude-opus-4-7-20260101)",
+    "permissionMode": "מצב הרשאות",
+    "permissionAcceptEdits": "acceptEdits (מומלץ)",
+    "permissionDefault": "default (שואל לפני פעולות - סשן בלי טרמינל עלול להיתקע)",
+    "permissionPlan": "plan (תכנון בלבד, בלי שינויים)",
+    "permissionBypass": "bypassPermissions (מסוכן - מאשר הכל בלי לשאול)",
+    "approvalUntrusted": "לא מהימן (שואל לפני פקודות לא מוכרות)",
+    "approvalOnRequest": "לפי בקשה (Codex מחליט מתי לשאול)",
+    "approvalNever": "אף פעם (מחזיר כישלונות ישירות)",
+    "sandbox": "ארגז חול",
+    "sandboxReadOnly": "קריאה בלבד",
+    "sandboxWorkspaceWrite": "כתיבה בתיקיית העבודה",
+    "sandboxDanger": "גישה מלאה (מסוכן)",
+    "modelLiveCatalog": "רשימה חיה מה-Codex CLI המחובר לחשבון שלך",
+    "modelCuratedCatalog": "Claude Code לא מפרסם רשימת מודלים לחשבון. בחר אחד מהכינויים הקבועים או הזן מזהה מודל אחר.",
+    "modelCustomClaudeHint": "למודל Claude קודם או מיוחד לחשבון שלך, הזן את הערך המדויק של --model.",
+    "effort": "רמת חשיבה",
+    "effortHint": "קובע כמה המודל חושב לפני שהוא עונה. גבוה יותר = יותר טוקנים של חשיבה, איטי ומעמיק יותר. ריק = ברירת המחדל של המודל."
+  },
+  "actions": {
+    "start": "הפעל",
+    "starting": "מתחיל…",
+    "send": "שלח",
+    "sending": "שולח…",
+    "stop": "עצור",
+    "stopping": "עוצר…",
+    "newRun": "הפעלה חדשה",
+    "viewSession": "לסשן"
+  },
+  "status": {
+    "idle": "פנוי",
+    "spawning": "מפעיל…",
+    "running": "רץ",
+    "completed": "הושלם",
+    "error": "שגיאה",
+    "killed": "נעצר בכוח",
+    "abandoned": "ננטש"
+  },
+  "binary": {
+    "missing": "הפקודה `claude` לא נמצאת ב-PATH. התקן את Claude Code או עדכן את ה-PATH כדי שהלוח יוכל להפעיל אותה.",
+    "found": "משתמש ב-{{path}}"
+  },
+  "concurrency": {
+    "active_one": "{{count}} הפעלה כבר רצה",
+    "active_other": "{{count}} הפעלות כבר רצות",
+    "viewActive": "הפעלות מהלוח",
+    "atCap": "הגעת למספר ההפעלות המקסימלי במקביל ({{max}}). עצור אחת מהן כדי להתחיל חדשה."
+  },
+  "hint": {
+    "shortcut": "Cmd+Enter / Ctrl+Enter לשליחה",
+    "permissionWarning": "bypassPermissions מאשר את כל השימושים בכלים בלי לשאול. השתמש בזה רק בהנחיות שאתה סומך עליהן.",
+    "headlessExplain": "מצב חד-פעמי מתאים למשימות שאתה יודע בדיוק מה הן. הסשן לא יכול לשאול שאלות המשך, והוא ייתקע על בקשות הרשאה אלא אם תישאר ב-acceptEdits."
+  },
+  "empty": {
+    "title": "עדיין כלום",
+    "body": "כתוב הנחיה ולחץ \"הפעל\". הפלט יופיע כאן בזמן שהמודל חושב, משתמש בכלים ועונה."
+  },
+  "events": {
+    "you": "אתה",
+    "claude": "Claude",
+    "tool": "כלי",
+    "toolResult": "תוצאת הכלי",
+    "system": "מערכת",
+    "thinking": "חושב",
+    "expand": "הרחב",
+    "collapse": "כווץ"
+  },
+  "footer": {
+    "duration": "משך",
+    "cost": "עלות",
+    "turns": "סבבים",
+    "exitCode": "קוד יציאה",
+    "sessionId": "מזהה סשן"
+  },
+  "errors": {
+    "startFailed": "לא הצלחתי להפעיל: {{message}}",
+    "sendFailed": "לא הצלחתי לשלוח: {{message}}",
+    "killFailed": "לא הצלחתי לעצור: {{message}}",
+    "attachFailed": "לא הצלחתי להתחבר להפעלה: {{message}}"
+  },
+  "runs": {
+    "switcher": "הפעלות מהלוח",
+    "switcherEmpty": "אין הפעלות פעילות",
+    "attached": "מחובר להפעלה קיימת",
+    "started": "התחיל {{when}}",
+    "viewActive": "הפעלות מהלוח",
+    "viewActive_other": "{{count}} הפעלות מהלוח",
+    "scopeNote": "מוצגות רק הפעלות שהתחלת מהלוח הזה.",
+    "allSessionsLink": "לכל הסשנים של Claude Code ←",
+    "viewLabel": "הצג"
+  },
+  "resume": {
+    "label": "סשן מקור",
+    "freshOption": "סשן חדש",
+    "freshHint": "התחל סשן חדש של Claude Code.",
+    "resumeOption": "המשך סשן קיים",
+    "resumeHint": "בחר סשן מההיסטוריה והמשך את השיחה. תיקיית העבודה נשארת זו של הסשן המקורי.",
+    "pickSession": "בחר סשן…",
+    "search": "חפש לפי מזהה, תיקייה או מצב…",
+    "noSessions": "לא נמצאו סשנים.",
+    "originalCwd": "תיקייה מקורית",
+    "preview": "פעילות אחרונה",
+    "selectedBadge": "ממשיך",
+    "clear": "נקה בחירה"
+  },
+  "limitations": {
+    "title": "להריץ את Claude בדפדפן",
+    "subtitle": "אותה תוכנה, ממשק אחר",
+    "peek": "רוב היכולות של הטרמינל עובדות גם כאן. כמה יכולות אינטראקטיביות לא.",
+    "why": "למה",
+    "intro": "מאחורי הקלעים אנחנו מפעילים את אותה תוכנת `claude` שהטרמינל שלך משתמש בה, אבל stream-json (הממשק התכנותי היחיד ש-Claude חושף) הוא זרם חד-כיווני, לא הטרמינל האינטראקטיבי. כל מה שתלוי בטרמינל פתוח (בקשות אישור תוך כדי, תצוגת קיצורי המקשים, שינוי הגדרות באמצע סשן) צריך להיקבע בזמן ההפעלה ולא באמצע השיחה.",
+    "supported": "עובד כאן",
+    "limited": "רק בטרמינל",
+    "tldr": "אם יכולת מסוימת לא קיימת כאן, פתח את אותו סשן בטרמינל עם `claude --resume <session-id>`. שני הצדדים חולקים את אותו קובץ תמלול בדיסק, כך שלא מאבדים הקשר במעבר.",
+    "dismiss": "הבנתי",
+    "minimize": "מזער",
+    "restore": "הצג הערות על הרצה בדפדפן",
+    "expand": "קרא עוד",
+    "collapse": "כווץ"
+  },
+  "tokens": {
+    "label": "הקשר",
+    "input": "קלט",
+    "output": "פלט",
+    "cacheRead": "פגיעה במטמון",
+    "cost": "עלות"
+  },
+  "autocomplete": {
+    "slashHint": "הקלד / לפקודות",
+    "fileHint": "הקלד @ כדי להפנות לקובץ",
+    "noMatches": "אין התאמות",
+    "groupBuiltin": "מובנות (רק בטרמינל - לא ירוצו מכאן)",
+    "groupUser": "פקודות משתמש",
+    "groupProject": "פקודות פרויקט",
+    "groupFiles": "קבצים בתיקייה"
+  },
+  "statusHeader": {
+    "model": "מודל",
+    "effort": "חשיבה",
+    "permissionMode": "מצב",
+    "cwd": "תיקייה",
+    "session": "סשן",
+    "envelopes": "אירועים",
+    "duration": "זמן שעבר"
+  }
+}

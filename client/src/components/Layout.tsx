@@ -276,9 +276,9 @@ export function Layout({ wsConnected }: LayoutProps) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-screen min-w-0 transition-[margin-left,width] duration-200 outline-none"
+          className="min-h-screen min-w-0 transition-[margin-inline-start,width] duration-200 outline-none"
           style={{
-            marginLeft: collapsed ? "4.25rem" : "15rem",
+            marginInlineStart: collapsed ? "4.25rem" : "15rem",
             width: collapsed ? "calc(100% - 4.25rem)" : "calc(100% - 15rem)",
           }}
         >

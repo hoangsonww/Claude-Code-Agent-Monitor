@@ -1,0 +1,31 @@
+{
+  "title": "לוח בקרה",
+  "subtitle": "תמונת מצב חיה של פעילות הסוכנים",
+  "totalSessions": "סך הסשנים",
+  "activeAgents": "סוכנים פעילים",
+  "activeSubagents": "תתי-סוכנים פעילים",
+  "eventsToday": "אירועים היום",
+  "totalEvents": "סך האירועים",
+  "totalCost": "הערכת עלות API",
+  "costInfoLabel": "על הערכת עלות ה-API",
+  "viewBoard": "ללוח",
+  "viewAll": "הצג הכל",
+  "activeAgentsSection": "סוכנים פעילים",
+  "recentActivity": "פעילות אחרונה",
+  "noAgents": "אין סוכנים פעילים",
+  "noAgentsDesc": "סוכנים יופיעו כאן כשסשן במעקב רץ.",
+  "noActivity": "עדיין אין פעילות",
+  "noActivityDesc": "אירועים מסשנים במעקב יופיעו כאן בזמן אמת.",
+  "failedConnect": "החיבור לשרת נכשל",
+  "failedLoad": "טעינת הנתונים נכשלה",
+  "activeTrend": " פעילים",
+  "totalTrend": " בסשנים פעילים",
+  "tabs": {
+    "monitor": "מעקב",
+    "health": "תקינות"
+  },
+  "costEstimate": "הערכה לפי מחירי API, לא חיוב של המנוי.",
+  "costScope": "מקורות: {{sources}} · מוצרים: {{providers}}",
+  "costIncomplete": "הערכה חלקית: לחלק מהשימוש אין תעריף מתאים ({{models}}).",
+  "reviewRates": "בדיקת תעריפים"
+}

@@ -127,3 +127,369 @@
 .animate-pulse-dot {
   animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ---------------------------------------------------------------------------
+ * Right-to-left (Hebrew). `src/i18n/index.ts` sets <html dir="rtl"> for RTL
+ * languages. Most components use physical Tailwind utilities (ml-*, pl-*,
+ * left-*, border-r ...), so mirror the ones the UI actually uses here instead
+ * of rewriting every component. Centering utilities (left-1/2) are left alone.
+ * ------------------------------------------------------------------------- */
+[dir="rtl"] body {
+  direction: rtl;
+}
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+[dir="rtl"] .ml-auto {
+  margin-left: 0;
+  margin-right: auto;
+}
+[dir="rtl"] .mr-auto {
+  margin-right: 0;
+  margin-left: auto;
+}
+[dir="rtl"] .ml-0 {
+  margin-left: 0;
+  margin-right: 0px;
+}
+[dir="rtl"] .mr-0 {
+  margin-right: 0;
+  margin-left: 0px;
+}
+[dir="rtl"] .ml-0\.5 {
+  margin-left: 0;
+  margin-right: 0.125rem;
+}
+[dir="rtl"] .mr-0\.5 {
+  margin-right: 0;
+  margin-left: 0.125rem;
+}
+[dir="rtl"] .ml-1 {
+  margin-left: 0;
+  margin-right: 0.25rem;
+}
+[dir="rtl"] .mr-1 {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+[dir="rtl"] .ml-1\.5 {
+  margin-left: 0;
+  margin-right: 0.375rem;
+}
+[dir="rtl"] .mr-1\.5 {
+  margin-right: 0;
+  margin-left: 0.375rem;
+}
+[dir="rtl"] .ml-2 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+[dir="rtl"] .mr-2 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+[dir="rtl"] .ml-2\.5 {
+  margin-left: 0;
+  margin-right: 0.625rem;
+}
+[dir="rtl"] .mr-2\.5 {
+  margin-right: 0;
+  margin-left: 0.625rem;
+}
+[dir="rtl"] .ml-3 {
+  margin-left: 0;
+  margin-right: 0.75rem;
+}
+[dir="rtl"] .mr-3 {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+[dir="rtl"] .ml-3\.5 {
+  margin-left: 0;
+  margin-right: 0.875rem;
+}
+[dir="rtl"] .mr-3\.5 {
+  margin-right: 0;
+  margin-left: 0.875rem;
+}
+[dir="rtl"] .ml-4 {
+  margin-left: 0;
+  margin-right: 1rem;
+}
+[dir="rtl"] .mr-4 {
+  margin-right: 0;
+  margin-left: 1rem;
+}
+[dir="rtl"] .ml-5 {
+  margin-left: 0;
+  margin-right: 1.25rem;
+}
+[dir="rtl"] .mr-5 {
+  margin-right: 0;
+  margin-left: 1.25rem;
+}
+[dir="rtl"] .ml-6 {
+  margin-left: 0;
+  margin-right: 1.5rem;
+}
+[dir="rtl"] .mr-6 {
+  margin-right: 0;
+  margin-left: 1.5rem;
+}
+[dir="rtl"] .ml-7 {
+  margin-left: 0;
+  margin-right: 1.75rem;
+}
+[dir="rtl"] .mr-7 {
+  margin-right: 0;
+  margin-left: 1.75rem;
+}
+[dir="rtl"] .ml-8 {
+  margin-left: 0;
+  margin-right: 2rem;
+}
+[dir="rtl"] .mr-8 {
+  margin-right: 0;
+  margin-left: 2rem;
+}
+[dir="rtl"] .ml-10 {
+  margin-left: 0;
+  margin-right: 2.5rem;
+}
+[dir="rtl"] .mr-10 {
+  margin-right: 0;
+  margin-left: 2.5rem;
+}
+[dir="rtl"] .ml-12 {
+  margin-left: 0;
+  margin-right: 3rem;
+}
+[dir="rtl"] .mr-12 {
+  margin-right: 0;
+  margin-left: 3rem;
+}
+[dir="rtl"] .pl-0 {
+  padding-left: 0;
+  padding-right: 0px;
+}
+[dir="rtl"] .pr-0 {
+  padding-right: 0;
+  padding-left: 0px;
+}
+[dir="rtl"] .pl-0\.5 {
+  padding-left: 0;
+  padding-right: 0.125rem;
+}
+[dir="rtl"] .pr-0\.5 {
+  padding-right: 0;
+  padding-left: 0.125rem;
+}
+[dir="rtl"] .pl-1 {
+  padding-left: 0;
+  padding-right: 0.25rem;
+}
+[dir="rtl"] .pr-1 {
+  padding-right: 0;
+  padding-left: 0.25rem;
+}
+[dir="rtl"] .pl-1\.5 {
+  padding-left: 0;
+  padding-right: 0.375rem;
+}
+[dir="rtl"] .pr-1\.5 {
+  padding-right: 0;
+  padding-left: 0.375rem;
+}
+[dir="rtl"] .pl-2 {
+  padding-left: 0;
+  padding-right: 0.5rem;
+}
+[dir="rtl"] .pr-2 {
+  padding-right: 0;
+  padding-left: 0.5rem;
+}
+[dir="rtl"] .pl-2\.5 {
+  padding-left: 0;
+  padding-right: 0.625rem;
+}
+[dir="rtl"] .pr-2\.5 {
+  padding-right: 0;
+  padding-left: 0.625rem;
+}
+[dir="rtl"] .pl-3 {
+  padding-left: 0;
+  padding-right: 0.75rem;
+}
+[dir="rtl"] .pr-3 {
+  padding-right: 0;
+  padding-left: 0.75rem;
+}
+[dir="rtl"] .pl-3\.5 {
+  padding-left: 0;
+  padding-right: 0.875rem;
+}
+[dir="rtl"] .pr-3\.5 {
+  padding-right: 0;
+  padding-left: 0.875rem;
+}
+[dir="rtl"] .pl-4 {
+  padding-left: 0;
+  padding-right: 1rem;
+}
+[dir="rtl"] .pr-4 {
+  padding-right: 0;
+  padding-left: 1rem;
+}
+[dir="rtl"] .pl-5 {
+  padding-left: 0;
+  padding-right: 1.25rem;
+}
+[dir="rtl"] .pr-5 {
+  padding-right: 0;
+  padding-left: 1.25rem;
+}
+[dir="rtl"] .pl-6 {
+  padding-left: 0;
+  padding-right: 1.5rem;
+}
+[dir="rtl"] .pr-6 {
+  padding-right: 0;
+  padding-left: 1.5rem;
+}
+[dir="rtl"] .pl-7 {
+  padding-left: 0;
+  padding-right: 1.75rem;
+}
+[dir="rtl"] .pr-7 {
+  padding-right: 0;
+  padding-left: 1.75rem;
+}
+[dir="rtl"] .pl-8 {
+  padding-left: 0;
+  padding-right: 2rem;
+}
+[dir="rtl"] .pr-8 {
+  padding-right: 0;
+  padding-left: 2rem;
+}
+[dir="rtl"] .pl-10 {
+  padding-left: 0;
+  padding-right: 2.5rem;
+}
+[dir="rtl"] .pr-10 {
+  padding-right: 0;
+  padding-left: 2.5rem;
+}
+[dir="rtl"] .pl-12 {
+  padding-left: 0;
+  padding-right: 3rem;
+}
+[dir="rtl"] .pr-12 {
+  padding-right: 0;
+  padding-left: 3rem;
+}
+[dir="rtl"] .left-0 {
+  left: auto;
+  right: 0px;
+}
+[dir="rtl"] .right-0 {
+  right: auto;
+  left: 0px;
+}
+[dir="rtl"] .left-0\.5 {
+  left: auto;
+  right: 0.125rem;
+}
+[dir="rtl"] .right-0\.5 {
+  right: auto;
+  left: 0.125rem;
+}
+[dir="rtl"] .left-1 {
+  left: auto;
+  right: 0.25rem;
+}
+[dir="rtl"] .right-1 {
+  right: auto;
+  left: 0.25rem;
+}
+[dir="rtl"] .left-1\.5 {
+  left: auto;
+  right: 0.375rem;
+}
+[dir="rtl"] .right-1\.5 {
+  right: auto;
+  left: 0.375rem;
+}
+[dir="rtl"] .left-2 {
+  left: auto;
+  right: 0.5rem;
+}
+[dir="rtl"] .right-2 {
+  right: auto;
+  left: 0.5rem;
+}
+[dir="rtl"] .left-2\.5 {
+  left: auto;
+  right: 0.625rem;
+}
+[dir="rtl"] .right-2\.5 {
+  right: auto;
+  left: 0.625rem;
+}
+[dir="rtl"] .left-3 {
+  left: auto;
+  right: 0.75rem;
+}
+[dir="rtl"] .right-3 {
+  right: auto;
+  left: 0.75rem;
+}
+[dir="rtl"] .left-4 {
+  left: auto;
+  right: 1rem;
+}
+[dir="rtl"] .right-4 {
+  right: auto;
+  left: 1rem;
+}
+[dir="rtl"] .left-6 {
+  left: auto;
+  right: 1.5rem;
+}
+[dir="rtl"] .right-6 {
+  right: auto;
+  left: 1.5rem;
+}
+[dir="rtl"] .border-l {
+  border-left-width: 0;
+  border-right-width: 1px;
+}
+[dir="rtl"] .border-r {
+  border-right-width: 0;
+  border-left-width: 1px;
+}
+[dir="rtl"] .border-l-2 {
+  border-left-width: 0;
+  border-right-width: 2px;
+}
+[dir="rtl"] .border-r-2 {
+  border-right-width: 0;
+  border-left-width: 2px;
+}
+[dir="rtl"] .rounded-l-xl {
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+[dir="rtl"] .rounded-r-xl {
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+/* Charts, code, paths and terminal output keep their natural left-to-right order. */
+[dir="rtl"] svg,
+[dir="rtl"] pre,
+[dir="rtl"] code,
+[dir="rtl"] .font-mono {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
