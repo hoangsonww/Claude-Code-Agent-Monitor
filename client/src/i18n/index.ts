@@ -560,7 +560,7 @@ const RTL_LANGUAGES = new Set(["he"]);
  */
 function applyDocumentDirection(language: string | undefined): void {
   if (typeof document === "undefined") return;
-  const base = (language ?? "en").toLowerCase().split("-")[0];
+  const base = (language ?? "en").toLowerCase().split("-")[0] ?? "en";
   document.documentElement.dir = RTL_LANGUAGES.has(base) ? "rtl" : "ltr";
   document.documentElement.lang = base;
 }
