@@ -27,5 +27,20 @@
   "costEstimate": "Estimación equivalente de API, no cargos de suscripción.",
   "costScope": "Fuentes: {{sources}} · Productos: {{providers}}",
   "costIncomplete": "Estimación incompleta: parte del uso no tiene una tarifa aplicable ({{models}}).",
-  "reviewRates": "Revisar precios"
+  "reviewRates": "Revisar precios",
+  "flow": {
+    "title": "Flujo en vivo",
+    "subtitle": "Mira a dónde va cada trabajo: agentes en el centro, herramientas en el anillo, un pulso por llamada.",
+    "mainAgent": "Principal",
+    "idle": "Sin actividad aún",
+    "agents": "Agentes",
+    "tools": "Herramientas",
+    "toolCall": "Llamada a herramienta",
+    "toolResult": "Resultado",
+    "liveFeed": "Feed en vivo",
+    "noEvents": "Sin eventos aún",
+    "empty": "No hay sesiones activas",
+    "emptyDesc": "Inicia una sesión de Claude Code y aparecerá aquí en vivo.",
+    "failedLoad": "No se pudo cargar la vista de flujo"
+  }
 }

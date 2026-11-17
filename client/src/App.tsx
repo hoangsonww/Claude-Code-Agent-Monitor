@@ -236,6 +236,7 @@ import { SessionDetail } from "./pages/SessionDetail";
 import { ActivityFeed } from "./pages/ActivityFeed";
 import { Analytics } from "./pages/Analytics";
 import { Workflows } from "./pages/Workflows";
+import { Flow } from "./pages/Flow";
 import { Settings } from "./pages/Settings";
 import { CcConfig } from "./pages/CcConfig";
 import { Run } from "./pages/Run";
@@ -291,6 +292,7 @@ export default function App() {
           <Route path="activity" element={<ActivityFeed />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="workflows" element={<Workflows />} />
+          <Route path="flow" element={<Flow />} />
           <Route path="cc-config" element={<CcConfig />} />
           <Route path="run" element={<Run />} />
           <Route path="settings" element={<Settings />} />

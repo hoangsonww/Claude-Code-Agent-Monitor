@@ -493,3 +493,44 @@
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+/* Live Flow page (pages/Flow.tsx): breathing halo on working agents, pulse dots, feed rows. */
+.flow-halo {
+  opacity: 0.18;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: flow-halo 1.8s ease-in-out infinite;
+}
+@keyframes flow-halo {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.06;
+  }
+}
+.flow-pulse {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.flow-feed-row {
+  animation: flow-row-in 260ms ease-out;
+}
+@keyframes flow-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-halo,
+  .flow-feed-row {
+    animation: none;
+  }
+}

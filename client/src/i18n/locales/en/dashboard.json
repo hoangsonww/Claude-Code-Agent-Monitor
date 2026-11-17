@@ -27,5 +27,20 @@
   "costEstimate": "API-equivalent estimate, not subscription charges.",
   "costScope": "Sources: {{sources}} · Products: {{providers}}",
   "costIncomplete": "Incomplete estimate: some usage has no applicable rate ({{models}}).",
-  "reviewRates": "Review pricing"
+  "reviewRates": "Review pricing",
+  "flow": {
+    "title": "Live Flow",
+    "subtitle": "Watch where every piece of work goes: agents in the centre, tools on the ring, pulses for each call.",
+    "mainAgent": "Main",
+    "idle": "No activity yet",
+    "agents": "Agents",
+    "tools": "Tools",
+    "toolCall": "Tool call",
+    "toolResult": "Tool result",
+    "liveFeed": "Live feed",
+    "noEvents": "No events yet",
+    "empty": "No active sessions",
+    "emptyDesc": "Start a Claude Code session and it will appear here live.",
+    "failedLoad": "Failed to load the flow view"
+  }
 }

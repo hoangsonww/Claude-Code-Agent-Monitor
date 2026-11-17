@@ -27,5 +27,20 @@
   "costEstimate": "Ước tính chi phí tương đương API, không phải phí thuê bao.",
   "costScope": "Nguồn: {{sources}} · Sản phẩm: {{providers}}",
   "costIncomplete": "Ước tính chưa đầy đủ: một số mức sử dụng chưa có giá phù hợp ({{models}}).",
-  "reviewRates": "Xem giá"
+  "reviewRates": "Xem giá",
+  "flow": {
+    "title": "Luồng trực tiếp",
+    "subtitle": "Xem mỗi phần việc đi đâu: tác tử ở giữa, công cụ ở vòng ngoài, xung cho mỗi lần gọi.",
+    "mainAgent": "Chính",
+    "idle": "Chưa có hoạt động",
+    "agents": "Tác tử",
+    "tools": "Công cụ",
+    "toolCall": "Gọi công cụ",
+    "toolResult": "Kết quả công cụ",
+    "liveFeed": "Luồng sự kiện",
+    "noEvents": "Chưa có sự kiện",
+    "empty": "Không có phiên hoạt động",
+    "emptyDesc": "Bắt đầu một phiên Claude Code và nó sẽ hiện ở đây.",
+    "failedLoad": "Không tải được chế độ xem luồng"
+  }
 }

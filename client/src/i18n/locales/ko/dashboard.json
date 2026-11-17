@@ -27,5 +27,20 @@
   "costEstimate": "API 기준 예상 비용이며 구독 요금이 아닙니다.",
   "costScope": "출처: {{sources}} · 제품: {{providers}}",
   "costIncomplete": "일부 사용량에 적용할 요금이 없어 예상 비용이 불완전합니다({{models}}).",
-  "reviewRates": "요금 확인"
+  "reviewRates": "요금 확인",
+  "flow": {
+    "title": "실시간 흐름",
+    "subtitle": "각 작업이 어디로 가는지 보세요: 가운데 에이전트, 바깥 고리의 도구, 호출마다 펄스.",
+    "mainAgent": "메인",
+    "idle": "아직 활동 없음",
+    "agents": "에이전트",
+    "tools": "도구",
+    "toolCall": "도구 호출",
+    "toolResult": "도구 결과",
+    "liveFeed": "실시간 피드",
+    "noEvents": "아직 이벤트 없음",
+    "empty": "활성 세션 없음",
+    "emptyDesc": "Claude Code 세션을 시작하면 여기에 실시간으로 표시됩니다.",
+    "failedLoad": "흐름 보기를 불러오지 못했습니다"
+  }
 }

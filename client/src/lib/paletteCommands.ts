@@ -325,6 +325,7 @@ import {
   VolumeX,
   Webhook,
   Workflow,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import type { DataScope, ProviderScope } from "./dataScope";
@@ -560,6 +561,7 @@ export const PAGE_COMMANDS: {
   { to: "/activity", icon: Activity, navKey: "nav:activityFeed" },
   { to: "/analytics", icon: BarChart3, navKey: "nav:analytics" },
   { to: "/workflows", icon: Workflow, navKey: "nav:workflows" },
+  { to: "/flow", icon: Waypoints, navKey: "nav:flow" },
   { to: "/cc-config", icon: Boxes, navKey: "nav:ccConfig" },
   { to: "/run", icon: Play, navKey: "nav:run" },
   { to: "/settings", icon: SettingsIcon, navKey: "nav:settings" },
