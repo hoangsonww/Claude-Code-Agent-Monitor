@@ -26,8 +26,12 @@
     "tokens": "טוקנים",
     "agents_one": "{{count}} סוכן",
     "agents_other": "{{count}} סוכנים",
+    "agents_two": "{{count}} סוכנים",
+    "agents_many": "{{count}} סוכנים",
     "tools_one": "{{count}} קריאה לכלי",
     "tools_other": "{{count}} קריאות לכלים",
+    "tools_two": "{{count}} קריאות לכלים",
+    "tools_many": "{{count}} קריאות לכלים",
     "status": {
       "running": "רץ",
       "working": "רץ",
@@ -232,6 +236,8 @@
     "noData": "אין נתוני זרימת כלים",
     "transitionCount_one": "{{count}} מעבר",
     "transitionCount_other": "{{count}} מעברים",
+    "transitionCount_two": "{{count}} מעברים",
+    "transitionCount_many": "{{count}} מעברים",
     "tooltip": {
       "node": "צומת כלי",
       "link": "מעבר בין כלים",
@@ -288,7 +294,9 @@
     "successRateAria": "אחוז הצלחה: {{rate}}%",
     "weeklyActivityAria": "גרף פעילות שבועית",
     "sessionCount_one": "{{count}} סשן",
-    "sessionCount_other": "{{count}} סשנים"
+    "sessionCount_other": "{{count}} סשנים",
+    "sessionCount_two": "{{count}} סשנים",
+    "sessionCount_many": "{{count}} סשנים"
   },
   "patterns": {
     "title": "תבניות עבודה שזוהו",
@@ -303,6 +311,8 @@
       "statsHeading": "נתונים",
       "stepsCount_one": "{{count}} צעד",
       "stepsCount_other": "{{count}} צעדים",
+      "stepsCount_two": "{{count}} צעדים",
+      "stepsCount_many": "{{count}} צעדים",
       "uniqueAgents": "סוגי סוכנים שונים",
       "occurrences": "סשנים שמתאימים לתבנית",
       "shareOfSessions": "חלק מכלל הסשנים",
@@ -336,9 +346,13 @@
     "noData": "אין נתונים על העברת עבודה בין מודלים",
     "agentsCount_one": "{{count}} סוכן",
     "agentsCount_other": "{{count}} סוכנים",
+    "agentsCount_two": "{{count}} סוכנים",
+    "agentsCount_many": "{{count}} סוכנים",
     "tokensCount": "{{tokens}} טוקנים",
     "sessionsCount_one": "{{count}} סשן",
     "sessionsCount_other": "{{count}} סשנים",
+    "sessionsCount_two": "{{count}} סשנים",
+    "sessionsCount_many": "{{count}} סשנים",
     "ariaLabel": "תרשים העברת העבודה בין מודלים",
     "tooltip": {
       "mainModel": "מודל ראשי",
@@ -388,6 +402,8 @@
     "max": " מקסימום",
     "sessionInfo_one": "{{count}} סשן - פעיל ב-{{from}}%-{{to}}% מהסשן",
     "sessionInfo_other": "{{count}} סשנים - פעיל ב-{{from}}%-{{to}}% מהסשן",
+    "sessionInfo_two": "{{count}} סשנים - פעיל ב-{{from}}%-{{to}}% מהסשן",
+    "sessionInfo_many": "{{count}} סשנים - פעיל ב-{{from}}%-{{to}}% מהסשן",
     "tooltip": {
       "lane": "מסלול מקבילי",
       "sessionsWith": "סשנים עם הסוכן הזה",

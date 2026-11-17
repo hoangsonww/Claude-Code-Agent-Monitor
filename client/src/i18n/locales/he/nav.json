@@ -89,6 +89,8 @@
     "groupConfig": "הגדרות סוכן",
     "resultCount_one": "{{count}} תוצאה",
     "resultCount_other": "{{count}} תוצאות",
+    "resultCount_two": "{{count}} תוצאות",
+    "resultCount_many": "{{count}} תוצאות",
     "noResultsHint": "נסה פחות אותיות, או לחץ ? לרשימת הקיצורים",
     "sessionsFiltered": "סשנים: {{filter}}",
     "actionRefresh": "טען נתונים מחדש",

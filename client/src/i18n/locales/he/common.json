@@ -12,6 +12,8 @@
   "subagents": "תתי-סוכנים",
   "subagent_label_one": "{{count}} תת-סוכן",
   "subagent_label_other": "{{count}} תתי-סוכנים",
+  "subagent_label_two": "{{count}} תתי-סוכנים",
+  "subagent_label_many": "{{count}} תתי-סוכנים",
   "events": "אירועים",
   "event": "אירוע",
   "sessions": "סשנים",
@@ -157,6 +159,8 @@
     "flat": "רשימה רגילה",
     "groupEventCount_one": "{{count}} אירוע",
     "groupEventCount_other": "{{count}} אירועים",
+    "groupEventCount_two": "{{count}} אירועים",
+    "groupEventCount_many": "{{count}} אירועים",
     "help": {
       "toggle": "עזרה",
       "title": "על אירועים, סינונים וקיבוץ",

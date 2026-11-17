@@ -10,11 +10,15 @@
   "noAgentsDesc": "הפעל סשן של סוכן עם החיבורים (hooks) מותקנים, והסוכנים יופיעו כאן.",
   "agentCount_one": "{{count}} סוכן במעקב",
   "agentCount_other": "{{count}} סוכנים במעקב",
+  "agentCount_two": "{{count}} סוכנים במעקב",
+  "agentCount_many": "{{count}} סוכנים במעקב",
   "noAgentsInColumn": "אין סוכנים",
   "noSessions": "עדיין אין סשנים במעקב",
   "noSessionsDesc": "הפעל סשן של סוכן עם החיבורים (hooks) מותקנים, והסשנים יופיעו כאן.",
   "sessionCount_one": "{{count}} סשן במעקב",
   "sessionCount_other": "{{count}} סשנים במעקב",
+  "sessionCount_two": "{{count}} סשנים במעקב",
+  "sessionCount_many": "{{count}} סשנים במעקב",
   "noSessionsInColumn": "אין סשנים",
   "ran": "רץ ",
   "running": "רץ כבר ",
@@ -22,10 +26,16 @@
     "anonymous": "סשן בלי שם",
     "agentSummary_one": "{{count}} סוכן",
     "agentSummary_other": "{{count}} סוכנים",
+    "agentSummary_two": "{{count}} סוכנים",
+    "agentSummary_many": "{{count}} סוכנים",
     "subagentSummary_one": "{{count}} תת-סוכן",
     "subagentSummary_other": "{{count}} תתי-סוכנים",
+    "subagentSummary_two": "{{count}} תתי-סוכנים",
+    "subagentSummary_many": "{{count}} תתי-סוכנים",
     "turnSummary_one": "{{count}} סבב",
-    "turnSummary_other": "{{count}} סבבים"
+    "turnSummary_other": "{{count}} סבבים",
+    "turnSummary_two": "{{count}} סבבים",
+    "turnSummary_many": "{{count}} סבבים"
   },
   "tooltip": {
     "agent": {

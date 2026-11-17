@@ -225,7 +225,13 @@ describe("i18n resources", () => {
       for (const language of ["zh", "vi", "ko", "es", "he"]) {
         const locale = flattenResource(i18n.getResourceBundle(language, namespace));
 
-        expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
+        // Hebrew has a dual plural form, so i18next also looks up `_two` (and `_many` on older
+        // ICU data). Those extra plural keys are allowed when the English `_other` key exists.
+        const localeKeys = Object.keys(locale).filter((key) => {
+          const extra = /^(.*)_(two|many)$/.exec(key);
+          return !(language === "he" && extra && `${extra[1]}_other` in english);
+        });
+        expect(localeKeys.sort(), `${language}/${namespace} keys`).toEqual(
           Object.keys(english).sort()
         );
 

@@ -89,6 +89,8 @@
   "concurrency": {
     "active_one": "{{count}} הפעלה כבר רצה",
     "active_other": "{{count}} הפעלות כבר רצות",
+    "active_two": "{{count}} הפעלות כבר רצות",
+    "active_many": "{{count}} הפעלות כבר רצות",
     "viewActive": "הפעלות מהלוח",
     "atCap": "הגעת למספר ההפעלות המקסימלי במקביל ({{max}}). עצור אחת מהן כדי להתחיל חדשה."
   },
@@ -131,6 +133,8 @@
     "started": "התחיל {{when}}",
     "viewActive": "הפעלות מהלוח",
     "viewActive_other": "{{count}} הפעלות מהלוח",
+    "viewActive_two": "{{count}} הפעלות מהלוח",
+    "viewActive_many": "{{count}} הפעלות מהלוח",
     "scopeNote": "מוצגות רק הפעלות שהתחלת מהלוח הזה.",
     "allSessionsLink": "לכל הסשנים של Claude Code ←",
     "viewLabel": "הצג"

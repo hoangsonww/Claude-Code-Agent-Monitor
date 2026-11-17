@@ -12,6 +12,8 @@
   "noDataCost": "אין נתונים",
   "eventCountLabel_one": "אירוע {{count}}",
   "eventCountLabel_other": "{{count}} אירועים",
+  "eventCountLabel_two": "{{count}} אירועים",
+  "eventCountLabel_many": "{{count}} אירועים",
   "tabs": {
     "tokenAnalytics": "ניתוח טוקנים",
     "costAnalytics": "ניתוח עלויות",
