@@ -218,6 +218,14 @@ describe("tool-risk classifier", () => {
       egress('ssh localhost "echo $(ssh ops.example.org curl https://build.example.net/x)"'),
       ["ops.example.org"]
     );
+    // Thousands of ssh remote commands in one payload: masked correctly (and in one sweep).
+    const many = Array.from(
+      { length: 3000 },
+      (_, i) => `ssh localhost echo https://h${i}.example.net/x;`
+    );
+    assert.deepEqual(egress(`${many.join(" ")} curl https://build.example.net/x`), [
+      "build.example.net",
+    ]);
     // An ssh named in a remote command runs on that remote host: only the first hop counts.
     assert.deepEqual(egress("ssh ops.example.org ssh build.example.net"), ["ops.example.org"]);
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);

@@ -342,23 +342,30 @@ function parseSsh(command) {
  * preserved). Spans nest (an ssh remote command inside a locally evaluated substitution
  * inside another remote command...), so each offset follows the innermost span that
  * contains it: a nested ssh's remote command stays blanked inside a kept substitution.
+ *
+ * One sweep over the offsets (linear in the command length plus a sort of the spans):
+ * spans are entered in start order (longer first on a tie, so the shorter one is the
+ * inner one), and the top of the stack is always the active span that started last.
  */
 function blankSpans(command, spans, keep = []) {
   if (!spans.length) return command;
   const tagged = [
     ...spans.map(([s, e]) => ({ s, e, blank: true })),
     ...keep.map(([s, e]) => ({ s, e, blank: false })),
-  ];
+  ]
+    .filter((t) => t.e > t.s)
+    .sort((a, b) => a.s - b.s || b.e - a.e);
+  if (!tagged.length) return command;
+  let last = 0;
+  for (const t of tagged) if (t.e > last) last = t.e;
   const chars = command.split("");
-  for (const [s, e] of spans) {
-    for (let i = s; i < e; i++) {
-      let inner = null;
-      for (const t of tagged) {
-        if (i < t.s || i >= t.e) continue;
-        if (!inner || t.s > inner.s || (t.s === inner.s && t.e < inner.e)) inner = t;
-      }
-      if (inner.blank) chars[i] = " ";
-    }
+  const stack = [];
+  let next = 0;
+  for (let i = tagged[0].s; i < Math.min(last, chars.length); i++) {
+    while (next < tagged.length && tagged[next].s <= i) stack.push(tagged[next++]);
+    // a span that ended is dropped once it surfaces; one ended below the top is never the innermost
+    while (stack.length && stack[stack.length - 1].e <= i) stack.pop();
+    if (stack.length && stack[stack.length - 1].blank) chars[i] = " ";
   }
   return chars.join("");
 }
