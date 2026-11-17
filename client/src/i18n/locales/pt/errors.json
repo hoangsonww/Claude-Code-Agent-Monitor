@@ -19,9 +19,9 @@
     "defaultBody": "Notificação"
   },
   "toolLegend": {
-    "read": "Ler",
-    "write": "Escrever",
-    "edit": "Editar",
+    "read": "Read",
+    "write": "Write",
+    "edit": "Edit",
     "bash": "Bash",
     "grep": "Grep",
     "glob": "Glob",

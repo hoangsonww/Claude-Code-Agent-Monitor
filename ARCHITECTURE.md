@@ -910,10 +910,10 @@ The client localization stack is powered by `i18next` + `react-i18next` (`client
 ```mermaid
 flowchart LR
     A["Browser load"] --> B["LanguageDetector<br/>localStorage -> navigator"]
-    B --> C["Resolved language<br/>en | zh | vi | ko | es (fallback en)"]
+    B --> C["Resolved language<br/>en | zh | vi | ko | es | pt (fallback en)"]
     C --> D["Namespace resources<br/>common/nav/dashboard/sessions/..."]
     D --> E["React pages/components<br/>useTranslation(ns)"]
-    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN | ko-KR | es-ES"]
+    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN | ko-KR | es-ES | pt-BR"]
     F --> G["Localized labels,<br/>dates, number formatting,<br/>and model name display"]
 ```
 
