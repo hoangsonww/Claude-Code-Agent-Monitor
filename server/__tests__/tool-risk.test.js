@@ -209,6 +209,15 @@ describe("tool-risk classifier", () => {
     assert.deepEqual(egress("ssh localhost tee >(curl -T - https://build.example.net/up)"), [
       "build.example.net",
     ]);
+    // ...but an ssh inside one still sends its own remote command to that remote host.
+    assert.deepEqual(
+      egress("ssh localhost cat <(ssh ops.example.org curl https://build.example.net/x)"),
+      ["ops.example.org"]
+    );
+    assert.deepEqual(
+      egress('ssh localhost "echo $(ssh ops.example.org curl https://build.example.net/x)"'),
+      ["ops.example.org"]
+    );
     // An ssh named in a remote command runs on that remote host: only the first hop counts.
     assert.deepEqual(egress("ssh ops.example.org ssh build.example.net"), ["ops.example.org"]);
     assert.deepEqual(bash("curl http://localhost:4820/api/health").signals, []);

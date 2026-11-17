@@ -337,12 +337,28 @@ function parseSsh(command) {
   return { hosts, remote, local };
 }
 
-/** `command` with the [start, end) spans blanked out, except the `keep` spans (offsets preserved). */
+/**
+ * `command` with the [start, end) spans blanked out, except the `keep` spans (offsets
+ * preserved). Spans nest (an ssh remote command inside a locally evaluated substitution
+ * inside another remote command...), so each offset follows the innermost span that
+ * contains it: a nested ssh's remote command stays blanked inside a kept substitution.
+ */
 function blankSpans(command, spans, keep = []) {
   if (!spans.length) return command;
+  const tagged = [
+    ...spans.map(([s, e]) => ({ s, e, blank: true })),
+    ...keep.map(([s, e]) => ({ s, e, blank: false })),
+  ];
   const chars = command.split("");
   for (const [s, e] of spans) {
-    for (let i = s; i < e; i++) if (!inSpan(i, keep)) chars[i] = " ";
+    for (let i = s; i < e; i++) {
+      let inner = null;
+      for (const t of tagged) {
+        if (i < t.s || i >= t.e) continue;
+        if (!inner || t.s > inner.s || (t.s === inner.s && t.e < inner.e)) inner = t;
+      }
+      if (inner.blank) chars[i] = " ";
+    }
   }
   return chars.join("");
 }
