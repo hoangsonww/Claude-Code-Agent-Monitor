@@ -12,7 +12,7 @@ const { v4: uuidv4 } = require("uuid");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
-const { notifyTurn } = require("../lib/turn-notify");
+const { notifyTurn, projectName } = require("../lib/turn-notify");
 const TranscriptCache = require("../lib/transcript-cache");
 const {
   scanAndImportSubagents,
@@ -353,7 +353,28 @@ function ensureSession(sessionId, data, origin = null) {
   if (repoRemoteUrl && session.repo_remote_url !== repoRemoteUrl) {
     stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
   }
+  // A conversation can move to another project after it starts (e.g. a desktop session pointed at
+  // a different repository). Follow it when the *project* changes, but ignore moves inside the same
+  // project (subfolders, worktrees) so the label does not flicker.
+  if (
+    typeof data.cwd === "string" &&
+    data.cwd &&
+    data.cwd !== session.cwd &&
+    (!session.cwd || projectName(data.cwd) !== projectName(session.cwd))
+  ) {
+    updateSessionCwd().run(data.cwd, sessionId);
+    session = stmts.getSession.get(sessionId);
+  }
   return session;
+}
+
+/** Lazily prepared `UPDATE sessions SET cwd` (the shared stmts table has no such statement). */
+let updateSessionCwdStmt = null;
+function updateSessionCwd() {
+  if (!updateSessionCwdStmt) {
+    updateSessionCwdStmt = dbModule.db.prepare("UPDATE sessions SET cwd = ? WHERE id = ?");
+  }
+  return updateSessionCwdStmt;
 }
 
 function getMainAgent(sessionId) {
