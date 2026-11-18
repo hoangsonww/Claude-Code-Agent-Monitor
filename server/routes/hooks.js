@@ -12,6 +12,7 @@ const { v4: uuidv4 } = require("uuid");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
+const { notifyTurn } = require("../lib/turn-notify");
 const TranscriptCache = require("../lib/transcript-cache");
 const {
   scanAndImportSubagents,
@@ -829,10 +830,13 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
       }
 
       // Now broadcast — single agent_updated reflecting the final state.
-      broadcast("session_updated", stmts.getSession.get(sessionId));
+      const stoppedSession = stmts.getSession.get(sessionId);
+      broadcast("session_updated", stoppedSession);
       if (mainAgentId) {
         broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
+      // Opt-in phone notification (DASHBOARD_PUSH_EVENTS); never blocks the hook.
+      notifyTurn(dbModule.db, stoppedSession, data.stop_reason === "error" ? "error" : "stop");
       break;
     }
 
@@ -1034,6 +1038,7 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
           stmts.setAgentAwaitingInput.run(ts, "notification", mainAgentId);
           broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
         }
+        notifyTurn(dbModule.db, stmts.getSession.get(sessionId), "waiting", msg);
       }
       break;
     }

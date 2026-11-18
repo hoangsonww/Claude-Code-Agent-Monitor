@@ -83,8 +83,10 @@ function showNativeNotificationIfElectron(title, body) {
  * Returns `{ native, pushed, failed }` so the caller can surface what actually
  * happened in its API response — silent failures stop looking like success.
  */
-async function sendPushToAll(db, title, body) {
-  const native = showNativeNotificationIfElectron(title, body);
+async function sendPushToAll(db, title, body, options = {}) {
+  // options.native === false skips the desktop toast (phone-only alerts); options.url is opened
+  // when the notification is tapped; options.tag collapses repeats for the same session.
+  const native = options.native === false ? false : showNativeNotificationIfElectron(title, body);
 
   const subscriptions = db.prepare("SELECT * FROM push_subscriptions").all();
   if (subscriptions.length === 0) {
@@ -94,11 +96,13 @@ async function sendPushToAll(db, title, body) {
   const payload = JSON.stringify({
     title,
     body,
-    icon: "https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/main/client/public/favicon.ico",
+    icon: "/icon-192.png",
     badge:
       "https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/main/client/public/favicon.ico",
     silent: false,
     sound: "default",
+    ...(options.url ? { data: { url: options.url } } : {}),
+    ...(options.tag ? { tag: options.tag, renotify: true } : {}),
   });
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
