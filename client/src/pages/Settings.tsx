@@ -332,7 +332,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useLocation } from "react-router";
-import { api, type SnapshotStorage as SnapshotStorageInfo } from "../lib/api";
+import { api, authHeaders, type SnapshotStorage as SnapshotStorageInfo } from "../lib/api";
 import { usePaletteAction } from "../components/PaletteActionProvider";
 
 import { eventBus } from "../lib/eventBus";
@@ -1750,6 +1750,7 @@ export function Settings() {
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [pricingResetRevision, setPricingResetRevision] = useState(0);
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(loadNotifPrefs);
+  const [pushTestStatus, setPushTestStatus] = useState<string | null>(null);
   const [tabbyEnabled, setTabbyEnabled] = useState(() => tabbyPrefs.getEnabled());
   /** Show or hide Tabby, persisting the choice. */
   const setTabby = useCallback((v: boolean) => {
@@ -2004,7 +2005,13 @@ export function Settings() {
     const perm = await Notification.requestPermission();
     if (perm === "granted") {
       updateNotifPrefs({ enabled: true });
-      await subscribeToPush();
+      try {
+        await subscribeToPush();
+      } catch (err) {
+        setPushTestStatus(
+          `${t("notifications.testFailed")}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   };
 
@@ -3370,22 +3377,58 @@ export function Settings() {
               <div className="pt-3 border-t border-border">
                 <button
                   onClick={async () => {
-                    if (!("Notification" in window) || Notification.permission !== "granted")
-                      return;
-                    await fetch("/api/push/send", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: t("notifications.testTitle"),
-                        body: t("notifications.testBody"),
-                      }),
-                    });
+                    // Make every failure visible: no permission, push not subscribed, server
+                    // rejected the call, or no device received it.
+                    setPushTestStatus(null);
+                    try {
+                      if (!("Notification" in window)) {
+                        setPushTestStatus(t("notifications.testUnsupported"));
+                        return;
+                      }
+                      if (Notification.permission === "default")
+                        await Notification.requestPermission();
+                      if (Notification.permission !== "granted") {
+                        setPushTestStatus(t("notifications.blocked"));
+                        return;
+                      }
+                      await subscribeToPush();
+                      const res = await fetch("/api/push/send", {
+                        method: "POST",
+                        headers: authHeaders({ "Content-Type": "application/json" }),
+                        body: JSON.stringify({
+                          title: t("notifications.testTitle"),
+                          body: t("notifications.testBody"),
+                        }),
+                      });
+                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                      const out = (await res.json()) as { pushed?: number };
+                      if (out.pushed && out.pushed > 0) {
+                        setPushTestStatus(t("notifications.testSent", { count: out.pushed }));
+                      } else {
+                        // No push subscription reached: still show one locally so the user sees it.
+                        const reg = await navigator.serviceWorker?.ready;
+                        await reg?.showNotification(t("notifications.testTitle"), {
+                          body: t("notifications.testBody"),
+                          icon: "/icon-192.png",
+                        });
+                        setPushTestStatus(t("notifications.testLocalOnly"));
+                      }
+                    } catch (err) {
+                      setPushTestStatus(
+                        `${t("notifications.testFailed")}: ${err instanceof Error ? err.message : String(err)}`
+                      );
+                    }
                   }}
                   className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-surface-4 border border-border transition-colors"
                 >
                   <Zap className="w-3 h-3" />
                   {t("notifications.sendTest")}
                 </button>
+                {pushTestStatus && (
+                  <p className="mt-2 text-xs text-gray-400" role="status">
+                    {pushTestStatus}
+                  </p>
+                )}
               </div>
             </div>
           )}

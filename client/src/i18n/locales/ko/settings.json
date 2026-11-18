@@ -188,6 +188,10 @@
     "subagentSpawned": "Subagent가 생성될 때",
     "testTitle": "Agent Monitor",
     "testBody": "알림이 정상적으로 작동합니다!",
+    "testUnsupported": "This browser does not support notifications",
+    "testSent": "Sent to {{count}} device(s)",
+    "testLocalOnly": "No device is subscribed yet; showing it here only",
+    "testFailed": "Could not send",
     "sendTest": "테스트 알림 보내기",
     "disabledInfo": "알림이 비활성화되어 있습니다 - 세션 이벤트 알림을 받으려면 활성화하세요"
   },

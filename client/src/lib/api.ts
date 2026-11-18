@@ -880,6 +880,18 @@ export function dashboardToken(): string | null {
 }
 
 /**
+ * Headers for raw `fetch` calls that bypass the {@link api} wrapper (push subscription, test
+ * notifications): the dashboard token when one is configured, plus any extra headers.
+ *
+ * @param extra - Additional headers to merge in.
+ * @returns A header object safe to pass to `fetch`.
+ */
+export function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = dashboardToken();
+  return token ? { ...extra, "x-dashboard-token": token } : { ...extra };
+}
+
+/**
  * One-time pairing link support: when the page is opened as `/?token=<value>` (for example from
  * a phone over a private network), save the token to `localStorage["dashboard_token"]` and remove
  * it from the address bar so it does not linger in history or get shared by accident. Later
@@ -2779,12 +2791,7 @@ export interface SnapshotPruneResult {
 /** Kind of Claude Code config artifact manageable via `api.ccConfig.write`/
  *  `delete` - each maps to a distinct on-disk location under `.claude/`. */
 export type CcArtifactType =
-  | "skills"
-  | "agents"
-  | "commands"
-  | "output-styles"
-  | "memory"
-  | "auto-memory";
+  "skills" | "agents" | "commands" | "output-styles" | "memory" | "auto-memory";
 
 /** Body for PUT /api/cc-config/file - create or overwrite one artifact. */
 export interface CcWriteArgs {

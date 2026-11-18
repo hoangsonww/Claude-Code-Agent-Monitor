@@ -183,6 +183,7 @@ import i18n from "../i18n";
 import { eventBus } from "../lib/eventBus";
 import { subscribeToPush } from "../lib/push";
 import type { WSMessage, Session, Agent, DashboardEvent } from "../lib/types";
+import { authHeaders } from "../lib/api";
 
 /** localStorage key for notification preferences, shared with the Settings page. */
 const NOTIF_KEY = "agent-monitor-notifications";
@@ -250,7 +251,7 @@ async function notify(title: string, body: string) {
   try {
     await fetch("/api/push/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ title, body }),
     });
   } catch {

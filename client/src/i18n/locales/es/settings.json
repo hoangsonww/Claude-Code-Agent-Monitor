@@ -188,6 +188,10 @@
     "subagentSpawned": "Se inicia un subagente",
     "testTitle": "Agent Monitor",
     "testBody": "¡Las notificaciones funcionan!",
+    "testUnsupported": "Este navegador no admite notificaciones",
+    "testSent": "Enviado a {{count}} dispositivo(s)",
+    "testLocalOnly": "Aún no hay dispositivos suscritos; se muestra solo aquí",
+    "testFailed": "No se pudo enviar",
     "sendTest": "Enviar Notificación de Prueba",
     "disabledInfo": "Las notificaciones están deshabilitadas - habilita para recibir alertas de eventos de sesión"
   },

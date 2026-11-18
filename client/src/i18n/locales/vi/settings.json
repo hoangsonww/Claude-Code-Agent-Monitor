@@ -188,6 +188,10 @@
     "subagentSpawned": "Subagent được tạo",
     "testTitle": "Agent Monitor",
     "testBody": "Thông báo đang hoạt động!",
+    "testUnsupported": "This browser does not support notifications",
+    "testSent": "Sent to {{count}} device(s)",
+    "testLocalOnly": "No device is subscribed yet; showing it here only",
+    "testFailed": "Could not send",
     "sendTest": "Gửi thông báo thử",
     "disabledInfo": "Thông báo đang tắt - bật để nhận cảnh báo sự kiện phiên"
   },

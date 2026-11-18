@@ -188,6 +188,10 @@
     "subagentSpawned": "Subagent生成",
     "testTitle": "Agent 监控",
     "testBody": "通知功能正常！",
+    "testUnsupported": "This browser does not support notifications",
+    "testSent": "Sent to {{count}} device(s)",
+    "testLocalOnly": "No device is subscribed yet; showing it here only",
+    "testFailed": "Could not send",
     "sendTest": "发送测试通知",
     "disabledInfo": "通知已禁用 - 启用以获取会话事件提醒"
   },

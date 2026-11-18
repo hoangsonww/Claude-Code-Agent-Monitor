@@ -188,6 +188,10 @@
     "subagentSpawned": "Subagent spawned",
     "testTitle": "Agent Monitor",
     "testBody": "Notifications are working!",
+    "testUnsupported": "This browser does not support notifications",
+    "testSent": "Sent to {{count}} device(s) – it should pop up now",
+    "testLocalOnly": "No device is subscribed yet; showing it on this device only",
+    "testFailed": "Could not send",
     "sendTest": "Send Test Notification",
     "disabledInfo": "Notifications are disabled - enable to get alerts for session events"
   },
