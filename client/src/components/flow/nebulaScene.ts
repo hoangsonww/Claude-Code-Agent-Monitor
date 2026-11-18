@@ -6,6 +6,7 @@
  * tools. Every tool call is a comet that arcs from agent to tool with a glowing trail, and lands
  * with a shockwave, a spark burst and a surge of energy through the nebula. Rendered through an
  * UnrealBloom post-processing pass (three.js, MIT).
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import * as THREE from "three";

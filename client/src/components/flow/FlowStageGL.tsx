@@ -3,6 +3,7 @@
  * @description WebGL stages for Live Flow: "Neural Nebula" (three.js scene with GPU curl-noise
  * nebulae, comets and bloom — see nebulaScene.ts) and "Fluid" (GPU Navier–Stokes ink driven by
  * tool calls — see fluidSim.ts). Falls back to the 2D canvas stage when WebGL is unavailable.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useEffect, useRef, useState } from "react";

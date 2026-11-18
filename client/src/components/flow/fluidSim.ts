@@ -12,6 +12,7 @@
  * condition that the above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY
  * OF ANY KIND.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 type UniformName =
