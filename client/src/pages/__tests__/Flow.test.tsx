@@ -123,10 +123,10 @@ describe("Flow page", () => {
     expect((await screen.findAllByText(/Searched the repo/)).length).toBeGreaterThan(0);
   });
 
-  it("defaults to the Arc Reactor canvas and remembers a picked theme", async () => {
+  it("defaults to the Neural Nebula WebGL stage and remembers a picked theme", async () => {
     localStorage.removeItem("flow_view");
     renderFlow();
-    expect(await screen.findByRole("tab", { name: "Arc Reactor" })).toHaveAttribute(
+    expect(await screen.findByRole("tab", { name: "Neural Nebula" })).toHaveAttribute(
       "aria-selected",
       "true"
     );

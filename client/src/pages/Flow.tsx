@@ -21,12 +21,13 @@ import { timeAgo } from "../lib/format";
 import type { Agent, AgentStatus, DashboardEvent, Session, WSMessage } from "../lib/types";
 import { FlowStage, type StageSession } from "../components/flow/FlowStage";
 import { STAGE_THEMES, type StageThemeId } from "../components/flow/flowThemes";
+import { FlowStageGL, GL_THEMES, type GLThemeId } from "../components/flow/FlowStageGL";
 
-/** Which view the page shows: the classic cards or one of the canvas themes. */
-export type FlowView = "classic" | StageThemeId;
+/** Which view the page shows: the classic cards, a WebGL theme or one of the canvas themes. */
+export type FlowView = "classic" | StageThemeId | GLThemeId;
 
-/** Every view, in picker order. */
-const FLOW_VIEWS: FlowView[] = [...STAGE_THEMES, "classic"];
+/** Every view, in picker order (WebGL themes first). */
+const FLOW_VIEWS: FlowView[] = [...GL_THEMES, ...STAGE_THEMES, "classic"];
 
 /** localStorage key for the chosen view. */
 const VIEW_KEY = "flow_view";
@@ -39,7 +40,7 @@ function readView(): FlowView {
   } catch {
     /* storage blocked */
   }
-  return "reactor";
+  return "nebula";
 }
 
 /** Demo sessions shown when demo mode is on. */
@@ -717,13 +718,24 @@ export function Flow() {
               ref={stageBoxRef}
               className={`relative overflow-hidden border border-border bg-black ${fullscreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : "h-[72vh] min-h-[420px] rounded-xl"}`}
             >
-              <FlowStage
-                sessions={stageSessions}
-                shots={pulses}
-                theme={view as StageThemeId}
-                reducedMotion={reducedMotion}
-                label={t("dashboard:flow.title")}
-              />
+              {(GL_THEMES as string[]).includes(view) ? (
+                <FlowStageGL
+                  key={view}
+                  sessions={stageSessions}
+                  shots={pulses}
+                  theme={view as GLThemeId}
+                  reducedMotion={reducedMotion}
+                  label={t("dashboard:flow.title")}
+                />
+              ) : (
+                <FlowStage
+                  sessions={stageSessions}
+                  shots={pulses}
+                  theme={view as StageThemeId}
+                  reducedMotion={reducedMotion}
+                  label={t("dashboard:flow.title")}
+                />
+              )}
               <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
                 <div className="flow-hud rounded-md px-2.5 py-1.5 font-mono text-[11px] leading-5">
                   <div>

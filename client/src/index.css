@@ -548,6 +548,40 @@
   box-shadow: 0 0 14px var(--chip-glow, rgba(125, 211, 252, 0.5));
   background: var(--chip-bg, #1e3a5f);
 }
+.flow-theme-chip--nebula {
+  --chip-bg: linear-gradient(135deg, #1a0b4d, #2563eb 60%, #06b6d4);
+  --chip-glow: rgba(96, 165, 250, 0.7);
+}
+.flow-theme-chip--fluid {
+  --chip-bg: linear-gradient(135deg, #be185d, #7c3aed 50%, #0891b2);
+  --chip-glow: rgba(236, 72, 153, 0.65);
+}
+.nebula-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: rgba(214, 230, 255, 0.85);
+  text-shadow:
+    0 0 6px rgba(56, 189, 248, 0.8),
+    0 0 2px #000;
+  will-change: transform;
+}
+.nebula-label--title {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow:
+    0 0 12px rgba(125, 249, 255, 0.9),
+    0 0 3px #000;
+}
+.nebula-label--agent {
+  color: rgba(255, 236, 200, 0.9);
+}
 .flow-theme-chip--reactor {
   --chip-bg: linear-gradient(135deg, #04324d, #0a6f8f);
   --chip-glow: rgba(95, 242, 255, 0.6);

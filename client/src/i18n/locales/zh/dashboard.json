@@ -43,6 +43,8 @@
     "emptyDesc": "启动 Claude Code 会话后会实时显示在这里。",
     "failedLoad": "加载流视图失败",
     "themes": {
+      "nebula": "Neural Nebula",
+      "fluid": "Fluid",
       "reactor": "Arc Reactor",
       "synthwave": "Synthwave",
       "matrix": "Matrix",

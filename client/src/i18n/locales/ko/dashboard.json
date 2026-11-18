@@ -43,6 +43,8 @@
     "emptyDesc": "Claude Code 세션을 시작하면 여기에 실시간으로 표시됩니다.",
     "failedLoad": "흐름 보기를 불러오지 못했습니다",
     "themes": {
+      "nebula": "Neural Nebula",
+      "fluid": "Fluid",
       "reactor": "Arc Reactor",
       "synthwave": "Synthwave",
       "matrix": "Matrix",

@@ -43,6 +43,8 @@
     "emptyDesc": "Bắt đầu một phiên Claude Code và nó sẽ hiện ở đây.",
     "failedLoad": "Không tải được chế độ xem luồng",
     "themes": {
+      "nebula": "Neural Nebula",
+      "fluid": "Fluid",
       "reactor": "Arc Reactor",
       "synthwave": "Synthwave",
       "matrix": "Matrix",

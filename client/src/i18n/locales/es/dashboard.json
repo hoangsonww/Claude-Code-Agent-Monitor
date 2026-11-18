@@ -43,6 +43,8 @@
     "emptyDesc": "Inicia una sesión de Claude Code y aparecerá aquí en vivo.",
     "failedLoad": "No se pudo cargar la vista de flujo",
     "themes": {
+      "nebula": "Nebulosa neural",
+      "fluid": "Fluido",
       "reactor": "Arc Reactor",
       "synthwave": "Synthwave",
       "matrix": "Matrix",

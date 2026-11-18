@@ -88,7 +88,7 @@ export function shortName(name: string): string {
  *
  * @returns Centre and scale per cluster.
  */
-function layout(w: number, h: number, n: number): { x: number; y: number; s: number }[] {
+export function layout(w: number, h: number, n: number): { x: number; y: number; s: number }[] {
   if (n === 0) return [];
   const cols = Math.max(1, Math.round(Math.sqrt((n * w) / h)));
   const rows = Math.ceil(n / cols);
