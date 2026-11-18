@@ -253,6 +253,8 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
  * - `subscription.toJSON()` serializes the endpoint URL plus the `p256dh`/`auth` keys the
  *   backend needs to encrypt payloads for this browser.
  */
+import { authHeaders } from "./api";
+
 export async function subscribeToPush(): Promise<void> {
   // Bail on browsers without Service Worker or Push API (or insecure contexts).
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -262,7 +264,8 @@ export async function subscribeToPush(): Promise<void> {
   if (existing) return; // already subscribed -> idempotent no-op
 
   // Fetch the server's VAPID public key and decode it for `applicationServerKey`.
-  const res = await fetch("/api/push/vapid-public-key");
+  const res = await fetch("/api/push/vapid-public-key", { headers: authHeaders() });
+  if (!res.ok) throw new Error(`push key: HTTP ${res.status}`);
   const { publicKey } = await res.json();
 
   const subscription = await registration.pushManager.subscribe({
@@ -273,7 +276,7 @@ export async function subscribeToPush(): Promise<void> {
   // Register the endpoint + keys with the backend so it can push to this browser.
   await fetch("/api/push/subscribe", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(subscription.toJSON()), // { endpoint, keys: { p256dh, auth } }
   });
 }
@@ -303,7 +306,7 @@ export async function unsubscribeFromPush(): Promise<void> {
   // Tell the backend to forget this endpoint so it stops attempting deliveries.
   await fetch("/api/push/subscribe", {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ endpoint }),
   });
 }

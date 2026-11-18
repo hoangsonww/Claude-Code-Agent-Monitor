@@ -171,8 +171,12 @@ import "@fontsource/inter/latin-700.css";
 import "@fontsource/jetbrains-mono/latin-400.css";
 import "@fontsource/jetbrains-mono/latin-500.css";
 import App from "./App";
+import { captureTokenFromUrl } from "./lib/api";
 import "./i18n";
 import "./index.css";
+
+// Store a `?token=` pairing link before anything calls the API or opens the WebSocket.
+captureTokenFromUrl();
 
 if ("serviceWorker" in navigator) {
   // Detect whether the page is already controlled by an SW *before* we

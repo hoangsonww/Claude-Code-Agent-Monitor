@@ -325,6 +325,7 @@ import {
   VolumeX,
   Webhook,
   Workflow,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import type { DataScope, ProviderScope } from "./dataScope";
@@ -560,6 +561,7 @@ export const PAGE_COMMANDS: {
   { to: "/activity", icon: Activity, navKey: "nav:activityFeed" },
   { to: "/analytics", icon: BarChart3, navKey: "nav:analytics" },
   { to: "/workflows", icon: Workflow, navKey: "nav:workflows" },
+  { to: "/flow", icon: Waypoints, navKey: "nav:flow" },
   { to: "/cc-config", icon: Boxes, navKey: "nav:ccConfig" },
   { to: "/run", icon: Play, navKey: "nav:run" },
   { to: "/settings", icon: SettingsIcon, navKey: "nav:settings" },
@@ -684,7 +686,7 @@ const SESSION_FILTER_COMMANDS: { status: string; labelKey: string }[] = [
  * UI languages the palette offers switch commands for. Must match `supportedLngs` in the i18n
  * setup.
  */
-const LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const LANGUAGES = ["en", "zh", "vi", "ko", "es", "he"] as const;
 
 /** Product scopes the palette offers, in display order. */
 const PROVIDER_SCOPES: ProviderScope[] = ["both", "claude", "codex"];

@@ -7,6 +7,7 @@
   "activityFeed": "Luồng hoạt động",
   "analytics": "Phân tích",
   "workflows": "Quy trình",
+  "flow": "Luồng trực tiếp",
   "alerts": "Cảnh báo",
   "ccConfig": "Cấu hình Agent",
   "run": "Chạy Agent",
@@ -15,6 +16,8 @@
   "github": "GitHub",
   "website": "Website",
   "notFound": "Không tìm thấy",
+  "openMenu": "Mở menu",
+  "closeMenu": "Đóng menu",
   "skipToContent": "Bỏ qua đến nội dung",
   "expand": "Mở rộng thanh bên",
   "collapse": "Thu gọn thanh bên",
@@ -59,14 +62,16 @@
     "zh": "Tiếng Trung",
     "vi": "Tiếng Việt",
     "ko": "Tiếng Hàn",
-    "es": "Tiếng Tây Ban Nha"
+    "es": "Tiếng Tây Ban Nha",
+    "he": "Tiếng Do Thái"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "he": "עב"
   },
   "palette": {
     "title": "Bảng lệnh",

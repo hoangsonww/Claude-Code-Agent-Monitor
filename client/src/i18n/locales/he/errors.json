@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "הדף לא נמצא",
+    "description": "הדף שביקשת לא קיים. השתמש בתפריט כדי לחזור לדף תקין.",
+    "goDashboard": "ללוח הבקרה",
+    "goBack": "חזרה"
+  },
+  "notifications": {
+    "newSession": "סשן חדש",
+    "sessionDefault": "סשן ",
+    "sessionError": "שגיאה בסשן",
+    "subagentSpawned": "נוצר תת-סוכן",
+    "finishedResponding": "הסוכן סיים לענות",
+    "readyForInput": "מחכה לך",
+    "sessionCompleted": "הסשן הושלם",
+    "sessionClosed": "הסשן נסגר",
+    "defaultTitle": "לוח הסוכנים",
+    "defaultBody": "התראה"
+  },
+  "toolLegend": {
+    "read": "Read",
+    "write": "Write",
+    "edit": "Edit",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "אחר"
+  }
+}

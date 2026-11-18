@@ -1,28 +1,34 @@
 {
   "id": "claude-code-agent-dashboard",
-  "name": "Agent Dashboard - Claude Code Monitor",
-  "short_name": "Agent Dashboard",
+  "name": "Claude Code Monitor",
+  "short_name": "Monitor",
   "description": "Real-time monitoring platform for Claude Code agent activity.",
   "author": "Son Nguyen",
-  "start_url": "/",
+  "start_url": "/flow",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#6366f1",
+  "display_override": ["standalone", "minimal-ui"],
+  "theme_color": "#0f1117",
   "background_color": "#0f1117",
   "orientation": "any",
   "categories": ["developer-tools", "productivity"],
   "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "name": "Live Flow",
+      "url": "/flow",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
+    { "name": "Dashboard", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
+      "name": "Sessions",
+      "url": "/sessions",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

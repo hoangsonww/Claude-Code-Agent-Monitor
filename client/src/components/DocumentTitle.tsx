@@ -192,6 +192,8 @@ export function DocumentTitle() {
     title = t("analytics");
   } else if (path.startsWith("/workflows")) {
     title = t("workflows");
+  } else if (path.startsWith("/flow")) {
+    title = t("flow");
   } else if (path.startsWith("/cc-config")) {
     title = t("ccConfig");
   } else if (path.startsWith("/run")) {

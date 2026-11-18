@@ -293,6 +293,7 @@ jobs:
     needs: [build, changes]
     if: |
       github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.desktop == 'true' ||
       contains(toJSON(github.event.pull_request.labels.*.name), 'desktop')
     defaults:

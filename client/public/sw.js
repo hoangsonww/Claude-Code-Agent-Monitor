@@ -6,7 +6,7 @@
 // Bump this any time the SW logic changes - old clients will install the new
 // SW, drop their existing caches in `activate`, and `skipWaiting` so the
 // freshly-built bundle starts being served on the very next request.
-const CACHE_NAME = "dashboard-v2";
+const CACHE_NAME = "dashboard-v3";
 
 self.addEventListener("install", () => {
   // No pre-cache: network-first below means the cache fills lazily, and
@@ -87,13 +87,20 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  // Server-side turn notifications carry data.url (e.g. /sessions/<id>): open that page, reusing an
+  // open dashboard window when there is one.
+  const target = event.notification.data && event.notification.data.url;
   event.waitUntil(
-    clients.matchAll({ type: "window" }).then((windowClients) => {
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.focus) {
+          if (target && "navigate" in client) {
+            return client.navigate(target).then((c) => (c || client).focus());
+          }
           return client.focus();
         }
       }
+      if (clients.openWindow) return clients.openWindow(target || "/");
     })
   );
 });

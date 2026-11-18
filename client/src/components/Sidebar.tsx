@@ -255,6 +255,7 @@ import {
   Activity,
   BarChart3,
   Workflow,
+  Waypoints,
   Boxes,
   Play,
   Settings,
@@ -298,6 +299,7 @@ const NAV_KEYS = [
   { to: "/activity", icon: Activity, key: "nav:activityFeed" },
   { to: "/analytics", icon: BarChart3, key: "nav:analytics" },
   { to: "/workflows", icon: Workflow, key: "nav:workflows" },
+  { to: "/flow", icon: Waypoints, key: "nav:flow" },
   { to: "/cc-config", icon: Boxes, key: "nav:ccConfig" },
   { to: "/run", icon: Play, key: "nav:run" },
   { to: "/settings", icon: Settings, key: "nav:settings" },
@@ -313,7 +315,7 @@ const STATS_STORAGE_KEY = "sidebar-connection-stats";
 /** How many recent events the connection status modal keeps and persists. */
 const RECENT_EVENTS_CAP = 8;
 /** UI languages offered by the language switcher. Must match `supportedLngs` in the i18n setup. */
-const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es", "he"] as const;
 /** One supported UI language code. */
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
@@ -415,7 +417,14 @@ function loadStats(): PersistedStats {
  */
 function normalizeLanguage(language: string): SupportedLanguage {
   const base = language.toLowerCase().split("-")[0];
-  if (base === "zh" || base === "vi" || base === "en" || base === "ko" || base === "es") {
+  if (
+    base === "zh" ||
+    base === "vi" ||
+    base === "en" ||
+    base === "ko" ||
+    base === "es" ||
+    base === "he"
+  ) {
     return base;
   }
   return "en";

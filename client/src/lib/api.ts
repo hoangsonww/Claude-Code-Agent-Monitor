@@ -880,6 +880,41 @@ export function dashboardToken(): string | null {
 }
 
 /**
+ * Headers for raw `fetch` calls that bypass the {@link api} wrapper (push subscription, test
+ * notifications): the dashboard token when one is configured, plus any extra headers.
+ *
+ * @param extra - Additional headers to merge in.
+ * @returns A header object safe to pass to `fetch`.
+ */
+export function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = dashboardToken();
+  return token ? { ...extra, "x-dashboard-token": token } : { ...extra };
+}
+
+/**
+ * One-time pairing link support: when the page is opened as `/?token=<value>` (for example from
+ * a phone over a private network), save the token to `localStorage["dashboard_token"]` and remove
+ * it from the address bar so it does not linger in history or get shared by accident. Later
+ * visits read the stored token through {@link dashboardToken}. Safe to call more than once.
+ *
+ * @returns True when a token was found in the URL and stored.
+ */
+export function captureTokenFromUrl(): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("token");
+    if (!token) return false;
+    localStorage.setItem("dashboard_token", token);
+    url.searchParams.delete("token");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Shared fetch wrapper used by every method on {@link api}. Prefixes `path`
  * with {@link BASE} ("/api"), attaches the dashboard auth token (if any) as
  * the `x-dashboard-token` header, and normalizes non-2xx responses into a

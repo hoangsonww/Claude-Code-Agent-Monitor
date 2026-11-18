@@ -7,6 +7,7 @@
   "activityFeed": "Feed de Actividad",
   "analytics": "Analíticas",
   "workflows": "Flujos",
+  "flow": "Flujo en vivo",
   "alerts": "Alertas",
   "ccConfig": "Configuración del agente",
   "run": "Ejecutar agente",
@@ -15,6 +16,8 @@
   "github": "GitHub",
   "website": "Sitio web",
   "notFound": "No encontrado",
+  "openMenu": "Abrir menú",
+  "closeMenu": "Cerrar menú",
   "skipToContent": "Saltar al contenido",
   "expand": "Expandir barra lateral",
   "collapse": "Colapsar barra lateral",
@@ -59,14 +62,16 @@
     "zh": "Chino",
     "vi": "Vietnamita",
     "ko": "Coreano",
-    "es": "Español"
+    "es": "Español",
+    "he": "Hebreo"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "he": "עב"
   },
   "palette": {
     "title": "Paleta de comandos",

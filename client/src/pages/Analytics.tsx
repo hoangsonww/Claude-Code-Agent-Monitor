@@ -251,6 +251,7 @@ import {
   useLayoutEffect,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
   RefreshCw,
   Download,
@@ -261,6 +262,7 @@ import {
   DollarSign,
   Clock,
   BarChart3,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -656,6 +658,7 @@ function BarRow({
   max,
   color = "bg-accent",
   pct,
+  to,
 }: {
   /** Row label. */
   label: string;
@@ -667,10 +670,13 @@ function BarRow({
   color?: string;
   /** Optional percentage shown after the count. */
   pct?: number;
+  /** When set, the row links to this route (drill-down). */
+  to?: string;
 }) {
   const width = pct !== undefined ? pct : max > 0 ? Math.round((count / max) * 100) : 0;
+  const Row = to ? Link : "div";
   return (
-    <div className="flex items-center gap-3">
+    <Row to={to ?? ""} className={to ? "drill-row" : "flex items-center gap-3"}>
       <span className="text-xs text-gray-400 w-28 truncate flex-shrink-0" title={label}>
         {label}
       </span>
@@ -683,7 +689,13 @@ function BarRow({
       <Tip raw={count.toLocaleString()}>
         <span className="text-xs text-gray-500 w-10 text-right flex-shrink-0">{fmt(count)}</span>
       </Tip>
-    </div>
+      {to && (
+        <ChevronRight
+          aria-hidden
+          className="drill-row__chevron h-3.5 w-3.5 flex-shrink-0 text-gray-600"
+        />
+      )}
+    </Row>
   );
 }
 
@@ -835,6 +847,8 @@ function StatPill({
   icon: Icon,
   color = "text-accent",
   loading = false,
+  to,
+  subTo,
 }: {
   /** Stat name. */
   label: string;
@@ -852,19 +866,29 @@ function StatPill({
   color?: string;
   /** Show a skeleton instead of the value. */
   loading?: boolean;
+  /** When set, the whole tile links here (drill-down). */
+  to?: string;
+  /** When set, the secondary line is its own link (e.g. "4 active"). */
+  subTo?: string;
 }) {
   return (
-    <div className="card p-5 flex flex-col gap-2">
+    <div className={`card relative p-5 flex flex-col gap-2 ${to ? "drill-card" : ""}`}>
+      {to && <Link to={to} aria-label={label} className="drill-card__link" />}
       <div className="flex items-center justify-between">
         {labelAccessory ? (
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-xs text-gray-500 uppercase tracking-wider">{label}</span>
-            {labelAccessory}
+            <span className="relative z-[2]">{labelAccessory}</span>
           </div>
         ) : (
           <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
         )}
-        <Icon className={`w-4 h-4 ${color}`} />
+        <span className="flex flex-shrink-0 items-center gap-1">
+          <Icon className={`w-4 h-4 ${color}`} />
+          {to && (
+            <ChevronRight aria-hidden className="drill-card__chevron h-3.5 w-3.5 text-gray-600" />
+          )}
+        </span>
       </div>
       {loading ? (
         <StatValueSkeleton />
@@ -876,7 +900,17 @@ function StatPill({
       {loading ? (
         <TextSkeleton width="w-20" />
       ) : (
-        sub && <p className="text-[11px] text-gray-500">{sub}</p>
+        sub &&
+        (subTo ? (
+          <Link
+            to={subTo}
+            className="relative z-[2] self-start text-[11px] text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+          >
+            {sub}
+          </Link>
+        ) : (
+          <p className="text-[11px] text-gray-500">{sub}</p>
+        ))
       )}
     </div>
   );
@@ -1260,6 +1294,8 @@ export function Analytics() {
           icon={FolderOpen}
           color="text-blue-400"
           loading={!data}
+          to="/sessions"
+          subTo="/sessions?status=active"
         />
         <StatPill
           label={t("totalAgents")}
@@ -1269,6 +1305,7 @@ export function Analytics() {
           icon={Bot}
           color="text-emerald-400"
           loading={!data}
+          to="/kanban?view=agents"
         />
         <StatPill
           label={t("totalTokens")}
@@ -1278,6 +1315,7 @@ export function Analytics() {
           icon={Cpu}
           color="text-violet-400"
           loading={!data}
+          to="/analytics?tab=tokens"
         />
         <StatPill
           label={t("totalCost")}
@@ -1294,6 +1332,7 @@ export function Analytics() {
           icon={DollarSign}
           color="text-emerald-400"
           loading={!costData}
+          to="/analytics?tab=cost"
         />
         <StatPill
           label={t("totalEvents")}
@@ -1303,6 +1342,7 @@ export function Analytics() {
           icon={Zap}
           color="text-yellow-400"
           loading={!data}
+          to="/activity"
         />
       </div>
 
@@ -1612,6 +1652,7 @@ export function Analytics() {
                           label={subagent_type}
                           count={count}
                           max={maxAgentTypeCount}
+                          to={`/kanban?view=agents&q=${encodeURIComponent(subagent_type)}`}
                           color="bg-violet-400"
                         />
                       ))}
@@ -1665,6 +1706,7 @@ export function Analytics() {
                           label={event_type}
                           count={count}
                           max={maxEventTypeCount}
+                          to={`/activity?event_type=${encodeURIComponent(event_type)}`}
                           color={EVENT_TYPE_COLORS[event_type] ?? "bg-gray-400"}
                         />
                       ))}
@@ -1689,6 +1731,7 @@ export function Analytics() {
                           label={tool_name}
                           count={count}
                           max={maxToolCount}
+                          to={`/activity?tool_name=${encodeURIComponent(tool_name)}`}
                           color="bg-yellow-400"
                         />
                       ))}

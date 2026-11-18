@@ -1,0 +1,55 @@
+{
+  "title": "לוח קנבן",
+  "subtitle": "כל הסוכנים מסודרים לפי מצב",
+  "subtitleSessions": "כל הסשנים מסודרים לפי מצב",
+  "viewToggle": {
+    "agents": "סוכנים",
+    "sessions": "סשנים"
+  },
+  "noAgents": "עדיין אין סוכנים במעקב",
+  "noAgentsDesc": "הפעל סשן של סוכן עם החיבורים (hooks) מותקנים, והסוכנים יופיעו כאן.",
+  "agentCount_one": "{{count}} סוכן במעקב",
+  "agentCount_other": "{{count}} סוכנים במעקב",
+  "agentCount_two": "{{count}} סוכנים במעקב",
+  "agentCount_many": "{{count}} סוכנים במעקב",
+  "noAgentsInColumn": "אין סוכנים",
+  "noSessions": "עדיין אין סשנים במעקב",
+  "noSessionsDesc": "הפעל סשן של סוכן עם החיבורים (hooks) מותקנים, והסשנים יופיעו כאן.",
+  "sessionCount_one": "{{count}} סשן במעקב",
+  "sessionCount_other": "{{count}} סשנים במעקב",
+  "sessionCount_two": "{{count}} סשנים במעקב",
+  "sessionCount_many": "{{count}} סשנים במעקב",
+  "noSessionsInColumn": "אין סשנים",
+  "ran": "רץ ",
+  "running": "רץ כבר ",
+  "session": {
+    "anonymous": "סשן בלי שם",
+    "agentSummary_one": "{{count}} סוכן",
+    "agentSummary_other": "{{count}} סוכנים",
+    "agentSummary_two": "{{count}} סוכנים",
+    "agentSummary_many": "{{count}} סוכנים",
+    "subagentSummary_one": "{{count}} תת-סוכן",
+    "subagentSummary_other": "{{count}} תתי-סוכנים",
+    "subagentSummary_two": "{{count}} תתי-סוכנים",
+    "subagentSummary_many": "{{count}} תתי-סוכנים",
+    "turnSummary_one": "{{count}} סבב",
+    "turnSummary_other": "{{count}} סבבים",
+    "turnSummary_two": "{{count}} סבבים",
+    "turnSummary_many": "{{count}} סבבים"
+  },
+  "tooltip": {
+    "agent": {
+      "working": "הסוכן עובד ממש עכשיו.\n\nכשהסבב הזה ייגמר הוא יחזור ל\"ממתין\".",
+      "waiting": "הסוכן סיים את הסבב שלו, או שהוא צריך תשובה ממך, למשל אישור הרשאה.\n\nהוא יחזור לעבוד כשהסשן ימשיך.",
+      "completed": "הסוכן סיים לגמרי בסשן הזה.\n\nלא תירשם לו יותר פעילות.",
+      "error": "הסוכן נתקל בשגיאה, והוא לא ימשיך עד שהסשן יחודש או יורץ שוב."
+    },
+    "session": {
+      "active": "הסשן באמצע סבב: סוכן עובד עכשיו ולא מחכה לך. המצב הזה קצר, והסשן חוזר ל\"ממתין\" כשהסבב נגמר.",
+      "waiting": "הסשן מחכה לך. ייתכן שסבב הסתיים, או שהסוכן צריך אישור או מידע ממך.\n\nכאן תמצא את הסשנים שמחכים לתשובה שלך.",
+      "completed": "הסשן נסגר לגמרי: התוכנה יצאה כרגיל, או שהוא נסגר במפורש.\n\nכל הסוכנים בסשן הזה הסתיימו גם הם.",
+      "error": "הסשן הסתיים בשגיאה: תקלה שאי אפשר להתאושש ממנה, או שגיאה מה-API, עצרה את הריצה.",
+      "abandoned": "הסשן נעצר בלי סימן סיום מסודר. הוא מסומן \"ננטש\" אחרי 5 דקות ומעלה בלי פעילות (למשל אחרי /resume, ניתוק רשת או סגירה בכוח). זה שונה מ\"הושלם\": לא נראתה יציאה אמיתית."
+    }
+  }
+}

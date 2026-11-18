@@ -226,12 +226,15 @@ const vw = () => (typeof window !== "undefined" ? window.innerWidth : 1024);
 const vh = () => (typeof window !== "undefined" ? window.innerHeight : 768);
 
 /**
- * Resting position for a first visit: docked to the right edge, vertically centered.
+ * Resting position for a first visit: docked to the inline-end edge, vertically centered. That is
+ * the right edge in left-to-right languages; in right-to-left languages the sidebar sits on the
+ * right, so Tabby docks to the left edge instead of covering it.
  *
  * @returns The default position.
  */
 function defaultPos(): TabbyPos {
-  return { side: "right", y: 0.5 }; // right edge, vertically centered
+  const rtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
+  return { side: rtl ? "left" : "right", y: 0.5 };
 }
 
 /**

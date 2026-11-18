@@ -1,0 +1,668 @@
+{
+  "title": "הגדרות",
+  "subtitle": "ניהול תמחור, התראות, נתונים וחיבורים",
+  "exportData": "ייצוא נתונים",
+  "acrossSessions": "בתוך היקף הנתונים שנבחר",
+  "basedOnUsage": "לפי השימוש בטוקנים של כל מודל",
+  "tabby": {
+    "title": "החתול טאבי",
+    "description": "חתול צף שמגיב לסשנים החיים שלך.",
+    "enable": "הצג את טאבי",
+    "enableDesc": "הצגת החבר בפינה בכל הלוח (⌘B לפתיחה)"
+  },
+  "sound": {
+    "title": "צליל",
+    "description": "צלצולים קצרים ושקטים על פעילות בסשנים. נוצרים בדפדפן, בלי הורדות ובלי מעקב.",
+    "enable": "הפעל צלילים",
+    "enableDesc": "צליל עדין כשסשנים מתחילים, מסיימים או נתקלים בשגיאה",
+    "volume": "עוצמה",
+    "playWhen": "השמע צליל כש...",
+    "newSession": "סשן מתחיל",
+    "sessionComplete": "סשן מסיים לענות",
+    "sessionError": "סשן נתקל בשגיאה",
+    "subagentSpawned": "נוצר תת-סוכן",
+    "notification": "Claude Code שולח התראה",
+    "connection": "החיבור החי נופל או חוזר",
+    "interaction": "לחיצה על כפתורים וקישורים",
+    "interactionDesc": "תקתוק כמעט לא נשמע בכל לחיצה",
+    "preview": "השמע דוגמה",
+    "throttleInfo": "הצלילים מוגבלים בקצב, כך שגל של פעילות לא הופך לגל של רעש.",
+    "disabledInfo": "הצלילים כבויים, והלוח שקט לגמרי"
+  },
+  "pricing": {
+    "title": "תמחור מודלים של Anthropic Claude",
+    "navClaude": "תמחור Claude",
+    "navCursor": "תמחור Cursor",
+    "navGpt": "תמחור Codex",
+    "description": "תעריפי ה-API של Anthropic למיליון טוקנים (בדולרים). השתמש ב-% כתו כללי בתבניות. לחלק מהמודלים יש תעריף היכרות לזמן מוגבל (בסגול): שימוש עד תאריך הסיום מחויב בו, ושימוש אחריו בתעריף הרגיל.",
+    "introNote": "תעריף היכרות ${{input}}/${{output}} עד {{until}}",
+    "introRatesTitle": "תעריפי היכרות",
+    "introRatesHint": "השאר את התאריך ריק אם אין מבצע",
+    "introUntil": "עד (תאריך)",
+    "introUntilInvalid": "תאריך סיום ההיכרות צריך להיות בפורמט YYYY-MM-DD",
+    "resetConfirm": "אשר איפוס",
+    "resetDefaults": "החזר לברירת המחדל",
+    "resetResult": "הוחזרו {{count}} כללי ברירת מחדל",
+    "addModel": "הוסף מודל",
+    "pattern": "תבנית",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "חובה למלא תבנית ושם לתצוגה",
+    "lastUpdated": "עדכון אחרון: ",
+    "tooltip": {
+      "title": "איך תמחור המודלים עובד",
+      "howItWorks": "איך זה עובד",
+      "howItWorksBody": "כשסשן מדווח על שימוש, הלוח מחפש את כלל התמחור הראשון שהתבנית שלו מתאימה למזהה המודל, ומכפיל (טוקני קלט / מיליון) ו-(טוקני פלט / מיליון) בתעריפים שלמטה כדי לחשב עלות. הכללים נבדקים מלמעלה למטה, וההתאמה הראשונה קובעת.",
+      "patternsTitle": "תחביר התבניות",
+      "patternsBody": "התבניות בסגנון SQL. התו % מתאים לכל רצף של תווים. לדוגמה: claude-opus-4-7% מתאים לכל מזהה שמתחיל ב-claude-opus-4-7 (כמו claude-opus-4-7 או claude-opus-4-7-20260101). claude-%-haiku מתאים לכל גרסה של haiku. מזהה מדויק כמו claude-sonnet-4-6 מתאים רק לעצמו.",
+      "manualUpdates": "את המחירים צריך לעדכן ידנית",
+      "manualUpdatesBody": "Anthropic מפרסמת שינויי מחירים באתר שלה, ואין עדכון אוטומטי. כשיוצא מודל חדש או שתעריף משתנה, ערוך את הכלל המתאים (או הוסף כלל חדש מעל הכלל הכללי) כדי שסשנים חדשים יתומחרו נכון. סשנים שכבר נשמרו שומרים את המחיר שחושב בזמן הקליטה.",
+      "apiPricing": "להשוואה בלבד - תעריפי API",
+      "apiPricingBody": "אלה תעריפי API לפי שימוש. אם אתה משתמש ב-Claude Code במנוי (Pro, Max, Team או Enterprise), העלות האמיתית שלך היא תשלום חודשי קבוע ולא לפי טוקנים, ולכן המספרים כאן בדרך כלל גבוהים ממה שאתה באמת משלם. התייחס לעלויות כאן כהערכת שימוש, לא כחשבון."
+    },
+    "cacheWrite5m": "כתיבה למטמון (5 דק׳)",
+    "cacheWrite1h": "כתיבה למטמון (שעה)",
+    "fastInput": "קלט מהיר",
+    "fastOutput": "פלט מהיר",
+    "cursor": {
+      "title": "תמחור מודלים של Cursor",
+      "description": "התעריפים שמפרסמת Cursor למודלים שלה ולמודלים של צד שלישי שעוברים דרכה. בדולרים למיליון טוקנים; התבנית המדויקת ביותר קובעת.",
+      "source": "למודלים ולמחירים של Cursor ↗",
+      "planNote": "ההערכות לפי מחירון הטוקנים של Cursor. מכסות כלולות, הקצאות מנוי, ניתוב אוטומטי וחיוב צוותים יכולים לגרום לחיוב האמיתי להיות שונה.",
+      "name": "שם",
+      "input": "קלט",
+      "write": "כתיבה למטמון",
+      "cached": "קריאה מהמטמון",
+      "output": "פלט",
+      "deleteConfirm": "למחוק את כלל התמחור הזה של Cursor?",
+      "tooltip": {
+        "title": "איך תמחור Cursor עובד",
+        "howItWorks": "איך זה עובד",
+        "howItWorksBody": "שימוש בסשנים של Cursor מתומחר רק לפי המחירון של Cursor. טוקני קלט, כתיבה למטמון, קריאה מהמטמון ופלט מחושבים כל אחד בנפרד, בדולרים למיליון טוקנים.",
+        "patternsTitle": "תחביר התבניות",
+        "patternsBody": "התבניות משתמשות ב-% בסגנון SQL. תבניות מדויקות יותר גוברות, כך שמודל מהיר או גרסה מסוימת יכולים לדרוס בבטחה כלל רחב של משפחה.",
+        "manualUpdates": "את המחירים צריך לעדכן ידנית",
+        "manualUpdatesBody": "Cursor מפרסמת שינויי מחירים באתר שלה, ואין עדכון אוטומטי. הוסף או ערוך כלל כש-Cursor משנה שם של מודל או תעריף.",
+        "apiPricing": "החיוב במנוי יכול להיות שונה",
+        "apiPricingBody": "המחירון מעריך את שווי הטוקנים. מכסות חודשיות כלולות, שימוש נוסף, ניתוב אוטומטי וכללי חיוב של Teams או Enterprise לא משוחזרים בלוח."
+      }
+    },
+    "gpt": {
+      "title": "תמחור מודלים של OpenAI GPT",
+      "description": "תעריפי ה-API שמפרסמת OpenAI לשימוש ב-Codex. בקשות רגילות מתומחרות בתעריף \"קצר\" עד 272K טוקני קלט ובתעריף \"ארוך\" מעל זה; למצב מהיר יש תעריפים קצר וארוך נפרדים. בדולרים למיליון טוקנים.",
+      "tooltip": {
+        "title": "איך תמחור GPT עובד",
+        "howItWorks": "איך זה עובד",
+        "howItWorksBody": "כל הסכומים בדולרים למיליון טוקנים. בקשות Codex רגילות מתומחרות בתעריף קצר עד 272K טוקני קלט ובתעריף ארוך מעל זה. למצב מהיר יש תעריפים קצר וארוך נפרדים. קלט חדש, קלט מהמטמון, כתיבה למטמון ופלט מתומחרים בנפרד.",
+        "patternsTitle": "תחביר התבניות",
+        "patternsBody": "התבניות משתמשות ב-% בסגנון SQL. הלוח בודק קודם את התבניות המדויקות ביותר ומשתמש בכלל הראשון שמתאים למזהה המודל.",
+        "manualUpdates": "את המחירים צריך לעדכן ידנית",
+        "manualUpdatesBody": "OpenAI מפרסמת שינויי מחירי API באתר שלה, ואין עדכון אוטומטי. עדכן או הוסף כלל כשמודלים או תעריפים משתנים, כדי ששימוש חדש יתומחר נכון.",
+        "apiPricing": "תעריפים שלא פורסמו נשארים בלי מחיר",
+        "apiPricingBody": "קו ארוך פירושו ש-OpenAI לא מפרסמת את התעריף הזה. שימוש שמתאים לו מסומן \"בלי מחיר\" במקום לקבל הערכה. אלה תעריפי API לפי שימוש, להשוואה בלבד, לא חיוב של מנוי."
+      },
+      "name": "שם",
+      "short": "רגיל · קצר ≤272K",
+      "long": "רגיל · ארוך >272K",
+      "fast": "מהיר · קצר ≤272K",
+      "fastLong": "מהיר · ארוך >272K",
+      "input": "קלט",
+      "cached": "מהמטמון",
+      "write": "כתיבה למטמון",
+      "output": "פלט",
+      "deleteConfirm": "למחוק את כלל התמחור הזה של GPT?"
+    }
+  },
+  "claudeHome": {
+    "title": "תיקיית Claude Code",
+    "description": "התיקייה הראשית של התמלולים, הייבוא וההגדרות של Claude Code. שינוי שלה משפיע מיד על קריאת הקבצים הבאה.",
+    "save": "שמור",
+    "saving": "שומר...",
+    "current": "נוכחי:",
+    "placeholder": "/path/to/claude-home",
+    "saveFailed": "עדכון CLAUDE_HOME נכשל"
+  },
+  "codexHome": {
+    "title": "תיקיית Codex",
+    "description": "התיקייה הראשית של הסשנים וה-hooks של Codex. שמירת מיקום חדש מפעילה מחדש את המעקב החי וסורקת מיד את הסשנים שלו.",
+    "save": "שמור",
+    "saving": "שומר...",
+    "current": "נוכחי:",
+    "placeholder": "/path/to/codex-home",
+    "saveFailed": "עדכון תיקיית Codex נכשל"
+  },
+  "homes": {
+    "title": "מיקומי נתוני הסשנים",
+    "description": "הגדרת התיקיות המקומיות של Claude Code ו-Codex שהלוח קורא. כל מיקום שנשמר נכנס לתוקף בלי להפעיל מחדש את התוכנה."
+  },
+  "display": {
+    "title": "נתוני הלוח",
+    "description": "בחר של איזה מוצר להציג סשנים, טוקנים, עלויות ופעילות בכל התוכנה. השינוי נכנס לתוקף מיד, ולא תלוי בסינון לפי מחשב.",
+    "claude": "Claude Code",
+    "cursor": "Cursor",
+    "codex": "Codex",
+    "both": "שניהם",
+    "claudeDescription": "הצג נתונים של Claude Code ו-Cursor.",
+    "codexDescription": "הצג רק נתונים של Codex.",
+    "bothDescription": "שלב נתונים של Claude Code, Cursor ו-Codex.",
+    "beta": "בטא"
+  },
+  "hooks": {
+    "title": "הגדרות החיבורים (hooks)",
+    "description": "ה-hooks של Claude Code ו-Codex מעבירים אירועים ללוח בזמן אמת.",
+    "allInstalled": "כל החיבורים מותקנים",
+    "someInstalled": "החיבורים מוגדרים",
+    "incomplete": "החיבורים לא שלמים",
+    "reinstall": "התקן חיבורים מחדש",
+    "configure": "הגדר חיבורים",
+    "success": "החיבורים הותקנו בהצלחה",
+    "failed": "התקנת החיבורים נכשלה",
+    "display": {
+      "title": "נתוני הלוח",
+      "description": "סינון מיידי של כל תצוגות הלוח למוצר אחד. הסינון לפי מחשב נשאר נפרד.",
+      "both": "שניהם"
+    },
+    "modal": {
+      "title": "התקנת חיבורי הלוח",
+      "description": "בחר מוצר אחד או שניהם. שורות קיימות של הלוח יעודכנו; פקודות hooks אחרות שלך לא ייגעו.",
+      "claude": "hooks של מחזור החיים מ-~/.claude/settings.json.",
+      "codex": "hooks של מחזור החיים מ-~/.codex/hooks.json, עם קבצי ה-JSONL כגיבוי בזמן אמת.",
+      "installed": "כבר מותקן",
+      "overrideWarning": "נמצאו הגדרות hooks קיימות לאחד או יותר מהמוצרים שנבחרו. המשך יחליף רק את השורות של הלוח הזה וישמור על שאר ה-hooks.",
+      "preserveNote": "צריך לבחור לפחות מוצר אחד.",
+      "install": "התקן את החיבורים שנבחרו",
+      "failed": "לא הצלחנו להתקין את החיבורים שנבחרו."
+    }
+  },
+  "notifications": {
+    "title": "התראות",
+    "description": "התראות דפדפן על אירועים חשובים. צריך אישור.",
+    "enable": "הפעל התראות דפדפן",
+    "granted": "יש אישור",
+    "blocked": "האישור חסום",
+    "required": "צריך אישור",
+    "notifyWhen": "הודע לי כש...",
+    "newSession": "סשן חדש מתחיל",
+    "sessionComplete": "סשן מסתיים",
+    "sessionError": "סשן נתקל בשגיאה",
+    "subagentSpawned": "נוצר תת-סוכן",
+    "testTitle": "Agent Monitor",
+    "testBody": "ההתראות עובדות!",
+    "testUnsupported": "הדפדפן הזה לא תומך בהתראות",
+    "testSent": "נשלח ל-{{count}} מכשירים – ההתראה אמורה לקפוץ עכשיו",
+    "testLocalOnly": "עוד אין מכשיר רשום; ההתראה מוצגת רק במכשיר הזה",
+    "testFailed": "השליחה נכשלה",
+    "sendTest": "שלח התראת בדיקה",
+    "disabledInfo": "ההתראות כבויות. הפעל אותן כדי לקבל התראות על אירועים בסשנים"
+  },
+  "import": {
+    "title": "ייבוא היסטוריה",
+    "providerLabel": "ממה לייבא",
+    "providerHint": "בחר את היסטוריית הסוכן המקומית שתרצה להכניס ללוח.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "ייצוא מהלוח יכול לכלול נתונים של Claude Code וגם של Codex. שחזור ממזג את כל הספקים שבקובץ.",
+    "description": "הכנסת סשנים קיימים של Claude Code ללוח. מספרי טוקנים, עלות לכל מודל, דחיסות, תתי-סוכנים, שימוש בכלים ומשך כל סבב משוחזרים מקבצי ה-JSONL המקוריים, בדיוק כמו בסשנים חיים.",
+    "scopeNote": "הייבוא הזה מעבד רק תמלולים של Claude Code. הוא לא משנה את היסטוריית Codex או את ההגדרות של אף אחד מהם.",
+    "accuracyNote": "בטוח להריץ שוב. סשנים לא נכפלים (לפי מזהה הסשן), וסך הטוקנים לא נספר פעמיים.",
+    "supportedFiles": "קבצים נתמכים: .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "instructions": "איך לאסוף את ההיסטוריה",
+    "stepLocate": "1. מצא את ההיסטוריה של Claude Code",
+    "stepLocateBody": "כל סשן של Claude Code נשמר כתמלול JSONL בתיקיית projects. כל תת-תיקייה נקראת על שם תיקיית העבודה שבה הסשן התחיל (עם מקפים במקום לוכסנים).",
+    "stepArchive": "2. ארוז להעברה (לא חובה)",
+    "stepArchiveBody": "כדי להעביר היסטוריה ממחשב אחר, ארוז קודם את כל התיקייה ואז העתק אותה (AirDrop, scp, דיסק און קי, אחסון ענן):",
+    "stepChoose": "3. בחר שיטת ייבוא למטה",
+    "stepChooseBody": "סרוק שוב את המיקום הרגיל, הצבע על תיקייה שחילצת אליה היסטוריה, או העלה קבצים וארכיונים ישירות.",
+    "stepVerify": "4. בדוק טוקנים ועלות",
+    "stepVerifyBody": "אחרי הייבוא, פתח ניתוח נתונים ← עלות כדי לוודא את הפירוט. ייבוא חוזר של אותו סשן תמיד בטוח.",
+    "defaultLocation": "המיקום הרגיל במחשב הזה",
+    "locationFound": "התיקייה נמצאה",
+    "locationMissing": "התיקייה לא נמצאה",
+    "projectsLabel": "פרויקטים",
+    "jsonlLabel": "קבצי JSONL",
+    "modeRescan": "סריקה מחדש של התיקייה הרגילה",
+    "modeRescanDesc": "קריאה מחדש של ~/.claude/projects וייבוא של כל מה שחדש.",
+    "modeFolder": "סריקת תיקייה",
+    "modeFolderDesc": "סריקת כל תיקייה במחשב הזה לחיפוש תמלולי JSONL (כולל תתי-תיקיות).",
+    "modeUpload": "העלאת קבצים",
+    "modeUploadDesc": "גרור קבצי JSONL או ארכיון (.zip / .tar.gz) ישירות לדפדפן.",
+    "modeBackup": "שחזור גיבוי",
+    "modeBackupDesc": "ייבוא קובץ ייצוא של הלוח (.json) מ\"ייצוא נתונים\", כדי למזג היסטוריה ממחשב אחר.",
+    "backupHint": "גרור לכאן קובץ ייצוא .json או לחץ לבחירה",
+    "backupSub": "הקובץ שנוצר בכפתור \"ייצוא נתונים\" (בראש ההגדרות)",
+    "runRestore": "שחזר",
+    "backupResult": {
+      "title": "השחזור הושלם",
+      "sessionsImported": "סשנים שנוספו: {{count}}",
+      "sessionsSkipped": "כבר קיימים: {{count}}",
+      "events": "אירועים: {{count}}",
+      "pricing": "כללי תמחור: {{count}}",
+      "detail": "{{agents}} סוכנים · {{workflows}} תהליכי עבודה · {{runs}} הפעלות · {{rules}} כללי התראה"
+    },
+    "folderPlaceholder": "/absolute/path/to/claude-history",
+    "folderHelper": "נתיב מלא. ~ מתורגם לתיקיית הבית. תתי-תיקיות נסרקות גם הן.",
+    "runRescan": "סרוק עכשיו",
+    "runScan": "סרוק תיקייה",
+    "runUpload": "העלה וייבא",
+    "dropzoneHint": "גרור קבצים לכאן או לחץ לבחירה",
+    "dropzoneSub": "מקבל .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "filesSelected": "{{count}} קבצים נבחרו",
+    "clearSelection": "נקה",
+    "copy": "העתק",
+    "copied": "הועתק",
+    "progress": {
+      "scan": "סורק את התיקייה...",
+      "extract": "מחלץ ארכיונים ({{processed}}/{{total}})...",
+      "parse": "קורא תמלולים ({{processed}}/{{total}})...",
+      "complete": "הייבוא הושלם",
+      "error": "הייבוא נכשל"
+    },
+    "result": {
+      "imported": "יובאו: {{count}}",
+      "backfilled": "הושלמו קיימים: {{count}}",
+      "skipped": "כבר מעודכנים: {{count}}",
+      "errors": "שגיאות: {{count}}",
+      "filesScanned": "קבצים שנסרקו: {{count}}",
+      "title": "תוצאת הייבוא האחרון"
+    },
+    "errors": {
+      "noFiles": "לא נבחרו קבצים",
+      "noJsonl": "לא נמצאו קבצי .jsonl בתוכן שהועלה",
+      "pathRequired": "חובה להזין נתיב",
+      "pathInvalid": "הנתיב צריך להיות מלא",
+      "pathNotFound": "הנתיב לא קיים",
+      "pathNotDir": "הנתיב הוא לא תיקייה",
+      "generic": "הייבוא נכשל: {{message}}"
+    },
+    "codex": {
+      "description": "הכנסת סשנים קיימים של Codex ללוח. הודעות המשתמש, תשובות הסוכן, נתוני טוקנים, קריאות לכלים ומצבי ממתין/פעיל משוחזרים מקבצי ה-JSONL המקוריים, באותו תהליך כמו המעקב החי.",
+      "scopeNote": "הייבוא הזה מעבד רק תמלולים של {{provider}}. הוא לא משנה את היסטוריית Claude Code או את ההגדרות של Codex CLI.",
+      "accuracyNote": "בטוח להריץ שוב. נקודות ההתקדמות של הייבוא נשמרות, כך שטוקנים וקריאות לכלים שכבר נספרו לא נוספים פעמיים.",
+      "stepLocate": "1. מצא את היסטוריית Codex",
+      "stepLocateBody": "Codex שומר כל סשן כקובץ JSONL שרק מתווספים אליו, בתיקיית sessions. תיקיות התאריכים שבתוכה נסרקות אוטומטית.",
+      "stepArchive": "2. ארוז להעברה (לא חובה)",
+      "stepArchiveBody": "כדי להעביר היסטוריה ממחשב אחר, ארוז קודם את תיקיית sessions ואז העתק אותה (AirDrop, scp, דיסק און קי, אחסון ענן). צרף גם את session_index.jsonl אם אתה רוצה את השמות ששינית עם /rename באותו מחשב.",
+      "stepChoose": "3. בחר שיטת ייבוא למטה",
+      "stepChooseBody": "סרוק שוב את הסשנים של Codex במחשב הזה, הצבע על תיקייה שהועתקה או חולצה, או העלה קבצים וארכיונים ישירות.",
+      "stepVerify": "4. בדוק טוקנים ועלות",
+      "stepVerifyBody": "אחרי הייבוא, פתח ניתוח נתונים ← עלות כדי לוודא את הפירוט. תמיד בטוח לייבא שוב את אותו קובץ.",
+      "defaultLocation": "המיקום הרגיל של סשני Codex במחשב הזה",
+      "locationFound": "תיקיית הסשנים נמצאה",
+      "locationMissing": "תיקיית הסשנים לא נמצאה",
+      "projectsLabel": "תיקיות סשנים",
+      "jsonlLabel": "קבצי סשנים",
+      "modeRescan": "סריקה מחדש של סשני Codex",
+      "modeRescanDesc": "קריאה מחדש של ~/.codex/sessions וייבוא של היסטוריה שעוד לא בלוח.",
+      "modeFolder": "סריקת תיקיית Codex",
+      "modeFolderDesc": "סריקת תיקיית Codex שהועתקה או חולצה, לחיפוש קבצי JSONL, כולל תיקיות תאריכים.",
+      "modeUpload": "העלאת היסטוריית Codex",
+      "modeUploadDesc": "גרור קבצי JSONL או ארכיון (.zip / .tar.gz) ישירות לדפדפן.",
+      "folderPlaceholder": "/absolute/path/to/codex-history",
+      "folderHelper": "נתיב מלא. ~ מתורגם לתיקיית הבית. התיקייה וכל תיקיות התאריכים שבה נסרקות לחיפוש קבצים של Codex.",
+      "runRescan": "סרוק את Codex עכשיו",
+      "runScan": "סרוק תיקיית Codex",
+      "runUpload": "העלה וייבא Codex",
+      "dropzoneHint": "גרור לכאן קבצים של Codex או לחץ לבחירה",
+      "dropzoneSub": "מקבל קבצי .jsonl, session_index.jsonl, וארכיונים .zip, .tar, .tar.gz, .tgz, .gz"
+    }
+  },
+  "data": {
+    "title": "ניהול נתונים",
+    "description": "מידע על מסד הנתונים, ייבוא וייצוא, וניקוי.",
+    "dbOverview": "סקירת מסד הנתונים",
+    "dbSize": "גודל מסד הנתונים",
+    "loadingDb": "טוען מידע על מסד הנתונים...",
+    "sessionCleanup": "ניקוי סשנים",
+    "cleanupDesc": "סימון סשנים תקועים כנטושים ומחיקת נתונים ישנים",
+    "abandonAfter": "סמן כנטושים סשנים פעילים תקועים, ישנים מ-",
+    "purgeAfter": "מחק סשנים שהושלמו או נכשלו, ישנים מ-",
+    "confirmCleanup": "אשר ניקוי",
+    "runCleanup": "הרץ ניקוי",
+    "nothingToClean": "אין מה לנקות",
+    "abandonedResult": " סשנים סומנו כנטושים",
+    "purgedResult": " סשנים נמחקו ({{events}} אירועים, {{agents}} סוכנים)",
+    "purgedSnapshots": "נמחקו {{size}} של עותקי תמלולים"
+  },
+  "snapshots": {
+    "title": "עותקי תמלולים",
+    "description": "עותקים קבועים שמשאירים את השיחות קריאות גם אחרי ש-Claude Code, Codex ו-Cursor מוחקים את התמלולים שלהם.",
+    "loading": "טוען את אחסון העותקים...",
+    "total": "סה״כ",
+    "files_one": "{{formatted}} קובץ",
+    "files_other": "{{formatted}} קבצים",
+    "files_two": "{{formatted}} קבצים",
+    "files_many": "{{formatted}} קבצים",
+    "compressedShare": "{{compressed}} מתוך {{total}} קבצי תמלול דחוסים",
+    "incrementalPlain": "נשמרים לא דחוסים בשביל קליטה הדרגתית",
+    "compactStores_one": "{{formatted}} מאגר שיחות דחוס · {{size}}",
+    "compactStores_other": "{{formatted}} מאגרי שיחות דחוסים · {{size}}",
+    "compactStores_two": "{{formatted}} מאגרי שיחות דחוסים · {{size}}",
+    "compactStores_many": "{{formatted}} מאגרי שיחות דחוסים · {{size}}",
+    "legacyStores_one": "{{formatted}} מאגר שיחות ישן ממתין לדחיסה",
+    "legacyStores_other": "{{formatted}} מאגרי שיחות ישנים ממתינים לדחיסה",
+    "legacyStores_two": "{{formatted}} מאגרי שיחות ישנים ממתינים לדחיסה",
+    "legacyStores_many": "{{formatted}} מאגרי שיחות ישנים ממתינים לדחיסה",
+    "policy": "דחיסה: {{compression}} · גיל מקסימלי: {{age}} · גודל מקסימלי: {{size}} (נקבעים במשתני הסביבה DASHBOARD_SNAPSHOT_*)",
+    "on": "פועלת",
+    "off": "כבויה",
+    "unlimited": "ללא",
+    "days_one": "{{count}} יום",
+    "days_other": "{{count}} ימים",
+    "days_two": "{{count}} ימים",
+    "days_many": "{{count}} ימים",
+    "compressNow": "דחוס עכשיו",
+    "compressHint": "בלי איבוד מידע: רק עותקים שהמקור שלהם כבר נמחק, ונבדקים לפני שהעותק הרגיל נמחק.",
+    "compressNone": "אין מה לדחוס. המקור של כל עותק עדיין בדיסק, או שהוא היה פעיל לאחרונה.",
+    "compressResult_one": "נדחס {{count}} עותק ({{before}} ← {{after}})",
+    "compressResult_other": "נדחסו {{count}} עותקים ({{before}} ← {{after}})",
+    "compressResult_two": "נדחסו {{count}} עותקים ({{before}} ← {{after}})",
+    "compressResult_many": "נדחסו {{count}} עותקים ({{before}} ← {{after}})",
+    "compressFailed_one": "{{count}} עותק לא נדחס ונשאר כמו שהוא.",
+    "compressFailed_other": "{{count}} עותקים לא נדחסו ונשארו כמו שהם.",
+    "compressFailed_two": "{{count}} עותקים לא נדחסו ונשארו כמו שהם.",
+    "compressFailed_many": "{{count}} עותקים לא נדחסו ונשארו כמו שהם.",
+    "compressSkipped": "דילגנו על {{providers}}: תיקיית המקור חסרה או לא קריאה, אז שום דבר שם לא נחשב כנמחק.",
+    "pruneTitle": "מחיקת עותקים ישנים",
+    "pruneDesc": "מוחק את העותקים של סשנים שהסתיימו לגמרי, מהישן לחדש. קודם הצג תצוגה מקדימה: עותק שנמחק עלול להיות העותק האחרון של שיחה.",
+    "olderThan": "ישנים מ-",
+    "keepUnder": "שמור סך הכל מתחת ל-",
+    "includeOrphans": "מחק גם עותקים של סשנים שכבר לא במסד הנתונים",
+    "preview": "תצוגה מקדימה",
+    "previewFirst": "קודם הצג תצוגה מקדימה עם ההגדרות האלה",
+    "prune": "מחק",
+    "confirmPrune": "אשר מחיקה",
+    "previewNone": "אין התאמות. לא יימחקו עותקים.",
+    "previewResult_one": "{{count}} סשן ({{files}} קבצים, {{size}}) יימחק; {{remaining}} יישארו.",
+    "previewResult_other": "{{count}} סשנים ({{files}} קבצים, {{size}}) יימחקו; {{remaining}} יישארו.",
+    "previewResult_two": "{{count}} סשנים ({{files}} קבצים, {{size}}) יימחקו; {{remaining}} יישארו.",
+    "previewResult_many": "{{count}} סשנים ({{files}} קבצים, {{size}}) יימחקו; {{remaining}} יישארו.",
+    "overCap": "עדיין {{size}} מעל הגודל המקסימלי. סשנים פעילים וסשנים שהיו פעילים ב-24 השעות האחרונות לעולם לא נמחקים.",
+    "pruneWarning": "הפעולה מוחקת את העותקים האלה לצמיתות. סשנים שהמקור שלהם כבר נמחק יאבדו את השיחה.",
+    "pruneResult_one": "נמחקו העותקים של {{count}} סשן ({{size}})",
+    "pruneResult_other": "נמחקו העותקים של {{count}} סשנים ({{size}})",
+    "pruneResult_two": "נמחקו העותקים של {{count}} סשנים ({{size}})",
+    "pruneResult_many": "נמחקו העותקים של {{count}} סשנים ({{size}})"
+  },
+  "danger": {
+    "title": "אזור מסוכן",
+    "description": "פעולות בלתי הפיכות שמוחקות נתונים לצמיתות",
+    "warning": "הפעולה תמחק את כל הסשנים, הסוכנים, האירועים ונתוני הטוקנים. אתה בטוח?",
+    "yesClearAll": "כן, מחק הכל",
+    "clearAllData": "מחק את כל הנתונים",
+    "clearedResult": "נמחקו {{count}} שורות"
+  },
+  "about": {
+    "title": "אודות",
+    "description": "מידע על השרת.",
+    "release": "גרסה",
+    "uiBuild": "גרסת ממשק v{{version}} (בנה מחדש את הממשק כדי להתאים)",
+    "uptime": "זמן פעילות",
+    "nodejs": "Node.js",
+    "platform": "מערכת הפעלה",
+    "wsClients": "לקוחות WS",
+    "loadingInfo": "טוען מידע על השרת..."
+  },
+  "tables": {
+    "sessions": "סשנים",
+    "agents": "סוכנים",
+    "events": "אירועים",
+    "sessionsWithCost": "סשנים עם עלות",
+    "pricingRules": "כללי תמחור",
+    "cursorPricingRules": "כללי תמחור של Cursor"
+  },
+  "messages": {
+    "failedLoad": "הטעינה נכשלה",
+    "failedSave": "השמירה נכשלה",
+    "failedDelete": "המחיקה נכשלה",
+    "unknownError": "לא ידוע",
+    "actionFailed": "שגיאה: {{message}}"
+  },
+  "webhooks": {
+    "title": "התראות דרך Webhook",
+    "description": "העברת התראות ל-Slack, Discord, Microsoft Teams או לכל כתובת HTTP. השליחה אוטומטית, מנסה שוב בכישלון, ולעולם לא עוצרת את המעקב.",
+    "count_one": "{{count}} יעד",
+    "count_other": "{{count}} יעדים",
+    "count_two": "{{count}} יעדים",
+    "count_many": "{{count}} יעדים",
+    "add": "הוסף Webhook",
+    "loading": "טוען webhooks…",
+    "empty": "לא הוגדרו webhooks. הוסף אחד כדי להעביר התראות ל-Slack, Discord, Teams או לכתובת משלך.",
+    "scopedTo_one": "{{count}} כלל",
+    "scopedTo_other": "{{count}} כללים",
+    "scopedTo_two": "{{count}} כללים",
+    "scopedTo_many": "{{count}} כללים",
+    "enabled": "פעיל",
+    "test": "בדיקה",
+    "edit": "ערוך",
+    "delete": "מחק",
+    "confirmDelete": "אשר",
+    "testOk": "נשלח (HTTP {{status}})",
+    "testFail": "נכשל: {{error}}",
+    "addTitle": "Webhook חדש",
+    "editTitle": "עריכת Webhook",
+    "fieldName": "שם",
+    "fieldNamePlaceholder": "למשל Slack של הצוות #alerts",
+    "fieldType": "סוג",
+    "type": {
+      "slack": "Slack",
+      "discord": "Discord",
+      "teams": "Microsoft Teams",
+      "generic": "כללי (JSON מותאם)"
+    },
+    "fieldUrl": "כתובת ה-Webhook",
+    "urlKeepHint": "השאר ריק כדי לשמור את הנוכחית",
+    "urlKeepPlaceholder": "•••••••• (ללא שינוי)",
+    "urlPlaceholder": {
+      "slack": "https://hooks.slack.com/services/…",
+      "discord": "https://discord.com/api/webhooks/…",
+      "teams": "https://outlook.office.com/webhook/…",
+      "generic": "https://example.com/webhook"
+    },
+    "fieldSecret": "סוד חתימה (לא חובה)",
+    "secretPlaceholder": "סוד HMAC-SHA256",
+    "secretKeepPlaceholder": "•••••••• (השאר ריק כדי לשמור)",
+    "secretHint": "אם מוגדר, הבקשות נחתמות עם הכותרת X-Webhook-Signature.",
+    "fieldHeaders": "כותרות מותאמות (לא חובה)",
+    "replaceHeaders": "החלף כותרות",
+    "headerKey": "כותרת",
+    "headerValue": "ערך",
+    "addHeader": "הוסף כותרת",
+    "scopeAll": "קבל התראות מכל הכללים",
+    "enabledOnSave": "פעיל",
+    "save": "שמור",
+    "create": "צור",
+    "cancel": "ביטול",
+    "urlOptional": "לא חובה, דורס את הברירה",
+    "urlAuto": "הכתובת נקבעת אוטומטית מהפרטים שלמטה.",
+    "deleteTitle": "למחוק את ה-webhook?",
+    "deleteMessage": "למחוק את \"{{name}}\"? התראות לא יישלחו יותר ליעד הזה. אי אפשר לבטל.",
+    "guideToggle": "איך להגדיר את {{provider}}",
+    "guideDocs": "התיעוד הרשמי של {{provider}}",
+    "guideStaleNote": "מסכי ההגדרה של הספקים משתנים לעתים קרובות, כך שהשלבים האלה עלולים להיות לא מעודכנים. תמיד בדוק מול התיעוד הרשמי."
+  },
+  "alertsHub": {
+    "title": "התראות",
+    "description": "הגדרת כללי התראה, ניתוב שלהם לערוצי webhook וצפייה במה שהופעל, הכל במקום אחד.",
+    "tabRules": "כללים",
+    "tabChannels": "ערוצים",
+    "tabActivity": "פעילות",
+    "rulesHint": "תנאים שמפעילים התראה. נבדקים בשרת מול זרם האירועים החי.",
+    "rulesEmptyHint": "הוסף כלל כדי לקבל התראות על שגיאות, חוסר פעילות, סוכנים תקועים או חריגה בטוקנים."
+  },
+  "jumpTo": "קפוץ אל",
+  "webhookGuides": {
+    "slack": {
+      "steps": [
+        "צור או פתח אפליקציית Slack ב-api.slack.com/apps.",
+        "הפעל את 'Incoming Webhooks', ואז לחץ 'Add New Webhook to Workspace'.",
+        "בחר את הערוץ שאליו לשלוח ואשר.",
+        "העתק את הכתובת שנוצרה (https://hooks.slack.com/services/…) והדבק אותה למעלה."
+      ]
+    },
+    "discord": {
+      "steps": [
+        "פתח את השרת ← Server Settings ← Integrations ← Webhooks.",
+        "לחץ 'New Webhook', בחר ערוץ, ואם תרצה תן לו שם.",
+        "לחץ 'Copy Webhook URL' והדבק את הכתובת למעלה."
+      ]
+    },
+    "teams": {
+      "steps": [
+        "בערוץ היעד ב-Teams, לחץ ⋯ ← 'Workflows'.",
+        "בחר בתבנית 'Post to a channel when a webhook request is received'.",
+        "סיים את התהליך והעתק את כתובת ה-HTTP POST שנוצרה.",
+        "הדבק אותה למעלה. (המחברים הישנים של Office 365 הופסקו ב-2025, השתמש ב-Workflows.)"
+      ]
+    },
+    "google_chat": {
+      "steps": [
+        "פתח את המרחב ב-Google Chat ← שם המרחב ← 'Apps & integrations'.",
+        "לחץ 'Webhooks' ← 'Add webhook' ותן לו שם.",
+        "העתק את כתובת ה-webhook והדבק אותה למעלה."
+      ]
+    },
+    "mattermost": {
+      "steps": [
+        "Main Menu ← Integrations ← Incoming Webhooks (מנהל צריך להפעיל webhooks קודם).",
+        "לחץ 'Add Incoming Webhook' ובחר ערוץ.",
+        "שמור, העתק את כתובת ה-webhook והדבק אותה למעלה."
+      ]
+    },
+    "rocketchat": {
+      "steps": [
+        "Administration ← Integrations ← New ← Incoming.",
+        "הפעל, בחר ערוץ ושמור.",
+        "העתק את 'Webhook URL' והדבק אותה למעלה."
+      ]
+    },
+    "telegram": {
+      "steps": [
+        "שלח הודעה ל-@BotFather, הרץ /newbot והעתק את טוקן הבוט.",
+        "הוסף את הבוט לקבוצה או לערוץ שלך (או פשוט שלח לו הודעה פרטית).",
+        "מצא את מזהה הצ'אט: שלח הודעה, פתח https://api.telegram.org/bot<token>/getUpdates, וקרא את result[].message.chat.id.",
+        "הזן למעלה את טוקן הבוט ואת מזהה הצ'אט. לא צריך כתובת."
+      ]
+    },
+    "pagerduty": {
+      "steps": [
+        "פתח את ה-Service ← Integrations ← 'Add integration'.",
+        "בחר 'Events API v2'.",
+        "העתק את ה-Integration Key (מפתח הניתוב).",
+        "הזן אותו למעלה כ-Routing key. כתובת ה-Events API כבר ממולאת."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Settings ← Integrations ← הוסף אינטגרציה מסוג 'API'.",
+        "העתק את מפתח ה-API שנוצר.",
+        "שים לב לאזור של החשבון (US או EU).",
+        "הזן למעלה את מפתח ה-API ואת האזור. כתובת ההתראות נגזרת מהאזור."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrations ← REST Endpoint, והפעל אותו.",
+        "העתק את כתובת ה-REST. היא כבר כוללת את מפתח ה-API שלך.",
+        "החלף את '$routing_key' שבסוף באחד ממפתחות הניתוב שלך.",
+        "הדבק את הכתובת המלאה למעלה."
+      ]
+    },
+    "zapier": {
+      "steps": [
+        "צור Zap עם הטריגר 'Webhooks by Zapier' ← 'Catch Hook'.",
+        "העתק את כתובת ה-webhook שהוא נותן.",
+        "הדבק אותה למעלה. ההתראה מגיעה כ-JSON: { event, alert }."
+      ]
+    },
+    "make": {
+      "steps": [
+        "הוסף מודול 'Webhooks' ← 'Custom webhook' כשלב הראשון בתרחיש.",
+        "לחץ 'Add', צור את ה-hook והעתק את הכתובת שלו.",
+        "הדבק אותה למעלה, ואז הרץ פעם אחת כדי ש-Make ילמד את מבנה הנתונים."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "הוסף צומת 'Webhook' לתהליך; קבע את השיטה ל-POST.",
+        "העתק את ה-Production URL.",
+        "הפעל את התהליך והדבק את הכתובת למעלה (מותר http בהתקנה עצמית)."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "צור תהליך עם טריגר 'HTTP / Webhook'.",
+        "העתק את הכתובת הייחודית.",
+        "הדבק אותה למעלה; את המשלוחים אפשר לבדוק ב-event inspector של Pipedream."
+      ]
+    },
+    "generic": {
+      "steps": [
+        "הפנה את זה לכל כתובת שמקבלת POST של JSON (https, או http לבדיקות מקומיות).",
+        "מבנה הגוף: { event: 'alert.triggered', source, sent_at, alert: { … } }.",
+        "לא חובה: קבע סוד חתימה (HMAC-SHA256 על הגוף ← הכותרת X-Webhook-Signature) וכותרות מותאמות.",
+        "טיפ: השתמש בכלי חינמי כמו webhook.site כדי לראות בדיוק מה נשלח."
+      ]
+    }
+  },
+  "remoteSources": {
+    "title": "מקורות נתונים מרוחקים",
+    "description": "איסוף שימוש ב-Claude Code וב-Codex ממחשבים אחרים דרך SSH, למשל מחשב פיתוח או שרת בענן שאתה עובד עליו בזמן שהלוח רץ אצלך. ההתחברות משתמשת בהגדרות ה-SSH שלך (~/.ssh/config, מפתחות, agent); לא נשמרות כאן סיסמאות.",
+    "scopeTitle": "היקף הנתונים",
+    "scopeDesc": "בחר מאילו מחשבים להציג נתונים בכל הלוח. השינוי חל מיד בכל הדפים: סשנים, ניתוח ועלות.",
+    "scopeAll": "כל המקורות",
+    "scopeAllDesc": "המחשב הזה וכל המקורות המרוחקים שהוגדרו, יחד.",
+    "scopeLocal": "רק המחשב הזה",
+    "scopeLocalDesc": "רק סשנים שנאספו כאן, בלי נתונים ממקורות מרוחקים.",
+    "scopeSelected": "מקורות נבחרים",
+    "scopeSelectedDesc": "בחר בדיוק אילו מחשבים לכלול, למטה.",
+    "scopeSelectedCount": "{{n}} מתוך {{total}} נבחרו",
+    "scopePickMachines": "מחשבים לכלול",
+    "thisMachine": "המחשב הזה",
+    "listTitle": "מקורות שהוגדרו",
+    "add": "הוסף מקור",
+    "addTitle": "הוספת מקור מרוחק",
+    "editTitle": "עריכת מקור",
+    "fieldLabel": "שם",
+    "fieldHost": "כתובת SSH",
+    "fieldPort": "פורט (לא חובה)",
+    "fieldIdentity": "קובץ מפתח (לא חובה)",
+    "fieldRemoteHome": "תיקיית Claude במחשב המרוחק (לא חובה)",
+    "fieldRemoteHomeHint": "Linux/macOS: ברירת מחדל ~/.claude (או נתיב מלא כמו /home/you/.claude). Windows SSH עם Claude ב-WSL: השאר ריק (זיהוי אוטומטי) או wsl:~/.claude. Windows רגיל: C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "תיקיית Codex במחשב המרוחק (לא חובה)",
+    "fieldRemoteCodexHomeHint": "ברירת המחדל ~/.codex, והסשנים שלה מיובאים כולל שמות ששונו. ל-Windows SSH עם Codex ב-WSL, השאר ריק (זיהוי אוטומטי) או wsl:~/.codex.",
+    "fieldEnabled": "סנכרון אוטומטי ברקע",
+    "empty": "עדיין אין מקורות מרוחקים.",
+    "emptyHint": "הוסף מחשב שאתה מתחבר אליו ב-SSH כדי למשוך ממנו את השימוש ב-Claude Code וב-Codex.",
+    "paused": "סנכרון אוטומטי כבוי",
+    "sessionCount": "{{n}} סשנים",
+    "sessionCountLinked": "{{n}} מקושרים",
+    "sessionCountHint": "סשנים שמקושרים למקור הזה (לא כל סשן שמוצג כשהיקף הנתונים הוא \"הכל\")",
+    "lastSync": "סנכרון אחרון: {{when}}",
+    "neverSynced": "עוד לא סונכרן",
+    "imported": "{{n}} יובאו",
+    "syncNew": "{{n}} חדשים",
+    "syncOnRemote": "{{n}} במחשב המרוחק",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} סשנים",
+    "providerStatus": {
+      "idle": "לא נבדק",
+      "syncing": "בודק",
+      "ok": "מוכן",
+      "unavailable": "לא נמצא",
+      "error": "לא זמין"
+    },
+    "test": "בדיקה",
+    "syncNow": "סנכרן",
+    "syncAll": "סנכרן הכל",
+    "enable": "הפעל",
+    "disable": "כבה",
+    "confirmDelete": "להסיר את המקור הזה?",
+    "purgeData": "מחק גם את הסשנים שיובאו מהמקור הזה (אי אפשר לבטל)",
+    "deleteAndPurge": "הסר + מחק נתונים",
+    "removeKeep": "הסר (שמור נתונים)",
+    "remoteSourceBadgeTitle": "נאסף ממחשב מרוחק",
+    "retryLastError": "מנסה שוב. השגיאה האחרונה:"
+  },
+  "cursorPathsNote": "Cursor כלול בהיקף הנתונים של Claude Code. ההיסטוריה המקומית מזוהה ונשמרת מ-~/.cursor אוטומטית; תיקיות Cursor מרוחקות לא מסונכרנות בייבוא SSH של Claude בלבד."
+}

@@ -127,3 +127,581 @@
 .animate-pulse-dot {
   animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ---------------------------------------------------------------------------
+ * Right-to-left (Hebrew). `src/i18n/index.ts` sets <html dir="rtl"> for RTL
+ * languages. Most components use physical Tailwind utilities (ml-*, pl-*,
+ * left-*, border-r ...), so mirror the ones the UI actually uses here instead
+ * of rewriting every component. Centering utilities (left-1/2) are left alone.
+ * ------------------------------------------------------------------------- */
+[dir="rtl"] body {
+  direction: rtl;
+}
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+[dir="rtl"] .ml-auto {
+  margin-left: 0;
+  margin-right: auto;
+}
+[dir="rtl"] .mr-auto {
+  margin-right: 0;
+  margin-left: auto;
+}
+[dir="rtl"] .ml-0 {
+  margin-left: 0;
+  margin-right: 0px;
+}
+[dir="rtl"] .mr-0 {
+  margin-right: 0;
+  margin-left: 0px;
+}
+[dir="rtl"] .ml-0\.5 {
+  margin-left: 0;
+  margin-right: 0.125rem;
+}
+[dir="rtl"] .mr-0\.5 {
+  margin-right: 0;
+  margin-left: 0.125rem;
+}
+[dir="rtl"] .ml-1 {
+  margin-left: 0;
+  margin-right: 0.25rem;
+}
+[dir="rtl"] .mr-1 {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+[dir="rtl"] .ml-1\.5 {
+  margin-left: 0;
+  margin-right: 0.375rem;
+}
+[dir="rtl"] .mr-1\.5 {
+  margin-right: 0;
+  margin-left: 0.375rem;
+}
+[dir="rtl"] .ml-2 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+[dir="rtl"] .mr-2 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+[dir="rtl"] .ml-2\.5 {
+  margin-left: 0;
+  margin-right: 0.625rem;
+}
+[dir="rtl"] .mr-2\.5 {
+  margin-right: 0;
+  margin-left: 0.625rem;
+}
+[dir="rtl"] .ml-3 {
+  margin-left: 0;
+  margin-right: 0.75rem;
+}
+[dir="rtl"] .mr-3 {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+[dir="rtl"] .ml-3\.5 {
+  margin-left: 0;
+  margin-right: 0.875rem;
+}
+[dir="rtl"] .mr-3\.5 {
+  margin-right: 0;
+  margin-left: 0.875rem;
+}
+[dir="rtl"] .ml-4 {
+  margin-left: 0;
+  margin-right: 1rem;
+}
+[dir="rtl"] .mr-4 {
+  margin-right: 0;
+  margin-left: 1rem;
+}
+[dir="rtl"] .ml-5 {
+  margin-left: 0;
+  margin-right: 1.25rem;
+}
+[dir="rtl"] .mr-5 {
+  margin-right: 0;
+  margin-left: 1.25rem;
+}
+[dir="rtl"] .ml-6 {
+  margin-left: 0;
+  margin-right: 1.5rem;
+}
+[dir="rtl"] .mr-6 {
+  margin-right: 0;
+  margin-left: 1.5rem;
+}
+[dir="rtl"] .ml-7 {
+  margin-left: 0;
+  margin-right: 1.75rem;
+}
+[dir="rtl"] .mr-7 {
+  margin-right: 0;
+  margin-left: 1.75rem;
+}
+[dir="rtl"] .ml-8 {
+  margin-left: 0;
+  margin-right: 2rem;
+}
+[dir="rtl"] .mr-8 {
+  margin-right: 0;
+  margin-left: 2rem;
+}
+[dir="rtl"] .ml-10 {
+  margin-left: 0;
+  margin-right: 2.5rem;
+}
+[dir="rtl"] .mr-10 {
+  margin-right: 0;
+  margin-left: 2.5rem;
+}
+[dir="rtl"] .ml-12 {
+  margin-left: 0;
+  margin-right: 3rem;
+}
+[dir="rtl"] .mr-12 {
+  margin-right: 0;
+  margin-left: 3rem;
+}
+[dir="rtl"] .pl-0 {
+  padding-left: 0;
+  padding-right: 0px;
+}
+[dir="rtl"] .pr-0 {
+  padding-right: 0;
+  padding-left: 0px;
+}
+[dir="rtl"] .pl-0\.5 {
+  padding-left: 0;
+  padding-right: 0.125rem;
+}
+[dir="rtl"] .pr-0\.5 {
+  padding-right: 0;
+  padding-left: 0.125rem;
+}
+[dir="rtl"] .pl-1 {
+  padding-left: 0;
+  padding-right: 0.25rem;
+}
+[dir="rtl"] .pr-1 {
+  padding-right: 0;
+  padding-left: 0.25rem;
+}
+[dir="rtl"] .pl-1\.5 {
+  padding-left: 0;
+  padding-right: 0.375rem;
+}
+[dir="rtl"] .pr-1\.5 {
+  padding-right: 0;
+  padding-left: 0.375rem;
+}
+[dir="rtl"] .pl-2 {
+  padding-left: 0;
+  padding-right: 0.5rem;
+}
+[dir="rtl"] .pr-2 {
+  padding-right: 0;
+  padding-left: 0.5rem;
+}
+[dir="rtl"] .pl-2\.5 {
+  padding-left: 0;
+  padding-right: 0.625rem;
+}
+[dir="rtl"] .pr-2\.5 {
+  padding-right: 0;
+  padding-left: 0.625rem;
+}
+[dir="rtl"] .pl-3 {
+  padding-left: 0;
+  padding-right: 0.75rem;
+}
+[dir="rtl"] .pr-3 {
+  padding-right: 0;
+  padding-left: 0.75rem;
+}
+[dir="rtl"] .pl-3\.5 {
+  padding-left: 0;
+  padding-right: 0.875rem;
+}
+[dir="rtl"] .pr-3\.5 {
+  padding-right: 0;
+  padding-left: 0.875rem;
+}
+[dir="rtl"] .pl-4 {
+  padding-left: 0;
+  padding-right: 1rem;
+}
+[dir="rtl"] .pr-4 {
+  padding-right: 0;
+  padding-left: 1rem;
+}
+[dir="rtl"] .pl-5 {
+  padding-left: 0;
+  padding-right: 1.25rem;
+}
+[dir="rtl"] .pr-5 {
+  padding-right: 0;
+  padding-left: 1.25rem;
+}
+[dir="rtl"] .pl-6 {
+  padding-left: 0;
+  padding-right: 1.5rem;
+}
+[dir="rtl"] .pr-6 {
+  padding-right: 0;
+  padding-left: 1.5rem;
+}
+[dir="rtl"] .pl-7 {
+  padding-left: 0;
+  padding-right: 1.75rem;
+}
+[dir="rtl"] .pr-7 {
+  padding-right: 0;
+  padding-left: 1.75rem;
+}
+[dir="rtl"] .pl-8 {
+  padding-left: 0;
+  padding-right: 2rem;
+}
+[dir="rtl"] .pr-8 {
+  padding-right: 0;
+  padding-left: 2rem;
+}
+[dir="rtl"] .pl-10 {
+  padding-left: 0;
+  padding-right: 2.5rem;
+}
+[dir="rtl"] .pr-10 {
+  padding-right: 0;
+  padding-left: 2.5rem;
+}
+[dir="rtl"] .pl-12 {
+  padding-left: 0;
+  padding-right: 3rem;
+}
+[dir="rtl"] .pr-12 {
+  padding-right: 0;
+  padding-left: 3rem;
+}
+[dir="rtl"] .left-0 {
+  left: auto;
+  right: 0px;
+}
+[dir="rtl"] .right-0 {
+  right: auto;
+  left: 0px;
+}
+[dir="rtl"] .left-0\.5 {
+  left: auto;
+  right: 0.125rem;
+}
+[dir="rtl"] .right-0\.5 {
+  right: auto;
+  left: 0.125rem;
+}
+[dir="rtl"] .left-1 {
+  left: auto;
+  right: 0.25rem;
+}
+[dir="rtl"] .right-1 {
+  right: auto;
+  left: 0.25rem;
+}
+[dir="rtl"] .left-1\.5 {
+  left: auto;
+  right: 0.375rem;
+}
+[dir="rtl"] .right-1\.5 {
+  right: auto;
+  left: 0.375rem;
+}
+[dir="rtl"] .left-2 {
+  left: auto;
+  right: 0.5rem;
+}
+[dir="rtl"] .right-2 {
+  right: auto;
+  left: 0.5rem;
+}
+[dir="rtl"] .left-2\.5 {
+  left: auto;
+  right: 0.625rem;
+}
+[dir="rtl"] .right-2\.5 {
+  right: auto;
+  left: 0.625rem;
+}
+[dir="rtl"] .left-3 {
+  left: auto;
+  right: 0.75rem;
+}
+[dir="rtl"] .right-3 {
+  right: auto;
+  left: 0.75rem;
+}
+[dir="rtl"] .left-4 {
+  left: auto;
+  right: 1rem;
+}
+[dir="rtl"] .right-4 {
+  right: auto;
+  left: 1rem;
+}
+[dir="rtl"] .left-6 {
+  left: auto;
+  right: 1.5rem;
+}
+[dir="rtl"] .right-6 {
+  right: auto;
+  left: 1.5rem;
+}
+[dir="rtl"] .border-l {
+  border-left-width: 0;
+  border-right-width: 1px;
+}
+[dir="rtl"] .border-r {
+  border-right-width: 0;
+  border-left-width: 1px;
+}
+[dir="rtl"] .border-l-2 {
+  border-left-width: 0;
+  border-right-width: 2px;
+}
+[dir="rtl"] .border-r-2 {
+  border-right-width: 0;
+  border-left-width: 2px;
+}
+[dir="rtl"] .rounded-l-xl {
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+[dir="rtl"] .rounded-r-xl {
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+/* Charts, code, paths and terminal output keep their natural left-to-right order. */
+[dir="rtl"] svg,
+[dir="rtl"] pre,
+[dir="rtl"] code,
+[dir="rtl"] .font-mono {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Live Flow page (pages/Flow.tsx): breathing halo on working agents, pulse dots, feed rows. */
+.flow-halo {
+  opacity: 0.18;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: flow-halo 1.8s ease-in-out infinite;
+}
+@keyframes flow-halo {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.06;
+  }
+}
+.flow-pulse {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.flow-feed-row {
+  animation: flow-row-in 260ms ease-out;
+}
+@keyframes flow-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-halo,
+  .flow-feed-row {
+    animation: none;
+  }
+}
+
+/* Live Flow canvas stage: HUD overlays and theme chips, each chip lit in its theme's colours. */
+.flow-hud {
+  background: rgba(2, 8, 18, 0.62);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  color: #d6f6ff;
+  backdrop-filter: blur(6px);
+}
+.flow-theme-chip--on {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 14px var(--chip-glow, rgba(125, 211, 252, 0.5));
+  background: var(--chip-bg, #1e3a5f);
+}
+.flow-theme-chip--nebula {
+  --chip-bg: linear-gradient(135deg, #1a0b4d, #2563eb 60%, #06b6d4);
+  --chip-glow: rgba(96, 165, 250, 0.7);
+}
+.flow-theme-chip--fluid {
+  --chip-bg: linear-gradient(135deg, #be185d, #7c3aed 50%, #0891b2);
+  --chip-glow: rgba(236, 72, 153, 0.65);
+}
+.nebula-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: rgba(214, 230, 255, 0.85);
+  text-shadow:
+    0 0 6px rgba(56, 189, 248, 0.8),
+    0 0 2px #000;
+  will-change: transform;
+}
+.nebula-label--title {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow:
+    0 0 12px rgba(125, 249, 255, 0.9),
+    0 0 3px #000;
+}
+.nebula-label--agent {
+  color: rgba(255, 236, 200, 0.9);
+}
+.flow-theme-chip--reactor {
+  --chip-bg: linear-gradient(135deg, #04324d, #0a6f8f);
+  --chip-glow: rgba(95, 242, 255, 0.6);
+}
+.flow-theme-chip--synthwave {
+  --chip-bg: linear-gradient(135deg, #7b1fa2, #ff2d95);
+  --chip-glow: rgba(255, 47, 214, 0.6);
+}
+.flow-theme-chip--matrix {
+  --chip-bg: linear-gradient(135deg, #032b0b, #0f7a20);
+  --chip-glow: rgba(57, 255, 20, 0.55);
+}
+.flow-theme-chip--galaxy {
+  --chip-bg: linear-gradient(135deg, #1b1446, #3b2a8f);
+  --chip-glow: rgba(155, 231, 255, 0.5);
+}
+.flow-theme-chip--storm {
+  --chip-bg: linear-gradient(135deg, #3c096c, #7b2cbf);
+  --chip-glow: rgba(199, 125, 255, 0.6);
+}
+.flow-theme-chip--classic {
+  --chip-bg: #1f2937;
+  --chip-glow: rgba(148, 163, 184, 0.35);
+}
+
+/* Phone layout: the sidebar becomes a drawer opened from a sticky top bar. */
+.mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  padding-top: max(0.6rem, env(safe-area-inset-top));
+  background: rgb(10 10 15 / 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: rgb(0 0 0 / 0.55);
+}
+@media (max-width: 767px) {
+  [data-mobile-nav] > aside {
+    width: 16rem !important;
+    max-width: 85vw;
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / 0.6);
+  }
+  [data-mobile-nav="closed"] > aside {
+    transform: translateX(-105%);
+    box-shadow: none;
+  }
+  [dir="rtl"] [data-mobile-nav="closed"] > aside {
+    transform: translateX(105%);
+  }
+  .flow-theme-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+    padding-bottom: 2px;
+  }
+  .flow-theme-row::-webkit-scrollbar {
+    display: none;
+  }
+  .flow-theme-row > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* Drill-down cards and rows: the whole tile is a link to the matching detail view. */
+.drill-card {
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    background-color 0.15s ease;
+}
+.drill-card:hover {
+  border-color: rgb(99 102 241 / 0.45);
+}
+.drill-card:active {
+  transform: scale(0.985);
+}
+.drill-card__link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+.drill-card__link:focus-visible {
+  outline: 2px solid rgb(129 140 248);
+  outline-offset: 2px;
+}
+.drill-card:hover .drill-card__chevron {
+  color: rgb(165 180 252);
+}
+[dir="rtl"] .drill-card__chevron,
+[dir="rtl"] .drill-row__chevron {
+  transform: scaleX(-1);
+}
+.drill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline: -0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
+}
+.drill-row:hover,
+.drill-row:focus-visible {
+  background: rgb(255 255 255 / 0.04);
+  outline: none;
+}
+.drill-row:active {
+  background: rgb(255 255 255 / 0.07);
+}

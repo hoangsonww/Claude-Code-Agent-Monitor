@@ -7,6 +7,7 @@
   "activityFeed": "활동 피드",
   "analytics": "분석",
   "workflows": "워크플로",
+  "flow": "실시간 흐름",
   "alerts": "알림",
   "ccConfig": "Agent 설정",
   "run": "Agent 실행",
@@ -15,6 +16,8 @@
   "github": "GitHub",
   "website": "웹사이트",
   "notFound": "페이지를 찾을 수 없음",
+  "openMenu": "메뉴 열기",
+  "closeMenu": "메뉴 닫기",
   "skipToContent": "본문으로 건너뛰기",
   "expand": "사이드바 펼치기",
   "collapse": "사이드바 접기",
@@ -59,14 +62,16 @@
     "zh": "중국어",
     "vi": "베트남어",
     "ko": "한국어",
-    "es": "스페인어"
+    "es": "스페인어",
+    "he": "히브리어"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "he": "עב"
   },
   "palette": {
     "title": "명령 팔레트",

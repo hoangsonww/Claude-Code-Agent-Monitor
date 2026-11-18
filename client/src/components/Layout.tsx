@@ -209,8 +209,9 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useCallback, useState } from "react";
-import { Outlet } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router";
+import { Menu, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Sidebar, SIDEBAR_STORAGE_KEY, loadCollapsed } from "./Sidebar";
 import { UpdateNotifier } from "./UpdateNotifier";
@@ -218,6 +219,7 @@ import { CommandPalette } from "./CommandPalette";
 import { Tabby } from "./Tabby/Tabby";
 import { ActionToast } from "./ActionToast";
 import { PaletteActionProvider, usePaletteAction } from "./PaletteActionProvider";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 /** Props for {@link Layout}. */
 interface LayoutProps {
@@ -243,7 +245,7 @@ function LayoutActions({ onToggleSidebar }: { onToggleSidebar: () => void }) {
 
 /**
  * Root layout wrapping all dashboard routes: sidebar, global overlays, and the
- * routed page outlet.
+ * routed page outlet. On phones the sidebar is a drawer opened from a top bar.
  * @param props See {@link LayoutProps}.
  */
 export function Layout({ wsConnected }: LayoutProps) {
@@ -261,31 +263,72 @@ export function Layout({ wsConnected }: LayoutProps) {
     });
   }, []);
 
+  const mobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
+  const { pathname } = useLocation();
+  // Close the phone drawer after navigating.
+  useEffect(() => setNavOpen(false), [pathname]);
+
   return (
     <PaletteActionProvider>
-      <div className="min-h-screen bg-surface-0">
+      <div
+        className="min-h-screen bg-surface-0"
+        data-mobile-nav={mobile ? (navOpen ? "open" : "closed") : undefined}
+      >
         <a href="#main-content" className="skip-to-content">
           {t("skipToContent")}
         </a>
-        <LayoutActions onToggleSidebar={toggle} />
+        <LayoutActions onToggleSidebar={mobile ? () => setNavOpen((o) => !o) : toggle} />
         <UpdateNotifier />
         <CommandPalette />
         <ActionToast />
         <Tabby />
-        <Sidebar wsConnected={wsConnected} collapsed={collapsed} onToggle={toggle} />
+        <Sidebar
+          wsConnected={wsConnected}
+          collapsed={mobile ? false : collapsed}
+          onToggle={mobile ? () => setNavOpen(false) : toggle}
+        />
+        {mobile && navOpen && (
+          <button
+            type="button"
+            aria-label={t("closeMenu", { defaultValue: "Close menu" })}
+            className="mobile-nav-backdrop"
+            onClick={() => setNavOpen(false)}
+          />
+        )}
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-screen min-w-0 transition-[margin-left,width] duration-200 outline-none"
-          style={{
-            marginLeft: collapsed ? "4.25rem" : "15rem",
-            width: collapsed ? "calc(100% - 4.25rem)" : "calc(100% - 15rem)",
-          }}
+          className="min-h-screen min-w-0 transition-[margin-inline-start,width] duration-200 outline-none"
+          style={
+            mobile
+              ? { marginInlineStart: 0, width: "100%" }
+              : {
+                  marginInlineStart: collapsed ? "4.25rem" : "15rem",
+                  width: collapsed ? "calc(100% - 4.25rem)" : "calc(100% - 15rem)",
+                }
+          }
         >
+          {mobile && (
+            <div className="mobile-topbar">
+              <button
+                type="button"
+                aria-label={t(navOpen ? "closeMenu" : "openMenu", {
+                  defaultValue: navOpen ? "Close menu" : "Open menu",
+                })}
+                aria-expanded={navOpen}
+                onClick={() => setNavOpen((o) => !o)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface-1 text-gray-200"
+              >
+                {navOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+              <span className="text-sm font-semibold text-gray-100">Claude Code Monitor</span>
+            </div>
+          )}
           {/* overflow-x-clip (not -hidden) clips horizontal overflow without
             creating a scroll container, so descendant `position: sticky`
             elements (e.g. the Settings page TOC) still pin to the window. */}
-          <div className="p-5 lg:p-6 max-w-full overflow-x-clip">
+          <div className="p-3 sm:p-5 lg:p-6 max-w-full overflow-x-clip">
             <Outlet />
           </div>
         </main>
