@@ -375,6 +375,7 @@ function formatUptime(seconds: number): string {
  * when the data scope changes.
  */
 function SystemHealthTab() {
+  const { t } = useTranslation("dashboard");
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
   const [scope] = useDataScope();
@@ -505,22 +506,28 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Server className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Runtime</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.runtime")}
+              </span>
             </div>
             <span className="text-[10px] font-mono text-gray-500">
-              {info.server.cpus} cores · {info.server.arch}
+              {t("healthTab.cores", { cpus: info.server.cpus, arch: info.server.arch })}
             </span>
           </div>
 
           <div className="space-y-2.5">
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 w-28 flex-shrink-0">Uptime</span>
+              <span className="text-xs text-gray-400 w-28 flex-shrink-0">
+                {t("healthTab.uptime")}
+              </span>
               <span className="text-xs text-gray-200 font-mono ml-auto">
                 {formatUptime(info.server.uptime)}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 w-28 flex-shrink-0">CPU (1/5/15m)</span>
+              <span className="text-xs text-gray-400 w-28 flex-shrink-0">
+                {t("healthTab.cpuLoad")}
+              </span>
               <div className="flex gap-1 ml-auto">
                 {(info.server.cpu_load || []).slice(0, 3).map((load, i) => (
                   <span
@@ -533,7 +540,9 @@ function SystemHealthTab() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 w-28 flex-shrink-0">Node RSS</span>
+              <span className="text-xs text-gray-400 w-28 flex-shrink-0">
+                {t("healthTab.nodeRss")}
+              </span>
               <span className="text-xs text-gray-200 font-mono ml-auto">
                 {formatBytes(info.server.memory.rss)}
               </span>
@@ -543,11 +552,15 @@ function SystemHealthTab() {
           <div className="border-t border-border/40 pt-3 space-y-3">
             <Tip
               block
-              raw={`Host Memory: ${memUsedPct.toFixed(1)}% used\n${formatBytes(info.server.total_mem - info.server.free_mem)} / ${formatBytes(info.server.total_mem)}`}
+              raw={t("healthTab.tipHostMemory", {
+                pct: memUsedPct.toFixed(1),
+                used: formatBytes(info.server.total_mem - info.server.free_mem),
+                total: formatBytes(info.server.total_mem),
+              })}
             >
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px]">
-                  <span className="text-gray-500">Host Memory</span>
+                  <span className="text-gray-500">{t("healthTab.hostMemory")}</span>
                   <span className="text-gray-400 font-mono">{memUsedPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-surface-3 rounded-full h-2">
@@ -560,11 +573,16 @@ function SystemHealthTab() {
             </Tip>
             <Tip
               block
-              raw={`V8 Heap: ${heapUsedPct.toFixed(1)}% used\n${formatBytes(info.server.memory.heapUsed)} / ${formatBytes(info.server.memory.heapTotal)}\nExternal: ${formatBytes(info.server.memory.external)}`}
+              raw={t("healthTab.tipHeap", {
+                pct: heapUsedPct.toFixed(1),
+                used: formatBytes(info.server.memory.heapUsed),
+                total: formatBytes(info.server.memory.heapTotal),
+                external: formatBytes(info.server.memory.external),
+              })}
             >
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px]">
-                  <span className="text-gray-500">V8 Heap</span>
+                  <span className="text-gray-500">{t("healthTab.v8Heap")}</span>
                   <span className="text-gray-400 font-mono">{heapUsedPct.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-surface-3 rounded-full h-2">
@@ -583,10 +601,16 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Database className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Storage</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.storage")}
+              </span>
             </div>
             <Tip
-              raw={`Write velocity (events):\n5 min: ${info.db.load_stats?.m5 ?? 0}\n15 min: ${info.db.load_stats?.m15 ?? 0}\n1 hr: ${info.db.load_stats?.h1 ?? 0}`}
+              raw={t("healthTab.tipWriteVelocity", {
+                m5: info.db.load_stats?.m5 ?? 0,
+                m15: info.db.load_stats?.m15 ?? 0,
+                h1: info.db.load_stats?.h1 ?? 0,
+              })}
             >
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 cursor-default">
                 ⚡ {info.db.load_stats?.m5 ?? 0}/{info.db.load_stats?.m15 ?? 0}/
@@ -596,7 +620,9 @@ function SystemHealthTab() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400 w-28 flex-shrink-0">Database</span>
+            <span className="text-xs text-gray-400 w-28 flex-shrink-0">
+              {t("healthTab.database")}
+            </span>
             <span className="text-xs text-gray-200 font-mono ml-auto">
               {formatBytes(info.db.size)} · {info.db.pragmas?.journal_mode?.toUpperCase() || "WAL"}
             </span>
@@ -605,7 +631,15 @@ function SystemHealthTab() {
           {/* Pie chart + legend using same pattern as Analytics DonutChart */}
           <div className="flex items-center justify-center gap-5 flex-1">
             <Tip
-              raw={`Record Distribution\n\nSessions: ${(info.db.counts?.sessions ?? 0).toLocaleString()} (${sessPct.toFixed(1)}%)\nAgents: ${(info.db.counts?.agents ?? 0).toLocaleString()} (${agentPct.toFixed(1)}%)\nEvents: ${(info.db.counts?.events ?? 0).toLocaleString()} (${eventPct.toFixed(1)}%)\n\nTotal: ${totalEntries.toLocaleString()} records`}
+              raw={t("healthTab.tipRecords", {
+                sessions: (info.db.counts?.sessions ?? 0).toLocaleString(),
+                sessPct: sessPct.toFixed(1),
+                agents: (info.db.counts?.agents ?? 0).toLocaleString(),
+                agentPct: agentPct.toFixed(1),
+                events: (info.db.counts?.events ?? 0).toLocaleString(),
+                eventPct: eventPct.toFixed(1),
+                total: totalEntries.toLocaleString(),
+              })}
             >
               <svg
                 width={96}
@@ -666,26 +700,26 @@ function SystemHealthTab() {
                   className="fill-gray-600"
                   fontSize="8"
                 >
-                  total
+                  {t("healthTab.total")}
                 </text>
               </svg>
             </Tip>
             <div className="space-y-2.5">
               {[
                 {
-                  label: "Sessions",
+                  label: t("healthTab.sessions"),
                   value: info.db.counts?.sessions ?? 0,
                   color: "#60a5fa",
                   pct: sessPct,
                 },
                 {
-                  label: "Agents",
+                  label: t("healthTab.agents"),
                   value: info.db.counts?.agents ?? 0,
                   color: "#8b5cf6",
                   pct: agentPct,
                 },
                 {
-                  label: "Events",
+                  label: t("healthTab.events"),
                   value: info.db.counts?.events ?? 0,
                   color: "#34d399",
                   pct: eventPct,
@@ -717,13 +751,21 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Health Score</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.healthScore")}
+              </span>
             </div>
             <Tip
-              raw={`Composite Index formula:\n0.4 × Success Rate (${successRate.toFixed(1)}%)\n+ 0.25 × Cache Hit (${cacheHitRate.toFixed(1)}%)\n+ 0.25 × (100 − Error Rate) (${(100 - errorRate).toFixed(1)}%)\n+ 0.10 × (100 − Heap%) (${(100 - heapUsedPct).toFixed(1)}%)\n= ${healthScore.toFixed(1)}`}
+              raw={t("healthTab.tipFormula", {
+                success: successRate.toFixed(1),
+                cache: cacheHitRate.toFixed(1),
+                noError: (100 - errorRate).toFixed(1),
+                heap: (100 - heapUsedPct).toFixed(1),
+                score: healthScore.toFixed(1),
+              })}
             >
               <span className="text-[10px] text-gray-500 cursor-help border-b border-dashed border-gray-700">
-                ⓘ Formula
+                ⓘ {t("healthTab.formula")}
               </span>
             </Tip>
           </div>
@@ -731,7 +773,13 @@ function SystemHealthTab() {
           {/* Ring gauge - centered */}
           <div className="flex items-center justify-center flex-1">
             <Tip
-              raw={`Score: ${healthScore.toFixed(1)} / 100\n\n• Success Rate (40%): ${successRate.toFixed(1)}%\n• Cache Hit (25%): ${cacheHitRate.toFixed(1)}%\n• Error Avoidance (25%): ${(100 - errorRate).toFixed(1)}%\n• Memory Health (10%): ${(100 - heapUsedPct).toFixed(1)}%`}
+              raw={t("healthTab.tipScore", {
+                score: healthScore.toFixed(1),
+                success: successRate.toFixed(1),
+                cache: cacheHitRate.toFixed(1),
+                noError: (100 - errorRate).toFixed(1),
+                memory: (100 - heapUsedPct).toFixed(1),
+              })}
             >
               <svg width="120" height="120" viewBox="0 0 120 120" className="cursor-default">
                 <circle cx="60" cy="60" r="48" fill="none" stroke="#1e1e2e" strokeWidth="10" />
@@ -778,21 +826,22 @@ function SystemHealthTab() {
           <div className="grid grid-cols-4 gap-2 border-t border-border/40 pt-3">
             <Tip
               block
-              raw={`Cache Hit Rate: ${cacheHitRate.toFixed(1)}%\nHits: ${info.transcript_cache?.hits ?? 0}\nMisses: ${info.transcript_cache?.misses ?? 0}`}
+              raw={t("healthTab.tipCache", {
+                pct: cacheHitRate.toFixed(1),
+                hits: info.transcript_cache?.hits ?? 0,
+                misses: info.transcript_cache?.misses ?? 0,
+              })}
             >
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Cache</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.cache")}</p>
                 <p className="text-xs font-mono font-bold text-blue-400">
                   {cacheHitRate.toFixed(0)}%
                 </p>
               </div>
             </Tip>
-            <Tip
-              block
-              raw={`Error Rate: ${errorRate.toFixed(2)}%\n<5% = healthy, 5-15% = warning, >15% = critical`}
-            >
+            <Tip block raw={t("healthTab.tipErrors", { pct: errorRate.toFixed(2) })}>
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Errors</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.errors")}</p>
                 <p
                   className={`text-xs font-mono font-bold ${errorRate < 5 ? "text-emerald-400" : errorRate < 15 ? "text-amber-400" : "text-red-400"}`}
                 >
@@ -802,10 +851,10 @@ function SystemHealthTab() {
             </Tip>
             <Tip
               block
-              raw={`Transcript compactions: ${workflow.compaction?.totalCompactions ?? 0}\nReduces context window by summarizing turns.`}
+              raw={t("healthTab.tipCompact", { count: workflow.compaction?.totalCompactions ?? 0 })}
             >
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Compact</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.compact")}</p>
                 <p className="text-xs font-mono font-bold text-violet-400">
                   {workflow.compaction?.totalCompactions ?? 0}
                 </p>
@@ -813,10 +862,12 @@ function SystemHealthTab() {
             </Tip>
             <Tip
               block
-              raw={`Tokens recovered: ${(workflow.compaction?.tokensRecovered ?? 0).toLocaleString()}\nFreed by compaction.`}
+              raw={t("healthTab.tipSaved", {
+                tokens: (workflow.compaction?.tokensRecovered ?? 0).toLocaleString(),
+              })}
             >
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Saved</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.saved")}</p>
                 <p className="text-xs font-mono font-bold text-emerald-400">
                   {((workflow.compaction?.tokensRecovered ?? 0) / 1000).toFixed(1)}K
                 </p>
@@ -833,10 +884,12 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Bot className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Token Usage</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.tokenUsage")}
+              </span>
             </div>
             <span className="text-[10px] font-mono text-gray-500">
-              {(totalTokens / 1000).toFixed(1)}K total
+              {t("healthTab.totalK", { value: (totalTokens / 1000).toFixed(1) })}
             </span>
           </div>
 
@@ -856,7 +909,13 @@ function SystemHealthTab() {
                 <Tip
                   block
                   key={i}
-                  raw={`${formatModelName(m.model) ?? m.model}\nInput: ${m.input_tokens.toLocaleString()}\nOutput: ${m.output_tokens.toLocaleString()}\nCache Read: ${m.cache_read_tokens.toLocaleString()}\nShare: ${pct.toFixed(1)}%`}
+                  raw={t("healthTab.tipModel", {
+                    model: formatModelName(m.model) ?? m.model,
+                    input: m.input_tokens.toLocaleString(),
+                    output: m.output_tokens.toLocaleString(),
+                    cacheRead: m.cache_read_tokens.toLocaleString(),
+                    pct: pct.toFixed(1),
+                  })}
                 >
                   <div className="flex items-center gap-3 cursor-default">
                     <span
@@ -879,7 +938,7 @@ function SystemHealthTab() {
               );
             })}
             {modelStats.length === 0 && (
-              <p className="text-xs text-gray-600 text-center py-4">No model data</p>
+              <p className="text-xs text-gray-600 text-center py-4">{t("healthTab.noModelData")}</p>
             )}
           </div>
         </div>
@@ -889,15 +948,26 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <BarChart3 className="w-4 h-4 text-violet-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Concurrency</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.concurrency")}
+              </span>
             </div>
-            <span className="text-[10px] font-mono text-gray-500">{lanes.length} intervals</span>
+            <span className="text-[10px] font-mono text-gray-500">
+              {t("healthTab.intervals", { n: lanes.length })}
+            </span>
           </div>
 
           {/* Sparkline-style bar chart matching Analytics sparkline */}
           <Tip
             block
-            raw={`Peak: ${maxLaneCount} parallel sessions\nActive intervals: ${lanes.filter((l) => l.count > 0).length}\nAvg: ${lanes.length > 0 ? (lanes.reduce((s, l) => s + l.count, 0) / lanes.length).toFixed(1) : "0"}`}
+            raw={t("healthTab.tipConcurrency", {
+              peak: maxLaneCount,
+              active: lanes.filter((l) => l.count > 0).length,
+              avg:
+                lanes.length > 0
+                  ? (lanes.reduce((s, l) => s + l.count, 0) / lanes.length).toFixed(1)
+                  : "0",
+            })}
           >
             <div className="flex items-end gap-px h-20 cursor-default">
               {lanes.slice(-Math.min(lanes.length, 40)).map((lane, i) => {
@@ -925,33 +995,36 @@ function SystemHealthTab() {
               })}
               {lanes.length === 0 && (
                 <p className="text-xs text-gray-600 text-center w-full self-center">
-                  No concurrency data
+                  {t("healthTab.noConcurrency")}
                 </p>
               )}
             </div>
           </Tip>
 
           <div className="grid grid-cols-3 gap-3 border-t border-border/40 pt-3">
-            <Tip block raw={`Peak: ${maxLaneCount} sessions running simultaneously.`}>
+            <Tip block raw={t("healthTab.tipPeak", { n: maxLaneCount })}>
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Peak</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.peak")}</p>
                 <p className="text-sm font-mono font-bold text-gray-200">{maxLaneCount}</p>
               </div>
             </Tip>
             <Tip
               block
-              raw={`${lanes.filter((l) => l.count > 0).length} of ${lanes.length} intervals have active sessions.`}
+              raw={t("healthTab.tipActive", {
+                active: lanes.filter((l) => l.count > 0).length,
+                n: lanes.length,
+              })}
             >
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Active</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.active")}</p>
                 <p className="text-sm font-mono font-bold text-emerald-400">
                   {lanes.filter((l) => l.count > 0).length}
                 </p>
               </div>
             </Tip>
-            <Tip block raw={`Average concurrency across all intervals.`}>
+            <Tip block raw={t("healthTab.tipAvg")}>
               <div className="text-center cursor-default">
-                <p className="text-[9px] text-gray-600 uppercase">Avg</p>
+                <p className="text-[9px] text-gray-600 uppercase">{t("healthTab.avg")}</p>
                 <p className="text-sm font-mono font-bold text-blue-400">
                   {lanes.length > 0
                     ? (lanes.reduce((s, l) => s + l.count, 0) / lanes.length).toFixed(1)
@@ -970,9 +1043,13 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Zap className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Tool Usage</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.toolUsage")}
+              </span>
             </div>
-            <span className="text-[10px] font-mono text-gray-500">top {topTools.length}</span>
+            <span className="text-[10px] font-mono text-gray-500">
+              {t("healthTab.topN", { n: topTools.length })}
+            </span>
           </div>
 
           <div className="space-y-2">
@@ -992,7 +1069,10 @@ function SystemHealthTab() {
                 <Tip
                   block
                   key={i}
-                  raw={`${tool.tool_name}: ${tool.count.toLocaleString()} invocations`}
+                  raw={t("healthTab.tipTool", {
+                    tool: tool.tool_name,
+                    n: tool.count.toLocaleString(),
+                  })}
                 >
                   <div className="flex items-center gap-3 cursor-default">
                     <span
@@ -1015,7 +1095,7 @@ function SystemHealthTab() {
               );
             })}
             {topTools.length === 0 && (
-              <p className="text-xs text-gray-600 text-center py-6">No tool data yet</p>
+              <p className="text-xs text-gray-600 text-center py-6">{t("healthTab.noToolData")}</p>
             )}
           </div>
         </div>
@@ -1026,7 +1106,7 @@ function SystemHealthTab() {
             <div className="flex items-center gap-3">
               <GitBranch className="w-4 h-4 text-violet-400" />
               <span className="text-xs text-gray-500 uppercase tracking-wider">
-                Subagent Effectiveness
+                {t("healthTab.subagentEffectiveness")}
               </span>
             </div>
           </div>
@@ -1043,11 +1123,17 @@ function SystemHealthTab() {
                 <Tip
                   block
                   key={i}
-                  raw={`${item.subagent_type || "default"}\nSuccess: ${item.successRate.toFixed(1)}%\nTotal: ${item.total} · OK: ${item.completed} · Errors: ${item.errors}`}
+                  raw={t("healthTab.tipSubagent", {
+                    name: item.subagent_type || t("healthTab.default"),
+                    pct: item.successRate.toFixed(1),
+                    total: item.total,
+                    ok: item.completed,
+                    errors: item.errors,
+                  })}
                 >
                   <div className="flex items-center gap-3 cursor-default">
                     <span className="text-xs text-gray-400 w-28 truncate flex-shrink-0">
-                      {item.subagent_type || "default"}
+                      {item.subagent_type || t("healthTab.default")}
                     </span>
                     <div className="flex-1 bg-surface-3 rounded-full h-2">
                       <div
@@ -1065,7 +1151,9 @@ function SystemHealthTab() {
               );
             })}
             {effectiveness.length === 0 && (
-              <p className="text-xs text-gray-600 text-center py-6">No subagent data yet</p>
+              <p className="text-xs text-gray-600 text-center py-6">
+                {t("healthTab.noSubagentData")}
+              </p>
             )}
           </div>
         </div>
@@ -1078,12 +1166,14 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Plug className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Integration</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.integration")}
+              </span>
             </div>
             <span
               className={`text-[10px] font-mono px-2 py-0.5 rounded ${info.hooks.installed ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-surface-3 text-gray-500 border border-border"}`}
             >
-              {info.hooks.installed ? "Active" : "Offline"}
+              {info.hooks.installed ? t("healthTab.statusActive") : t("healthTab.statusOffline")}
             </span>
           </div>
 
@@ -1093,7 +1183,10 @@ function SystemHealthTab() {
                 <Tip
                   block
                   key={cwd}
-                  raw={`Path: ${cwd}\nStatus: ${active ? "Connected" : "Disconnected"}`}
+                  raw={t("healthTab.tipHook", {
+                    path: cwd,
+                    status: active ? t("healthTab.connected") : t("healthTab.disconnected"),
+                  })}
                 >
                   <div className="flex items-center gap-3 bg-surface-2/50 px-3 py-2 rounded-lg border border-border/30 cursor-default">
                     <div
@@ -1109,21 +1202,19 @@ function SystemHealthTab() {
           ) : (
             <div className="flex flex-col items-center justify-center py-6 border border-dashed border-border/40 rounded-lg">
               <Search className="w-4 h-4 text-gray-600 mb-2" />
-              <p className="text-xs text-gray-500">No project hooks registered</p>
+              <p className="text-xs text-gray-500">{t("healthTab.noHooks")}</p>
             </div>
           )}
 
-          <Tip
-            block
-            raw={`WebSocket connections: ${info.server.ws_connections}\nProtocol: RFC 6455`}
-          >
+          <Tip block raw={t("healthTab.tipWs", { n: info.server.ws_connections })}>
             <div className="flex items-center gap-3 bg-emerald-500/5 px-3 py-2.5 rounded-lg border border-emerald-500/10 cursor-default">
               <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               <div>
-                <p className="text-[10px] text-emerald-400 font-medium">WebSocket Active</p>
+                <p className="text-[10px] text-emerald-400 font-medium">
+                  {t("healthTab.wsActive")}
+                </p>
                 <p className="text-[10px] text-gray-500">
-                  {info.server.ws_connections} connection
-                  {info.server.ws_connections !== 1 ? "s" : ""}
+                  {t("healthTab.wsConnections", { n: info.server.ws_connections })}
                 </p>
               </div>
             </div>
@@ -1135,7 +1226,9 @@ function SystemHealthTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Cpu className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Platform</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">
+                {t("healthTab.platform")}
+              </span>
             </div>
             <span className="text-[10px] font-mono text-gray-500">{info.server.node_version}</span>
           </div>
@@ -1143,11 +1236,11 @@ function SystemHealthTab() {
           <div className="space-y-2">
             {[
               {
-                label: "Journal Mode",
+                label: t("healthTab.journalMode"),
                 value: info.db.pragmas?.journal_mode?.toUpperCase() || "WAL",
               },
               {
-                label: "Synchronous",
+                label: t("healthTab.synchronous"),
                 value:
                   info.db.pragmas?.synchronous === 2
                     ? "FULL"
@@ -1155,10 +1248,22 @@ function SystemHealthTab() {
                       ? "NORMAL"
                       : "OFF",
               },
-              { label: "Auto-Vacuum", value: info.db.pragmas?.auto_vacuum > 0 ? "FULL" : "OFF" },
-              { label: "Foreign Keys", value: info.db.pragmas?.foreign_keys ? "ON" : "OFF" },
-              { label: "Busy Timeout", value: `${info.db.pragmas?.busy_timeout || 5000}ms` },
-              { label: "Platform", value: `${info.server.platform} / ${info.server.arch}` },
+              {
+                label: t("healthTab.autoVacuum"),
+                value: info.db.pragmas?.auto_vacuum > 0 ? "FULL" : "OFF",
+              },
+              {
+                label: t("healthTab.foreignKeys"),
+                value: info.db.pragmas?.foreign_keys ? "ON" : "OFF",
+              },
+              {
+                label: t("healthTab.busyTimeout"),
+                value: `${info.db.pragmas?.busy_timeout || 5000}ms`,
+              },
+              {
+                label: t("healthTab.platform"),
+                value: `${info.server.platform} / ${info.server.arch}`,
+              },
             ].map((row) => (
               <div key={row.label} className="flex items-center gap-3">
                 <span className="text-xs text-gray-400 w-28 flex-shrink-0">{row.label}</span>
