@@ -616,6 +616,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
+  padding-top: max(0.6rem, env(safe-area-inset-top));
   background: rgb(10 10 15 / 0.85);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgb(255 255 255 / 0.08);
