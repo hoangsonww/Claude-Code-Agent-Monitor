@@ -234,7 +234,8 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, useSyncExternalStore } from "react";
+import { groupByProject, projectName, worktreeName } from "../lib/project";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -342,6 +343,16 @@ export function Sessions() {
   const [sortBy, setSortBy] = useState<SessionSort>("time");
   const [sortDesc, setSortDesc] = useState(true);
   const [directories, setDirectories] = useState<string[]>([]);
+  // Worktrees fold into their repository: the filter lists projects, and picking one selects
+  // every directory (main checkout + worktrees) that belongs to it.
+  const projects = useMemo(() => groupByProject(directories), [directories]);
+  const selectedProjects = useMemo(
+    () =>
+      [...projects.entries()]
+        .filter(([, g]) => g.dirs.length > 0 && g.dirs.every((d) => cwds.includes(d)))
+        .map(([key]) => key),
+    [projects, cwds]
+  );
   // Global data scope (which source machines to show). Included in `load`'s deps
   // so switching scope re-fetches; the actual `sources` param is injected by the
   // api layer (see lib/api.ts applyScope).
@@ -656,9 +667,12 @@ export function Sessions() {
         <div className="w-full shrink-0 sm:w-[280px] lg:w-[300px]">
           <MultiSelect
             label={t("directoryFilterLabel")}
-            options={directories.map((directory) => ({ value: directory, label: directory }))}
-            value={cwds}
-            onChange={setCwds}
+            options={[...projects.entries()].map(([key, g]) => ({
+              value: key,
+              label: g.dirs.length > 1 ? `${g.name} (${g.dirs.length})` : g.name,
+            }))}
+            value={selectedProjects}
+            onChange={(keys) => setCwds(keys.flatMap((k) => projects.get(k)?.dirs ?? []))}
             allLabel={t("allDirectories")}
             selectedCountLabel={(count) => t("selectedDirectories", { count })}
             searchPlaceholder={t("directorySearchPlaceholder")}
@@ -854,7 +868,20 @@ export function Sessions() {
                       className="px-5 py-4 text-[11px] text-gray-500 font-mono"
                       title={session.cwd || undefined}
                     >
-                      {session.cwd ? truncate(session.cwd, 30) : "-"}
+                      {session.cwd ? (
+                        <span className="flex flex-col">
+                          <span className="font-sans text-xs text-gray-300">
+                            {projectName(session.cwd)}
+                          </span>
+                          {worktreeName(session.cwd) && (
+                            <span className="text-[10px] text-gray-600">
+                              {truncate(worktreeName(session.cwd) ?? "", 24)}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-3 py-4">
                       {!isTransientProcessSession(session) && (

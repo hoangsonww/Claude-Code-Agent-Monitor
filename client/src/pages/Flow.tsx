@@ -22,6 +22,7 @@ import type { Agent, AgentStatus, DashboardEvent, Session, WSMessage } from "../
 import { FlowStage, type StageSession } from "../components/flow/FlowStage";
 import { STAGE_THEMES, type StageThemeId } from "../components/flow/flowThemes";
 import { FlowStageGL, GL_THEMES, type GLThemeId } from "../components/flow/FlowStageGL";
+import { projectName } from "../lib/project";
 
 /** Which view the page shows: the classic cards, a WebGL theme or one of the canvas themes. */
 export type FlowView = "classic" | StageThemeId | GLThemeId;
@@ -245,9 +246,7 @@ function SessionFlowCard({
   tools.forEach((tool, i) => toolPos.set(tool.name, ringPos(i, tools.length, 118)));
 
   const title =
-    session.name ||
-    (session.cwd ? session.cwd.split(/[\\/]/).filter(Boolean).pop() : null) ||
-    session.id.slice(0, 8);
+    session.name || (session.cwd ? projectName(session.cwd) : null) || session.id.slice(0, 8);
   const mainStatus: AgentStatus = main?.status ?? "waiting";
 
   return (
@@ -626,9 +625,7 @@ export function Flow() {
   const sessionName = useCallback(
     (id: string) => {
       const s = shownSessions.find((x) => x.id === id);
-      return (
-        s?.name || (s?.cwd ? s.cwd.split(/[\\/]/).filter(Boolean).pop() : null) || id.slice(0, 8)
-      );
+      return s?.name || (s?.cwd ? projectName(s.cwd) : null) || id.slice(0, 8);
     },
     [shownSessions]
   );
