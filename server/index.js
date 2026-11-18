@@ -24,6 +24,7 @@ const {
   hasExclusiveDataDirOwnership,
 } = require("./lib/server-info");
 const { getDataDir } = require("./lib/claude-home");
+const { gzipAssets, gzipJson } = require("./lib/compress");
 const {
   resolveHost,
   isLoopbackHostname,
@@ -82,6 +83,7 @@ function createApp() {
   app.use("/api/hooks/ingest-transcript", remotePushGuard, express.json({ limit: "8mb" }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", tokenGuard);
+  app.use("/api", gzipJson());
   app.use("/api/hooks", hookGuard);
 
   app.use("/api/sessions", sessionsRouter);
@@ -178,6 +180,7 @@ function startServer(app, port) {
     //     so they must revalidate every load — without this the browser's
     //     heuristic cache happily serves a stale index.html that references
     //     asset hashes that no longer exist on disk.
+    app.use("/assets", gzipAssets(clientDist));
     app.use(
       express.static(clientDist, {
         etag: true,

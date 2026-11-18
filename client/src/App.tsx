@@ -225,22 +225,43 @@
  * ============================================================================= */
 
 import { BrowserRouter, Routes, Route, useLocation } from "react-router";
-import { useCallback } from "react";
+import { Suspense, lazy, useCallback, type ReactNode } from "react";
 import { Layout } from "./components/Layout";
 import { DocumentTitle } from "./components/DocumentTitle";
 import { SplashScreen } from "./components/SplashScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { KanbanBoard } from "./pages/KanbanBoard";
 import { Sessions } from "./pages/Sessions";
-import { SessionDetail } from "./pages/SessionDetail";
 import { ActivityFeed } from "./pages/ActivityFeed";
-import { Analytics } from "./pages/Analytics";
-import { Workflows } from "./pages/Workflows";
-import { Flow } from "./pages/Flow";
-import { Settings } from "./pages/Settings";
-import { CcConfig } from "./pages/CcConfig";
-import { Run } from "./pages/Run";
 import { NotFound } from "./pages/NotFound";
+
+// Heavy pages load on demand so the first screen (dashboard) downloads and parses a much smaller
+// bundle — three.js (Live Flow), d3 (Workflows), the analytics charts, Run and Settings each
+// become their own chunk, fetched the first time the page is opened and cached afterwards.
+const SessionDetail = lazy(() =>
+  import("./pages/SessionDetail").then((m) => ({ default: m.SessionDetail }))
+);
+const Analytics = lazy(() => import("./pages/Analytics").then((m) => ({ default: m.Analytics })));
+const Workflows = lazy(() => import("./pages/Workflows").then((m) => ({ default: m.Workflows })));
+const Flow = lazy(() => import("./pages/Flow").then((m) => ({ default: m.Flow })));
+const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
+const CcConfig = lazy(() => import("./pages/CcConfig").then((m) => ({ default: m.CcConfig })));
+const Run = lazy(() => import("./pages/Run").then((m) => ({ default: m.Run })));
+
+/** Wraps a lazily loaded page with a quiet loading indicator. */
+function Lazy({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[50vh] items-center justify-center" role="status" aria-busy="true">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useNotifications } from "./hooks/useNotifications";
 import { useSoundCues } from "./hooks/useSoundCues";
@@ -288,14 +309,63 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="kanban" element={<KanbanBoard />} />
           <Route path="sessions" element={<Sessions />} />
-          <Route path="sessions/:id" element={<SessionDetail />} />
+          <Route
+            path="sessions/:id"
+            element={
+              <Lazy>
+                <SessionDetail />
+              </Lazy>
+            }
+          />
           <Route path="activity" element={<ActivityFeed />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="workflows" element={<Workflows />} />
-          <Route path="flow" element={<Flow />} />
-          <Route path="cc-config" element={<CcConfig />} />
-          <Route path="run" element={<Run />} />
-          <Route path="settings" element={<Settings />} />
+          <Route
+            path="analytics"
+            element={
+              <Lazy>
+                <Analytics />
+              </Lazy>
+            }
+          />
+          <Route
+            path="workflows"
+            element={
+              <Lazy>
+                <Workflows />
+              </Lazy>
+            }
+          />
+          <Route
+            path="flow"
+            element={
+              <Lazy>
+                <Flow />
+              </Lazy>
+            }
+          />
+          <Route
+            path="cc-config"
+            element={
+              <Lazy>
+                <CcConfig />
+              </Lazy>
+            }
+          />
+          <Route
+            path="run"
+            element={
+              <Lazy>
+                <Run />
+              </Lazy>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Lazy>
+                <Settings />
+              </Lazy>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

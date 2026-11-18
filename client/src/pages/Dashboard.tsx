@@ -1405,8 +1405,17 @@ export function Dashboard() {
       }
       const promise = (async () => {
         try {
+          // The stat tiles only need /api/stats: show them as soon as it lands instead of
+          // waiting for the slower agent/event/session lists (noticeable on phones).
+          const statsPromise = api.stats.get();
+          statsPromise.then(
+            (s) => {
+              if (loadGeneration.current === generation) setStats(s);
+            },
+            () => undefined
+          );
           const requests = [
-            api.stats.get(),
+            statsPromise,
             api.agents.list({ status: "working", limit: 20 }),
             api.agents.list({ status: "waiting", limit: 20, include_transient: true }),
             api.events.list({ limit: 30 }),
