@@ -41,7 +41,24 @@
     "noEvents": "아직 이벤트 없음",
     "empty": "활성 세션 없음",
     "emptyDesc": "Claude Code 세션을 시작하면 여기에 실시간으로 표시됩니다.",
-    "failedLoad": "흐름 보기를 불러오지 못했습니다"
+    "failedLoad": "흐름 보기를 불러오지 못했습니다",
+    "themes": {
+      "reactor": "Arc Reactor",
+      "synthwave": "Synthwave",
+      "matrix": "Matrix",
+      "galaxy": "Galaxy",
+      "storm": "Plasma Storm",
+      "classic": "Classic"
+    },
+    "themePicker": "Visual theme",
+    "demo": "Demo",
+    "demoStop": "Stop demo",
+    "demoNote": "Demo mode: the sessions and calls on screen are fake, to preview the animations. Your real data is unchanged.",
+    "sessions": "Sessions",
+    "inFlight": "In flight",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "emptyStageHint": "Turn on Demo to preview the animation."
   },
   "healthTab": {
     "runtime": "Runtime",

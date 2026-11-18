@@ -1,7 +1,8 @@
 /**
  * @file Flow.test.tsx
  * @description Tests for the Live Flow page: the empty state, one card per active session with
- * its tools on the ring, and a live WebSocket event landing in the side feed.
+ * its tools on the ring (classic view), a live WebSocket event landing in the side feed, the theme
+ * picker remembering the chosen canvas theme, and demo mode filling the stage with fake sessions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -92,6 +93,7 @@ describe("Flow page", () => {
     mockAgents = [];
     mockEvents = [];
     listener = null;
+    localStorage.setItem("flow_view", "classic");
   });
 
   it("shows the empty state when no session is active", async () => {
@@ -119,5 +121,30 @@ describe("Flow page", () => {
       listener?.({ type: "new_event", data: event(9, "Grep", "Searched the repo") } as WSMessage);
     });
     expect((await screen.findAllByText(/Searched the repo/)).length).toBeGreaterThan(0);
+  });
+
+  it("defaults to the Arc Reactor canvas and remembers a picked theme", async () => {
+    localStorage.removeItem("flow_view");
+    renderFlow();
+    expect(await screen.findByRole("tab", { name: "Arc Reactor" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    act(() => {
+      screen.getByRole("tab", { name: "Galaxy" }).click();
+    });
+    expect(screen.getByRole("tab", { name: "Galaxy" })).toHaveAttribute("aria-selected", "true");
+    expect(localStorage.getItem("flow_view")).toBe("galaxy");
+    expect(screen.getByRole("img", { name: "Live Flow" })).toBeInTheDocument();
+  });
+
+  it("shows fake sessions in demo mode", async () => {
+    renderFlow();
+    await screen.findByText("No active sessions");
+    act(() => {
+      screen.getByRole("button", { name: "Demo" }).click();
+    });
+    expect(await screen.findByRole("button", { name: /Delti/ })).toBeInTheDocument();
+    expect(screen.getByText(/Demo mode/)).toBeInTheDocument();
   });
 });

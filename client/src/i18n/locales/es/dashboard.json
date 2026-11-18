@@ -41,7 +41,24 @@
     "noEvents": "Sin eventos aún",
     "empty": "No hay sesiones activas",
     "emptyDesc": "Inicia una sesión de Claude Code y aparecerá aquí en vivo.",
-    "failedLoad": "No se pudo cargar la vista de flujo"
+    "failedLoad": "No se pudo cargar la vista de flujo",
+    "themes": {
+      "reactor": "Arc Reactor",
+      "synthwave": "Synthwave",
+      "matrix": "Matrix",
+      "galaxy": "Galaxy",
+      "storm": "Plasma Storm",
+      "classic": "Classic"
+    },
+    "themePicker": "Visual theme",
+    "demo": "Demo",
+    "demoStop": "Stop demo",
+    "demoNote": "Demo mode: the sessions and calls on screen are fake, to preview the animations. Your real data is unchanged.",
+    "sessions": "Sessions",
+    "inFlight": "In flight",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "emptyStageHint": "Turn on Demo to preview the animation."
   },
   "healthTab": {
     "runtime": "Runtime",

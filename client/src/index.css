@@ -534,3 +534,41 @@
     animation: none;
   }
 }
+
+/* Live Flow canvas stage: HUD overlays and theme chips, each chip lit in its theme's colours. */
+.flow-hud {
+  background: rgba(2, 8, 18, 0.62);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  color: #d6f6ff;
+  backdrop-filter: blur(6px);
+}
+.flow-theme-chip--on {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 14px var(--chip-glow, rgba(125, 211, 252, 0.5));
+  background: var(--chip-bg, #1e3a5f);
+}
+.flow-theme-chip--reactor {
+  --chip-bg: linear-gradient(135deg, #04324d, #0a6f8f);
+  --chip-glow: rgba(95, 242, 255, 0.6);
+}
+.flow-theme-chip--synthwave {
+  --chip-bg: linear-gradient(135deg, #7b1fa2, #ff2d95);
+  --chip-glow: rgba(255, 47, 214, 0.6);
+}
+.flow-theme-chip--matrix {
+  --chip-bg: linear-gradient(135deg, #032b0b, #0f7a20);
+  --chip-glow: rgba(57, 255, 20, 0.55);
+}
+.flow-theme-chip--galaxy {
+  --chip-bg: linear-gradient(135deg, #1b1446, #3b2a8f);
+  --chip-glow: rgba(155, 231, 255, 0.5);
+}
+.flow-theme-chip--storm {
+  --chip-bg: linear-gradient(135deg, #3c096c, #7b2cbf);
+  --chip-glow: rgba(199, 125, 255, 0.6);
+}
+.flow-theme-chip--classic {
+  --chip-bg: #1f2937;
+  --chip-glow: rgba(148, 163, 184, 0.35);
+}

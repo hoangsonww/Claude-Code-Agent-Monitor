@@ -41,7 +41,24 @@
     "noEvents": "Chưa có sự kiện",
     "empty": "Không có phiên hoạt động",
     "emptyDesc": "Bắt đầu một phiên Claude Code và nó sẽ hiện ở đây.",
-    "failedLoad": "Không tải được chế độ xem luồng"
+    "failedLoad": "Không tải được chế độ xem luồng",
+    "themes": {
+      "reactor": "Arc Reactor",
+      "synthwave": "Synthwave",
+      "matrix": "Matrix",
+      "galaxy": "Galaxy",
+      "storm": "Plasma Storm",
+      "classic": "Classic"
+    },
+    "themePicker": "Visual theme",
+    "demo": "Demo",
+    "demoStop": "Stop demo",
+    "demoNote": "Demo mode: the sessions and calls on screen are fake, to preview the animations. Your real data is unchanged.",
+    "sessions": "Sessions",
+    "inFlight": "In flight",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "emptyStageHint": "Turn on Demo to preview the animation."
   },
   "healthTab": {
     "runtime": "Runtime",

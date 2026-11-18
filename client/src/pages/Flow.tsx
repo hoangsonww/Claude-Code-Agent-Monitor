@@ -4,18 +4,137 @@
  * main agent sits in the centre, subagents orbit it, and the tools the session has used sit on an
  * outer ring. Every PreToolUse sends a pulse from the agent out to the tool and every PostToolUse
  * sends one back, so the operator can watch work move in real time. A side feed lists the latest
- * events. Data comes from the existing REST endpoints plus the dashboard WebSocket event bus.
+ * events. Besides the classic card view there are five cinematic canvas themes (Arc Reactor HUD,
+ * Synthwave, Matrix, Galaxy, Plasma Storm), a full-screen mode, and a demo mode that animates
+ * synthetic sessions so the themes can be previewed with nothing running. Data comes from the
+ * existing REST endpoints plus the dashboard WebSocket event bus.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Waypoints } from "lucide-react";
+import { Maximize2, Minimize2, Sparkles, Waypoints } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { timeAgo } from "../lib/format";
 import type { Agent, AgentStatus, DashboardEvent, Session, WSMessage } from "../lib/types";
+import { FlowStage, type StageSession } from "../components/flow/FlowStage";
+import { STAGE_THEMES, type StageThemeId } from "../components/flow/flowThemes";
+
+/** Which view the page shows: the classic cards or one of the canvas themes. */
+export type FlowView = "classic" | StageThemeId;
+
+/** Every view, in picker order. */
+const FLOW_VIEWS: FlowView[] = [...STAGE_THEMES, "classic"];
+
+/** localStorage key for the chosen view. */
+const VIEW_KEY = "flow_view";
+
+/** Read the saved view, defaulting to the Arc Reactor theme. */
+function readView(): FlowView {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    if (v && (FLOW_VIEWS as string[]).includes(v)) return v as FlowView;
+  } catch {
+    /* storage blocked */
+  }
+  return "reactor";
+}
+
+/** Demo sessions shown when demo mode is on. */
+const DEMO: { id: string; name: string; agents: [string, string][]; tools: string[] }[] = [
+  {
+    id: "demo-delti",
+    name: "Delti",
+    agents: [
+      ["code-reviewer", "working"],
+      ["test-runner", "working"],
+      ["Explore", "completed"],
+    ],
+    tools: ["Bash", "Edit", "Read", "Grep", "mcp__github__pr", "WebFetch"],
+  },
+  {
+    id: "demo-shoresh",
+    name: "שורש",
+    agents: [
+      ["planner", "working"],
+      ["frontend", "waiting"],
+    ],
+    tools: ["Read", "Write", "Bash", "mcp__linear__issues", "Glob"],
+  },
+  {
+    id: "demo-meshek",
+    name: "משק בית",
+    agents: [
+      ["ui-polish", "working"],
+      ["a11y", "working"],
+      ["perf", "error"],
+      ["sync", "completed"],
+    ],
+    tools: ["Edit", "Read", "Bash", "mcp__browser__shot", "Grep", "TodoWrite", "WebSearch"],
+  },
+];
+
+/** Build the demo data in the page's own shapes. */
+function demoData(): {
+  sessions: Session[];
+  agents: Map<string, Agent[]>;
+  tools: Map<string, ToolUse[]>;
+} {
+  const now = new Date().toISOString();
+  const sessions: Session[] = [];
+  const agents = new Map<string, Agent[]>();
+  const tools = new Map<string, ToolUse[]>();
+  for (const d of DEMO) {
+    sessions.push({
+      id: d.id,
+      name: d.name,
+      status: "active",
+      cwd: null,
+      model: null,
+      started_at: now,
+      ended_at: null,
+    } as Session);
+    const base = {
+      session_id: d.id,
+      task: null,
+      current_tool: null,
+      started_at: now,
+      ended_at: null,
+      updated_at: now,
+      metadata: null,
+    };
+    agents.set(d.id, [
+      {
+        ...base,
+        id: `${d.id}-main`,
+        name: "Main",
+        type: "main",
+        subagent_type: null,
+        status: "working",
+        parent_agent_id: null,
+      } as Agent,
+      ...d.agents.map(
+        ([name, status], i) =>
+          ({
+            ...base,
+            id: `${d.id}-a${i}`,
+            name,
+            type: "subagent",
+            subagent_type: name,
+            status,
+            parent_agent_id: `${d.id}-main`,
+          }) as Agent
+      ),
+    ]);
+    tools.set(
+      d.id,
+      d.tools.map((name, i) => ({ name, count: 3 + ((i * 7) % 11), lastAt: 0 }))
+    );
+  }
+  return { sessions, agents, tools };
+}
 
 /** Tools shown on a card's outer ring, most recent first. */
 const MAX_TOOLS = 10;
@@ -292,6 +411,20 @@ export function Flow() {
   agentsRef.current = agents;
   const pulseId = useRef(0);
   const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [view, setViewState] = useState<FlowView>(readView);
+  const [demo, setDemo] = useState(false);
+  const [demoState, setDemoState] = useState<ReturnType<typeof demoData> | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const stageBoxRef = useRef<HTMLDivElement | null>(null);
+
+  const setView = useCallback((v: FlowView) => {
+    setViewState(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* storage blocked */
+    }
+  }, []);
 
   const reducedMotion = useMemo(
     () =>
@@ -421,6 +554,68 @@ export function Flow() {
     };
   }, [load, addTool]);
 
+  // Demo mode: synthetic sessions plus a stream of fake tool calls, so every theme can be seen
+  // with nothing running. Real data is untouched and comes back when demo mode is turned off.
+  useEffect(() => {
+    if (!demo) {
+      setDemoState(null);
+      return;
+    }
+    const data = demoData();
+    setDemoState(data);
+    let n = 0;
+    const timer = setInterval(() => {
+      const d = DEMO[Math.floor(Math.random() * DEMO.length)];
+      if (!d) return;
+      const list = data.agents.get(d.id) ?? [];
+      const agent = list[Math.floor(Math.random() * list.length)];
+      const tool = d.tools[Math.floor(Math.random() * d.tools.length)];
+      if (!agent || !tool) return;
+      const outbound = Math.random() > 0.35;
+      const id = ++pulseId.current;
+      setPulses((prev) => [
+        ...prev.slice(-40),
+        { id, sessionId: d.id, agentId: agent.id, tool, outbound },
+      ]);
+      setTimeout(() => setPulses((prev) => prev.filter((p) => p.id !== id)), PULSE_MS + 150);
+      n += 1;
+      if (n % 2 === 0) {
+        const ev = {
+          id: -n,
+          session_id: d.id,
+          agent_id: agent.id,
+          event_type: outbound ? "PreToolUse" : "PostToolUse",
+          tool_name: tool,
+          summary: `${agent.subagent_type ?? agent.name} → ${tool}`,
+          data: null,
+          created_at: new Date().toISOString(),
+        } as DashboardEvent;
+        setFeed((prev) => [ev, ...prev].slice(0, FEED_SIZE));
+      }
+    }, 260);
+    return () => {
+      clearInterval(timer);
+      setFeed((prev) => prev.filter((e) => e.id > 0));
+    };
+  }, [demo]);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = stageBoxRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen?.();
+    else void el.requestFullscreen?.().catch(() => setFullscreen((f) => !f));
+  }, []);
+
+  const shownSessions = demoState ? demoState.sessions : sessions;
+  const shownAgents = demoState ? demoState.agents : agents;
+  const shownTools = demoState ? demoState.tools : tools;
+
   const lastBySession = useMemo(() => {
     const map = new Map<string, DashboardEvent>();
     for (const ev of feed) if (!map.has(ev.session_id)) map.set(ev.session_id, ev);
@@ -429,44 +624,87 @@ export function Flow() {
 
   const sessionName = useCallback(
     (id: string) => {
-      const s = sessions.find((x) => x.id === id);
+      const s = shownSessions.find((x) => x.id === id);
       return (
         s?.name || (s?.cwd ? s.cwd.split(/[\\/]/).filter(Boolean).pop() : null) || id.slice(0, 8)
       );
     },
-    [sessions]
+    [shownSessions]
   );
+
+  const stageSessions = useMemo<StageSession[]>(
+    () =>
+      shownSessions.map((s) => ({
+        id: s.id,
+        name: sessionName(s.id),
+        agents: (shownAgents.get(s.id) ?? []).map((a) => ({
+          id: a.id,
+          label: a.subagent_type || a.name,
+          status: a.status,
+          main: a.type === "main",
+        })),
+        tools: (shownTools.get(s.id) ?? []).map((tool) => ({ name: tool.name, count: tool.count })),
+      })),
+    [shownSessions, shownAgents, shownTools, sessionName]
+  );
+
+  const agentTotal = useMemo(
+    () => shownSessions.reduce((n, s) => n + (shownAgents.get(s.id)?.length ?? 0), 0),
+    [shownSessions, shownAgents]
+  );
+
+  const isStage = view !== "classic";
+  const ticker = feed.slice(0, 5);
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
-          <Waypoints className="h-5 w-5" aria-hidden />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
+            <Waypoints className="h-5 w-5" aria-hidden />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-gray-100">{t("dashboard:flow.title")}</h1>
+            <p className="text-sm text-gray-400">{t("dashboard:flow.subtitle")}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-semibold text-gray-100">{t("dashboard:flow.title")}</h1>
-          <p className="text-sm text-gray-400">{t("dashboard:flow.subtitle")}</p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setDemo((d) => !d)}
+          aria-pressed={demo}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${demo ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-200" : "border-border bg-surface-1 text-gray-300 hover:border-accent/50"}`}
+        >
+          <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          {demo ? t("dashboard:flow.demoStop") : t("dashboard:flow.demo")}
+        </button>
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-        {(Object.keys(STATUS_COLOR) as AgentStatus[]).map((status) => (
-          <span key={status} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[status] }} />
-            {t(`common:status.${status}`)}
-          </span>
+      <div
+        role="tablist"
+        aria-label={t("dashboard:flow.themePicker")}
+        className="flex flex-wrap gap-2"
+      >
+        {FLOW_VIEWS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={`flow-theme-chip flow-theme-chip--${v} rounded-full border px-3 py-1 text-xs font-medium transition-all ${view === v ? "flow-theme-chip--on" : "border-border bg-surface-1 text-gray-400 hover:text-gray-200"}`}
+          >
+            {t(`dashboard:flow.themes.${v}`)}
+          </button>
         ))}
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: "#7dd3fc" }} />
-          {t("dashboard:flow.toolCall")}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: "#34d399" }} />
-          {t("dashboard:flow.toolResult")}
-        </span>
       </div>
 
-      {error && (
+      {demo && (
+        <div className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-200">
+          {t("dashboard:flow.demoNote")}
+        </div>
+      )}
+
+      {error && !demo && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
           {error}
         </div>
@@ -474,28 +712,109 @@ export function Flow() {
 
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <div>
-          {loading ? (
+          {isStage ? (
+            <div
+              ref={stageBoxRef}
+              className={`relative overflow-hidden border border-border bg-black ${fullscreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : "h-[72vh] min-h-[420px] rounded-xl"}`}
+            >
+              <FlowStage
+                sessions={stageSessions}
+                shots={pulses}
+                theme={view as StageThemeId}
+                reducedMotion={reducedMotion}
+                label={t("dashboard:flow.title")}
+              />
+              <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
+                <div className="flow-hud rounded-md px-2.5 py-1.5 font-mono text-[11px] leading-5">
+                  <div>
+                    {t("dashboard:flow.sessions")}: {shownSessions.length}
+                  </div>
+                  <div>
+                    {t("dashboard:flow.agents")}: {agentTotal}
+                  </div>
+                  <div>
+                    {t("dashboard:flow.inFlight")}: {pulses.length}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="flow-hud pointer-events-auto flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px]"
+                >
+                  {fullscreen ? (
+                    <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {fullscreen ? t("dashboard:flow.exitFullscreen") : t("dashboard:flow.fullscreen")}
+                </button>
+              </div>
+              {!loading && shownSessions.length === 0 && (
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
+                  <p className="flow-hud rounded-md px-3 py-1.5 font-medium">
+                    {t("dashboard:flow.empty")}
+                  </p>
+                  <p className="text-xs text-gray-400">{t("dashboard:flow.emptyStageHint")}</p>
+                </div>
+              )}
+              <ul className="pointer-events-none absolute bottom-3 start-3 flex max-w-[70%] flex-col gap-1">
+                {ticker.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="flow-hud flow-feed-row truncate rounded px-2 py-0.5 font-mono text-[11px]"
+                    dir="auto"
+                  >
+                    {sessionName(ev.session_id)} ·{" "}
+                    {ev.tool_name ? toolLabel(ev.tool_name) : ev.event_type}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : loading ? (
             <p className="text-sm text-gray-500">{t("common:loading")}</p>
-          ) : sessions.length === 0 ? (
+          ) : shownSessions.length === 0 ? (
             <div className="rounded-xl border border-border bg-surface-1 p-8 text-center">
               <p className="font-medium text-gray-200">{t("dashboard:flow.empty")}</p>
               <p className="mt-1 text-sm text-gray-500">{t("dashboard:flow.emptyDesc")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-              {sessions.map((s) => (
-                <SessionFlowCard
-                  key={s.id}
-                  session={s}
-                  agents={agents.get(s.id) ?? []}
-                  tools={tools.get(s.id) ?? []}
-                  pulses={pulses.filter((p) => p.sessionId === s.id)}
-                  lastEvent={lastBySession.get(s.id)}
-                  reducedMotion={reducedMotion}
-                  onOpen={(id) => navigate(`/sessions/${id}`)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="mb-4 flex flex-wrap gap-4 text-xs text-gray-400">
+                {(Object.keys(STATUS_COLOR) as AgentStatus[]).map((status) => (
+                  <span key={status} className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: STATUS_COLOR[status] }}
+                    />
+                    {t(`common:status.${status}`)}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#7dd3fc" }} />
+                  {t("dashboard:flow.toolCall")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: "#34d399" }} />
+                  {t("dashboard:flow.toolResult")}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                {shownSessions.map((s) => (
+                  <SessionFlowCard
+                    key={s.id}
+                    session={s}
+                    agents={shownAgents.get(s.id) ?? []}
+                    tools={shownTools.get(s.id) ?? []}
+                    pulses={pulses.filter((p) => p.sessionId === s.id)}
+                    lastEvent={lastBySession.get(s.id)}
+                    reducedMotion={reducedMotion}
+                    onOpen={(id) => {
+                      if (!id.startsWith("demo-")) navigate(`/sessions/${id}`);
+                    }}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
 
