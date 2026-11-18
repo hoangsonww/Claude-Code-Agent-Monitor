@@ -276,6 +276,34 @@ const MAX_REFRESH = 500;
 const REFRESH_DEBOUNCE_MS = 500;
 
 /**
+ * Initial filters from the URL, so drill-down links (dashboard and analytics tiles) open a filtered
+ * feed: `?event_type=a,b`, `?tool_name=Bash`, `?session_id=…`, `?agent_id=…`, `?q=…`,
+ * `?range=today` (events since local midnight).
+ */
+function filtersFromUrl(): EventFiltersValue {
+  const p = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+  const list = (k: string) =>
+    (p.get(k) ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  const f: EventFiltersValue = {
+    ...EMPTY_FILTERS,
+    event_type: list("event_type"),
+    tool_name: list("tool_name"),
+    session_id: list("session_id"),
+    agent_id: list("agent_id"),
+    q: p.get("q") ?? "",
+  };
+  if (p.get("range") === "today") {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    f.from = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00`;
+  }
+  return f;
+}
+
+/**
  * Activity Feed page (`/activity`): a paginated, filterable stream of every hook event with
  * friendly session and agent names. Supports pausing, and refreshes on live events (debounced)
  * while keeping the current page.
@@ -285,7 +313,7 @@ export function ActivityFeed() {
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [filters, setFilters] = useState<EventFiltersValue>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<EventFiltersValue>(filtersFromUrl);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bufferCount, setBufferCount] = useState(0);

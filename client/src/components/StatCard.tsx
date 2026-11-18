@@ -169,7 +169,8 @@
  * ----------------------------------------------------------------------------- */
 
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { Link } from "react-router";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { Tip } from "./Tip";
 import { StatValueSkeleton } from "./Skeleton";
 
@@ -191,6 +192,10 @@ interface StatCardProps {
   raw?: string;
   /** When true, render skeletons in place of value/trend. */
   loading?: boolean;
+  /** When set, the whole card is a link to this route (drill-down). */
+  to?: string;
+  /** When set, the trend line is its own link (e.g. "4 active" → the active list). */
+  trendTo?: string;
 }
 
 /**
@@ -206,16 +211,21 @@ export function StatCard({
   accentColor = "text-accent",
   raw,
   loading = false,
+  to,
+  trendTo,
 }: StatCardProps) {
   return (
-    <div className="card p-5">
+    <div className={`card relative p-5 ${to ? "drill-card" : ""}`}>
+      {/* The card-wide link sits under the content; the label accessory and the trend link are
+          raised above it so they stay separately clickable (no nested links). */}
+      {to && <Link to={to} aria-label={label} className="drill-card__link" />}
       <div className="flex items-center justify-between gap-3 mb-3">
         {labelAccessory ? (
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
               {label}
             </span>
-            {labelAccessory}
+            <span className="relative z-[2]">{labelAccessory}</span>
           </div>
         ) : (
           <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
@@ -229,11 +239,28 @@ export function StatCard({
           <StatValueSkeleton />
         ) : (
           <Tip raw={raw}>
-            <span className="text-2xl font-semibold text-gray-100 truncate">{value}</span>
+            <span className="text-xl font-semibold text-gray-100 truncate sm:text-2xl">
+              {value}
+            </span>
           </Tip>
         )}
-        {!loading && trend && (
-          <span className="text-xs text-gray-500 mb-1 flex-shrink-0">{trend}</span>
+        {!loading &&
+          trend &&
+          (trendTo ? (
+            <Link
+              to={trendTo}
+              className="relative z-[2] mb-1 flex-shrink-0 rounded text-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+            >
+              {trend}
+            </Link>
+          ) : (
+            <span className="text-xs text-gray-500 mb-1 flex-shrink-0">{trend}</span>
+          ))}
+        {to && (
+          <ChevronRight
+            aria-hidden
+            className="drill-card__chevron ms-auto mb-1 h-4 w-4 flex-shrink-0 text-gray-600"
+          />
         )}
       </div>
     </div>

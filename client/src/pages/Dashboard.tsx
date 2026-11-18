@@ -1686,6 +1686,8 @@ export function Dashboard() {
               icon={FolderOpen}
               trend={stats ? `${stats.active_sessions}${t("activeTrend")}` : undefined}
               loading={!stats}
+              to="/sessions"
+              trendTo="/sessions?status=active"
             />
             <StatCard
               label={t("activeAgents")}
@@ -1693,6 +1695,7 @@ export function Dashboard() {
               icon={Bot}
               accentColor="text-emerald-400"
               loading={!stats}
+              to="/kanban?view=agents"
             />
             <StatCard
               label={t("activeSubagents")}
@@ -1701,6 +1704,7 @@ export function Dashboard() {
               accentColor="text-violet-400"
               trend={stats ? `${allSubagents.length}${t("totalTrend")}` : undefined}
               loading={!stats}
+              to="/workflows"
             />
             <StatCard
               label={t("eventsToday")}
@@ -1709,6 +1713,7 @@ export function Dashboard() {
               icon={Zap}
               accentColor="text-yellow-400"
               loading={!stats}
+              to="/activity?range=today"
             />
             <StatCard
               label={t("totalEvents")}
@@ -1717,6 +1722,7 @@ export function Dashboard() {
               icon={Activity}
               accentColor="text-violet-400"
               loading={!stats}
+              to="/activity"
             />
             <StatCard
               label={t("totalCost")}
@@ -1725,6 +1731,7 @@ export function Dashboard() {
               icon={DollarSign}
               accentColor="text-emerald-400"
               loading={totalCost === null}
+              to="/analytics?tab=cost"
             />
           </div>
 

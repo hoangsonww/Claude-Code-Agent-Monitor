@@ -236,6 +236,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { groupByProject, projectName, worktreeName } from "../lib/project";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -326,7 +327,9 @@ export function Sessions() {
   // `searchInput` is what the user types; `search` is the debounced value
   // actually sent to the server. Without debouncing, every keystroke would
   // hit /api/sessions.
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(
+    () => new URLSearchParams(window.location.search).get("q") ?? ""
+  );
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -343,6 +346,7 @@ export function Sessions() {
   const [sortBy, setSortBy] = useState<SessionSort>("time");
   const [sortDesc, setSortDesc] = useState(true);
   const [directories, setDirectories] = useState<string[]>([]);
+  const mobile = useIsMobile();
   // Worktrees fold into their repository: the filter lists projects, and picking one selects
   // every directory (main checkout + worktrees) that belongs to it.
   const projects = useMemo(() => groupByProject(directories), [directories]);
@@ -630,7 +634,7 @@ export function Sessions() {
             </div>
             <p className="text-xs text-gray-500" aria-live="polite" aria-atomic="true">
               {t("sessionCount", { count: displayedTotal })}
-              {filter ? ` ${filter}` : ""}
+              {filter ? ` · ${FILTER_LABELS[filter]}` : ""}
             </p>
           </div>
         </div>
@@ -754,145 +758,218 @@ export function Sessions() {
         />
       ) : (
         <>
-          <div className="card overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableSession")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableStatus")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableLastActive")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableDuration")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableAgents")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableCost")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableDirectory")}
-                  </th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {loading && paged.length === 0
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <TableRowSkeleton
-                        key={`sk-${i}`}
-                        columns={8}
-                        widths={["w-40", "w-20", "w-28", "w-20", "w-10", "w-16", "w-44", "w-4"]}
+          {mobile ? (
+            <ul className="flex flex-col gap-2" aria-label={t("tableSession")}>
+              {paged.map((session) => {
+                const transient = isTransientProcessSession(session);
+                const wt = session.cwd ? worktreeName(session.cwd) : null;
+                const body = (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-gray-100 line-clamp-2">
+                        {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
+                      </p>
+                      <SessionStatusBadge
+                        status={effectiveSessionStatus(session)}
+                        reason={sessionAwaitingReason(session)}
+                        provider={session.provider}
                       />
-                    ))
-                  : null}
-                {paged.map((session) => (
-                  <tr
-                    key={session.id}
-                    onClick={
-                      isTransientProcessSession(session)
-                        ? undefined
-                        : () => navigate(`/sessions/${session.id}`)
-                    }
-                    className={`hover:bg-surface-4 transition-colors group ${
-                      isTransientProcessSession(session) ? "cursor-default" : "cursor-pointer"
-                    }`}
-                  >
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-200">
-                            {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
-                          </p>
-                          <p className="text-[11px] text-gray-600 font-mono">
-                            {session.id.slice(0, 12)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {session.source && session.source !== "local" && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
-                              title={t("remoteSourceBadgeTitle", "Collected from a remote machine")}
-                            >
-                              <Server className="w-2.5 h-2.5" />
-                              {sourceLabels.get(session.source) || session.source}
-                            </span>
-                          )}
-                          {dashboardRunIds.has(session.id) && (
-                            <Link
-                              to={`/run?session=${encodeURIComponent(session.id)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 hover:text-emerald-200 px-1.5 py-0.5 rounded-full transition-colors"
-                              title={t("dashboardRunBadge", "Driven by Run page · click to open")}
-                            >
-                              <Play className="w-2.5 h-2.5" />
-                              {t("common:dashboardRun", "Run")}
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <SessionStatusBadge
-                          status={effectiveSessionStatus(session)}
-                          reason={sessionAwaitingReason(session)}
-                          provider={session.provider}
-                        />
-                        {session.todo_summary && (
-                          <TodoProgressIndicator progress={session.todo_summary} />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400">
-                      {formatDateTime(session.last_activity || session.started_at)}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400 font-mono">
-                      {session.ended_at
-                        ? formatDuration(session.started_at, session.ended_at)
-                        : t("common:running")}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400">
-                      {session.agent_count ?? "-"}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400 font-mono">
-                      {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
-                    </td>
-                    <td
-                      className="px-5 py-4 text-[11px] text-gray-500 font-mono"
-                      title={session.cwd || undefined}
-                    >
-                      {session.cwd ? (
-                        <span className="flex flex-col">
-                          <span className="font-sans text-xs text-gray-300">
-                            {projectName(session.cwd)}
-                          </span>
-                          {worktreeName(session.cwd) && (
-                            <span className="text-[10px] text-gray-600">
-                              {truncate(worktreeName(session.cwd) ?? "", 24)}
-                            </span>
-                          )}
+                    </div>
+                    {session.cwd && (
+                      <p className="mt-1 truncate text-xs text-accent/90">
+                        {projectName(session.cwd)}
+                        {wt && <span className="text-gray-600"> · {truncate(wt, 22)}</span>}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                      <span>{formatDateTime(session.last_activity || session.started_at)}</span>
+                      <span className="font-mono">
+                        {session.ended_at
+                          ? formatDuration(session.started_at, session.ended_at)
+                          : t("common:running")}
+                      </span>
+                      {session.agent_count != null && (
+                        <span>
+                          {t("tableAgents")}: {session.agent_count}
                         </span>
-                      ) : (
-                        "-"
                       )}
-                    </td>
-                    <td className="px-3 py-4">
-                      {!isTransientProcessSession(session) && (
-                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+                      {session.cost != null && session.cost > 0 && (
+                        <span className="font-mono text-gray-400">{fmtCost(session.cost)}</span>
                       )}
-                    </td>
+                      {session.todo_summary && (
+                        <TodoProgressIndicator progress={session.todo_summary} />
+                      )}
+                    </div>
+                  </>
+                );
+                return (
+                  <li key={session.id}>
+                    {transient ? (
+                      <div className="card p-3">{body}</div>
+                    ) : (
+                      <div
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => navigate(`/sessions/${session.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/sessions/${session.id}`);
+                          }
+                        }}
+                        className="card block w-full cursor-pointer p-3 text-start transition-colors active:bg-surface-4"
+                      >
+                        {body}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="card overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableSession")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableStatus")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableLastActive")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableDuration")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableAgents")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableCost")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableDirectory")}
+                    </th>
+                    <th className="w-10"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {loading && paged.length === 0
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                        <TableRowSkeleton
+                          key={`sk-${i}`}
+                          columns={8}
+                          widths={["w-40", "w-20", "w-28", "w-20", "w-10", "w-16", "w-44", "w-4"]}
+                        />
+                      ))
+                    : null}
+                  {paged.map((session) => (
+                    <tr
+                      key={session.id}
+                      onClick={
+                        isTransientProcessSession(session)
+                          ? undefined
+                          : () => navigate(`/sessions/${session.id}`)
+                      }
+                      className={`hover:bg-surface-4 transition-colors group ${
+                        isTransientProcessSession(session) ? "cursor-default" : "cursor-pointer"
+                      }`}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-200">
+                              {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
+                            </p>
+                            <p className="text-[11px] text-gray-600 font-mono">
+                              {session.id.slice(0, 12)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {session.source && session.source !== "local" && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
+                                title={t(
+                                  "remoteSourceBadgeTitle",
+                                  "Collected from a remote machine"
+                                )}
+                              >
+                                <Server className="w-2.5 h-2.5" />
+                                {sourceLabels.get(session.source) || session.source}
+                              </span>
+                            )}
+                            {dashboardRunIds.has(session.id) && (
+                              <Link
+                                to={`/run?session=${encodeURIComponent(session.id)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 hover:text-emerald-200 px-1.5 py-0.5 rounded-full transition-colors"
+                                title={t("dashboardRunBadge", "Driven by Run page · click to open")}
+                              >
+                                <Play className="w-2.5 h-2.5" />
+                                {t("common:dashboardRun", "Run")}
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <SessionStatusBadge
+                            status={effectiveSessionStatus(session)}
+                            reason={sessionAwaitingReason(session)}
+                            provider={session.provider}
+                          />
+                          {session.todo_summary && (
+                            <TodoProgressIndicator progress={session.todo_summary} />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400">
+                        {formatDateTime(session.last_activity || session.started_at)}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400 font-mono">
+                        {session.ended_at
+                          ? formatDuration(session.started_at, session.ended_at)
+                          : t("common:running")}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400">
+                        {session.agent_count ?? "-"}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400 font-mono">
+                        {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
+                      </td>
+                      <td
+                        className="px-5 py-4 text-[11px] text-gray-500 font-mono"
+                        title={session.cwd || undefined}
+                      >
+                        {session.cwd ? (
+                          <span className="flex flex-col">
+                            <span className="font-sans text-xs text-gray-300">
+                              {projectName(session.cwd)}
+                            </span>
+                            {worktreeName(session.cwd) && (
+                              <span className="text-[10px] text-gray-600">
+                                {truncate(worktreeName(session.cwd) ?? "", 24)}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-3 py-4">
+                        {!isTransientProcessSession(session) && (
+                          <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-1">
               <span className="text-xs text-gray-500">

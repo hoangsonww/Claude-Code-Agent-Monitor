@@ -219,6 +219,7 @@ import { CommandPalette } from "./CommandPalette";
 import { Tabby } from "./Tabby/Tabby";
 import { ActionToast } from "./ActionToast";
 import { PaletteActionProvider, usePaletteAction } from "./PaletteActionProvider";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 /** Props for {@link Layout}. */
 interface LayoutProps {
@@ -240,25 +241,6 @@ function LayoutActions({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   });
   return null;
-}
-
-/** Phone-width breakpoint: below it the sidebar becomes a slide-in drawer. */
-const MOBILE_QUERY = "(max-width: 767px)";
-
-/** True while the viewport is phone-sized. */
-function useIsMobile(): boolean {
-  const [mobile, setMobile] = useState(
-    () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia?.(MOBILE_QUERY);
-    if (!mq) return;
-    const on = () => setMobile(mq.matches);
-    on();
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
-  return mobile;
 }
 
 /**

@@ -657,3 +657,51 @@
     white-space: nowrap;
   }
 }
+
+/* Drill-down cards and rows: the whole tile is a link to the matching detail view. */
+.drill-card {
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    background-color 0.15s ease;
+}
+.drill-card:hover {
+  border-color: rgb(99 102 241 / 0.45);
+}
+.drill-card:active {
+  transform: scale(0.985);
+}
+.drill-card__link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+.drill-card__link:focus-visible {
+  outline: 2px solid rgb(129 140 248);
+  outline-offset: 2px;
+}
+.drill-card:hover .drill-card__chevron {
+  color: rgb(165 180 252);
+}
+[dir="rtl"] .drill-card__chevron,
+[dir="rtl"] .drill-row__chevron {
+  transform: scaleX(-1);
+}
+.drill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline: -0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
+}
+.drill-row:hover,
+.drill-row:focus-visible {
+  background: rgb(255 255 255 / 0.04);
+  outline: none;
+}
+.drill-row:active {
+  background: rgb(255 255 255 / 0.07);
+}
