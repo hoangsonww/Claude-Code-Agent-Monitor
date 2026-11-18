@@ -144,7 +144,7 @@ describe("Flow page", () => {
     act(() => {
       screen.getByRole("button", { name: "Demo" }).click();
     });
-    expect(await screen.findByRole("button", { name: /Delti/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /api-server/ })).toBeInTheDocument();
     expect(screen.getByText(/Demo mode/)).toBeInTheDocument();
   });
 });

@@ -46,8 +46,8 @@ function readView(): FlowView {
 /** Demo sessions shown when demo mode is on. */
 const DEMO: { id: string; name: string; agents: [string, string][]; tools: string[] }[] = [
   {
-    id: "demo-delti",
-    name: "Delti",
+    id: "demo-api",
+    name: "api-server",
     agents: [
       ["code-reviewer", "working"],
       ["test-runner", "working"],
@@ -56,8 +56,8 @@ const DEMO: { id: string; name: string; agents: [string, string][]; tools: strin
     tools: ["Bash", "Edit", "Read", "Grep", "mcp__github__pr", "WebFetch"],
   },
   {
-    id: "demo-shoresh",
-    name: "שורש",
+    id: "demo-web",
+    name: "web-app",
     agents: [
       ["planner", "working"],
       ["frontend", "waiting"],
@@ -65,8 +65,8 @@ const DEMO: { id: string; name: string; agents: [string, string][]; tools: strin
     tools: ["Read", "Write", "Bash", "mcp__linear__issues", "Glob"],
   },
   {
-    id: "demo-meshek",
-    name: "משק בית",
+    id: "demo-mobile",
+    name: "mobile-app",
     agents: [
       ["ui-polish", "working"],
       ["a11y", "working"],
