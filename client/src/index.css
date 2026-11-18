@@ -606,3 +606,53 @@
   --chip-bg: #1f2937;
   --chip-glow: rgba(148, 163, 184, 0.35);
 }
+
+/* Phone layout: the sidebar becomes a drawer opened from a sticky top bar. */
+.mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgb(10 10 15 / 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: rgb(0 0 0 / 0.55);
+}
+@media (max-width: 767px) {
+  [data-mobile-nav] > aside {
+    width: 16rem !important;
+    max-width: 85vw;
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / 0.6);
+  }
+  [data-mobile-nav="closed"] > aside {
+    transform: translateX(-105%);
+    box-shadow: none;
+  }
+  [dir="rtl"] [data-mobile-nav="closed"] > aside {
+    transform: translateX(105%);
+  }
+  .flow-theme-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+    padding-bottom: 2px;
+  }
+  .flow-theme-row::-webkit-scrollbar {
+    display: none;
+  }
+  .flow-theme-row > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}

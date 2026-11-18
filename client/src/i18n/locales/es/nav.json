@@ -16,6 +16,8 @@
   "github": "GitHub",
   "website": "Sitio web",
   "notFound": "No encontrado",
+  "openMenu": "Abrir menú",
+  "closeMenu": "Cerrar menú",
   "skipToContent": "Saltar al contenido",
   "expand": "Expandir barra lateral",
   "collapse": "Colapsar barra lateral",

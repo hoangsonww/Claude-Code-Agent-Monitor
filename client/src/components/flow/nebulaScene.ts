@@ -425,7 +425,9 @@ export class NebulaScene {
       }
       c.title.textContent = s.name;
       const ang = (i / Math.max(1, n)) * Math.PI * 2;
-      c.group.position.set(Math.cos(ang) * this.radius, 0, Math.sin(ang) * this.radius);
+      if (!c.group.userData.placed) {
+        c.group.position.set(Math.cos(ang) * this.radius, 0, Math.sin(ang) * this.radius);
+      }
       const main = s.agents.find((a) => a.main) ?? s.agents[0];
       c.mainId = main?.id ?? "";
       const col = STATUS_COLOR[main?.status ?? "waiting"];
@@ -652,15 +654,44 @@ export class NebulaScene {
     const t = now / 1000;
     if (!still) this.orbit += dt * 0.045;
     const n = this.order.length;
-    const dist = n <= 1 ? 15 : this.radius * 1.05 + 10;
     const cam = this.camera;
-    const aspectBoost = this.w < this.h ? 1.45 : 1;
-    cam.position.set(
-      Math.cos(this.orbit) * dist * aspectBoost,
-      dist * 0.48 + Math.sin(t * 0.13) * 2,
-      Math.sin(this.orbit) * dist * aspectBoost
-    );
-    cam.lookAt(0, n <= 1 ? 0 : -1.5, 0);
+    const aspect = this.w / this.h;
+    // Portrait phones: stack the systems top-to-bottom, each tilted towards the viewer, and let the
+    // camera sway gently in front instead of orbiting a wide horizontal ring.
+    const portrait = aspect < 0.9 && n > 1;
+    const step = 11;
+    const ease = 1 - Math.exp(-dt * 3);
+    this.order.forEach((id, i) => {
+      const c = this.clusters.get(id);
+      if (!c) return;
+      if (portrait) {
+        this.tmp.set(i % 2 ? 1.6 : -1.6, ((n - 1) / 2 - i) * step, 0);
+      } else {
+        const ang = (i / Math.max(1, n)) * Math.PI * 2;
+        this.tmp.set(Math.cos(ang) * this.radius, 0, Math.sin(ang) * this.radius);
+      }
+      if (!c.group.userData.placed) {
+        c.group.position.copy(this.tmp);
+        c.group.userData.placed = true;
+      } else c.group.position.lerp(this.tmp, ease);
+      c.group.rotation.x += ((portrait ? 0.85 : 0) - c.group.rotation.x) * ease;
+    });
+    if (portrait) {
+      const half = (n * step) / 2 + 3;
+      const fit = half / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+      const sway = Math.sin(this.orbit * 3) * 0.35;
+      cam.position.set(Math.sin(sway) * fit, 2 + Math.sin(t * 0.13), Math.cos(sway) * fit);
+      cam.lookAt(0, 0, 0);
+    } else {
+      const dist = n <= 1 ? 15 : this.radius * 1.05 + 10;
+      const boost = aspect < 1 ? 1.25 / aspect : 1;
+      cam.position.set(
+        Math.cos(this.orbit) * dist * boost,
+        dist * 0.48 + Math.sin(t * 0.13) * 2,
+        Math.sin(this.orbit) * dist * boost
+      );
+      cam.lookAt(0, n <= 1 ? 0 : -1.5, 0);
+    }
     (this.stars.material as THREE.ShaderMaterial).uniforms.uTime!.value = t;
     this.scene.children.forEach((o) => {
       if (o.userData.spin) o.rotation.y = t * 0.01;

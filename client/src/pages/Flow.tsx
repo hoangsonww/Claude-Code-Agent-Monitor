@@ -658,22 +658,24 @@ export function Flow() {
   const ticker = feed.slice(0, 5);
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
+    <div className="flex flex-col gap-3 sm:gap-5">
+      <div className="flex items-center justify-between gap-3 sm:items-start">
+        <div className="flex min-w-0 items-center gap-3 sm:items-start">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
             <Waypoints className="h-5 w-5" aria-hidden />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-100">{t("dashboard:flow.title")}</h1>
-            <p className="text-sm text-gray-400">{t("dashboard:flow.subtitle")}</p>
+          <div className="min-w-0">
+            <h1 className="whitespace-nowrap text-xl font-semibold text-gray-100">
+              {t("dashboard:flow.title")}
+            </h1>
+            <p className="hidden text-sm text-gray-400 sm:block">{t("dashboard:flow.subtitle")}</p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => setDemo((d) => !d)}
           aria-pressed={demo}
-          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${demo ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-200" : "border-border bg-surface-1 text-gray-300 hover:border-accent/50"}`}
+          className={`flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${demo ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-200" : "border-border bg-surface-1 text-gray-300 hover:border-accent/50"}`}
         >
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
           {demo ? t("dashboard:flow.demoStop") : t("dashboard:flow.demo")}
@@ -683,7 +685,7 @@ export function Flow() {
       <div
         role="tablist"
         aria-label={t("dashboard:flow.themePicker")}
-        className="flex flex-wrap gap-2"
+        className="flow-theme-row flex flex-wrap gap-2"
       >
         {FLOW_VIEWS.map((v) => (
           <button
@@ -711,12 +713,12 @@ export function Flow() {
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-        <div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
           {isStage ? (
             <div
               ref={stageBoxRef}
-              className={`relative overflow-hidden border border-border bg-black ${fullscreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : "h-[72vh] min-h-[420px] rounded-xl"}`}
+              className={`relative overflow-hidden border border-border bg-black ${fullscreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : "h-[68vh] min-h-[380px] rounded-xl sm:h-[72vh] sm:min-h-[420px]"}`}
             >
               {(GL_THEMES as string[]).includes(view) ? (
                 <FlowStageGL
