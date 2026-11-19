@@ -1,5 +1,21 @@
 {
   "title": "Configuración",
+  "editors": {
+    "title": "Editores",
+    "description": "Añade los editores instalados y elige uno predeterminado para abrir las carpetas de las sesiones.",
+    "empty": "Aún no has añadido editores.",
+    "default": "Editor predeterminado",
+    "choose": "Elegir editor",
+    "add": "Añadir editor",
+    "remove": "Quitar {{editor}}",
+    "configure": "Configurar editores",
+    "open": "Abrir en editor",
+    "openWith": "Abrir en {{editor}}",
+    "remote": "Solo se pueden abrir sesiones de este equipo. Accede a CCAM mediante localhost.",
+    "missingFolder": "Esta sesión no tiene una ruta absoluta de directorio de trabajo compatible.",
+    "hint": "Se guarda en este navegador. Instala primero el editor y permite que el navegador abra sus enlaces. Solo abre la carpeta, no la conversación del agente. La carpeta debe existir en este equipo; CCAM no puede detectar carpetas ausentes ni editores sin instalar.",
+    "saveFailed": "No se pudieron guardar los editores. Activa el almacenamiento del navegador e inténtalo de nuevo."
+  },
   "subtitle": "Gestiona precios, notificaciones, datos y ganchos",
   "exportData": "Exportar Datos",
   "acrossSessions": "Dentro del ámbito de datos seleccionado",

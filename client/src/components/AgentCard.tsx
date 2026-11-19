@@ -41,6 +41,8 @@
  *   changing assumptions here.
  * - `../lib/types` — repository-local contract consumed by this module; review its exports before
  *   changing assumptions here.
+ * - `./OpenInEditor` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
  * - `./StatusBadge` — repository-local contract consumed by this module; review its exports before
  *   changing assumptions here.
  * - `./TodoProgressIndicator` — repository-local contract consumed by this module; review its
@@ -194,6 +196,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, GitBranch, Clock, Wrench, Cpu, Coins } from "lucide-react";
 import { useNavigate } from "react-router";
 import { AgentStatusBadge } from "./StatusBadge";
+import { OpenInEditor } from "./OpenInEditor";
 import { TodoProgressIndicator } from "./TodoProgressIndicator";
 import { effectiveAgentStatus, isAgentAwaitingInput, agentAwaitingReason } from "../lib/types";
 import type { Agent, Session } from "../lib/types";
@@ -236,6 +239,8 @@ interface AgentCardProps {
    *  label kept) for surfaces where the layout already shows the status, such
    *  as a Kanban column. Defaults to the full badge. */
   statusDisplay?: "badge" | "dot";
+  /** Show the open-in-editor control on a main-agent card that has a session. */
+  showEditor?: boolean;
 }
 
 /**
@@ -265,6 +270,7 @@ export function AgentCard({
   label,
   onClick,
   statusDisplay = "badge",
+  showEditor = false,
 }: AgentCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("kanban");
@@ -503,6 +509,7 @@ export function AgentCard({
           )}
           <span className="font-mono flex-shrink-0">{agent.session_id.slice(0, 8)}</span>
         </span>
+        {showEditor && isMain && session && <OpenInEditor session={session} compact />}
       </div>
     </div>
   );

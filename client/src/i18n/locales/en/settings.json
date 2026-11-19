@@ -2,6 +2,22 @@
   "title": "Settings",
   "subtitle": "Manage pricing, notifications, data, and hooks",
   "exportData": "Export Data",
+  "editors": {
+    "title": "Editors",
+    "description": "Add your installed editors and choose a default for opening session folders.",
+    "empty": "No editors added yet.",
+    "default": "Default editor",
+    "choose": "Choose editor",
+    "add": "Add editor",
+    "remove": "Remove {{editor}}",
+    "configure": "Configure editors",
+    "open": "Open in Editor",
+    "openWith": "Open in {{editor}}",
+    "remote": "Only sessions on this computer can be opened. Access CCAM through localhost.",
+    "missingFolder": "This session has no supported absolute working-directory path.",
+    "hint": "Saved in this browser. Install the editor first and allow your browser to open its links. Opens only the folder, not the agent conversation. The folder must exist on this computer; CCAM cannot detect missing folders or uninstalled editors.",
+    "saveFailed": "Could not save editors. Enable browser storage and try again."
+  },
   "acrossSessions": "Within the selected data scope",
   "basedOnUsage": "Based on per-model token usage",
   "tabby": {

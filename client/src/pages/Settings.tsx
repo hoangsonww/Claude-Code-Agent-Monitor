@@ -1,6 +1,6 @@
 /**
  * @file Settings.tsx
- * @description Provides product-scoped dashboard display controls, Claude and GPT pricing editors, live hook setup, session storage locations, notification preferences, and system management actions.
+ * @description Provides product-scoped display controls, editor folder launchers, pricing editors, live hook setup, session storage locations, notifications, and system management actions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /*
@@ -13,8 +13,8 @@
  * **Module:** client/src/pages/Settings.tsx
  * **Area:** client page
  * **Responsibility:**
- * Provides product-scoped dashboard display controls, Claude and GPT pricing editors, live hook
- * setup, session storage locations, notification preferences, and system management actions.
+ * Provides product-scoped display controls, editor folder launchers, pricing editors, live hook
+ * setup, session storage locations, notifications, and system management actions.
  *
  * ## Architectural boundary
  * - Route-level orchestration belongs here: load scoped data, subscribe to live updates, and
@@ -28,6 +28,8 @@
  * - `../components/AlertsNotifications` — repository-local contract consumed by this module; review
  *   its exports before changing assumptions here.
  * - `../components/CostCoverage` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../components/EditorSettings` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `../components/ImportHistory` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
@@ -354,6 +356,7 @@ import { RemoteSources } from "../components/RemoteSources";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
 import { SnapshotStorage, formatStorageBytes } from "../components/SnapshotStorage";
+import { EditorSettings } from "../components/EditorSettings";
 import type { CursorModelPricing, GptModelPricing, ModelPricing, WSMessage } from "../lib/types";
 import { useDataScope, type ProviderScope } from "../lib/dataScope";
 
@@ -370,6 +373,7 @@ const SETTINGS_SECTIONS: {
   Icon: typeof DollarSign;
 }[] = [
   { id: "data-display", labelKey: "display.title", Icon: Layers },
+  { id: "editors", labelKey: "editors.title", Icon: FolderOpen },
   { id: "claude-pricing", labelKey: "pricing.navClaude", Icon: DollarSign },
   { id: "cursor-pricing", labelKey: "pricing.navCursor", Icon: DollarSign },
   { id: "gpt-pricing", labelKey: "pricing.navGpt", Icon: DollarSign },
@@ -2651,6 +2655,10 @@ export function Settings() {
             })}
           </div>
         </div>
+      </section>
+
+      <section id="editors" className="scroll-mt-24">
+        <EditorSettings />
       </section>
 
       {/* ─── CLAUDE PRICING ─── */}

@@ -1723,6 +1723,7 @@ export function Dashboard() {
                                 // by the chevron button, so clicking a parent
                                 // (incl. the main agent) no longer toggles.
                                 onClick={undefined}
+                                showEditor
                               />
                             </div>
                           </div>
