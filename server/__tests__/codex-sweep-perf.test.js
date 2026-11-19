@@ -28,6 +28,13 @@ const { codexHomeChangeTriggersSweep } = require("../index");
 const { findCodexTranscripts } = require("../lib/codex-ingest");
 
 after(() => {
+  // Requiring ../index opens the dashboard database inside TMP_ROOT. Windows
+  // refuses to delete a directory holding an open file, so close it first.
+  try {
+    require("../db").db.close();
+  } catch {
+    /* already closed */
+  }
   fs.rmSync(TMP_ROOT, { recursive: true, force: true });
 });
 

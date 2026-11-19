@@ -30,6 +30,7 @@ const {
   applyRepair,
   accumulate,
   writeExclusive,
+  isUnsupportedDirectoryFsync,
 } = require("../../scripts/repair-codex-output");
 const { codexTokenDelta } = require("../lib/codex-token-accounting");
 after(() => {
@@ -239,6 +240,15 @@ it("a preview plan is written without the directory flush that repair writes nee
     () => writeExclusive(path.join(root, "receipt.json"), "{}\n"),
     /directory durability failed/
   );
+});
+it("only Windows' EPERM on a directory flush is treated as unsupported", () => {
+  const eperm = Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+  const eio = Object.assign(new Error("i/o error"), { code: "EIO" });
+  assert.equal(isUnsupportedDirectoryFsync(eperm, "win32"), true);
+  assert.equal(isUnsupportedDirectoryFsync(eperm, "linux"), false);
+  assert.equal(isUnsupportedDirectoryFsync(eperm, "darwin"), false);
+  assert.equal(isUnsupportedDirectoryFsync(eio, "win32"), false);
+  assert.equal(isUnsupportedDirectoryFsync(new Error("no code"), "win32"), false);
 });
 function legacy(d, id, compressed = false) {
   const file = path.join(root, id + ".jsonl");

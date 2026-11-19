@@ -81,7 +81,7 @@ it("real async probes free the event loop and never join an older census", async
   });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(done, false);
-  assert.deepEqual([...(await first).cwds], ["/tmp/provider"]);
+  assert.deepEqual([...(await first).cwds], [path.resolve("/tmp/provider")]);
   await independent;
   assert.equal(calls.length, 4);
   assert.equal(calls[0].options.timeout, 5000);
@@ -92,7 +92,7 @@ it("real async probes free the event loop and never join an older census", async
   assert.equal(calls.length, 6);
   const rollouts = await probe.probeLiveCodexRolloutsAsync();
   assert.equal(rollouts.available, true);
-  assert.deepEqual([...rollouts.paths], ["/tmp/rollout-live.jsonl"]);
+  assert.deepEqual([...rollouts.paths], [path.resolve("/tmp/rollout-live.jsonl")]);
 });
 it("a successful but incomplete lsof census is unavailable", async () => {
   const { probe } = fixture({ missingPid: true });
@@ -122,7 +122,7 @@ it("an lsof exit explained by processes that already exited keeps the census", a
   const vanished = fixture({ failure, gone: ["42", "43"] }).probe;
   const cwds = await vanished.probeLiveCwdsAsync();
   assert.equal(cwds.available, true);
-  assert.deepEqual([...cwds.cwds], ["/tmp/other"]);
+  assert.deepEqual([...cwds.cwds], [path.resolve("/tmp/other")]);
   assert.equal((await vanished.probeLiveCodexRolloutsAsync()).available, true);
   for (const unexplained of [
     { code: 1, killed: true, signal: "SIGTERM", stdout: failure.stdout },
@@ -137,7 +137,7 @@ it("another user's agent processes do not make the census incomplete", async () 
   const { probe, calls } = fixture({ uid: 501, foreign: true });
   const cwds = await probe.probeLiveCwdsAsync();
   assert.equal(cwds.available, true);
-  assert.deepEqual([...cwds.cwds], ["/tmp/provider"]);
+  assert.deepEqual([...cwds.cwds], [path.resolve("/tmp/provider")]);
   assert.equal((await probe.probeLiveCodexRolloutsAsync()).available, true);
   for (const call of calls.filter((c) => c.command === "lsof"))
     assert.doesNotMatch(call.args.join(" "), /44|45/);
@@ -146,7 +146,7 @@ it("the synchronous Codex census excludes another user's processes", () => {
   const { probe, calls } = fixture({ uid: 501, foreign: true });
   const rollouts = probe.probeLiveCodexRollouts();
   assert.equal(rollouts.available, true);
-  assert.deepEqual([...rollouts.paths], ["/tmp/rollout-live.jsonl"]);
+  assert.deepEqual([...rollouts.paths], [path.resolve("/tmp/rollout-live.jsonl")]);
   const psCall = calls.find((call) => call.command === "ps");
   assert.deepEqual(Array.from(psCall.args), ["-Ao", "pid=,uid=,args="]);
   const lsofCall = calls.find((call) => call.command === "lsof");

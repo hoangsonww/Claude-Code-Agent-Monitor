@@ -288,6 +288,19 @@ const nodeProcess = (
 ).process;
 if (nodeProcess) nodeProcess.env.TZ = "UTC";
 
+// Pin the host locale for the same reason: screens that call
+// toLocaleTimeString() without a locale follow the machine's default, so a
+// 24-hour locale (pt-BR, de-DE, …) would render "13:00:00" instead of the
+// committed "1:00:00 PM". An explicit locale argument is still honored.
+const nativeToLocaleTimeString = Date.prototype.toLocaleTimeString;
+Date.prototype.toLocaleTimeString = function (
+  this: Date,
+  locales?: Intl.LocalesArgument,
+  options?: Intl.DateTimeFormatOptions
+) {
+  return nativeToLocaleTimeString.call(this, locales ?? "en-US", options);
+};
+
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import type { ReactNode } from "react";
 import { render, act, fireEvent, screen, within } from "@testing-library/react";
