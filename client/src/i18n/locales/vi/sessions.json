@@ -87,6 +87,23 @@
     "hookOnlySession": "Phiên Codex này chạy mà không ghi rollout xuống đĩa (như với `codex exec --ephemeral`), nên lịch sử được tái dựng từ các hook vòng đời. Prompt, lệnh gọi công cụ và phản hồi đều được ghi lại, nhưng không có transcript đầy đủ để mở.",
     "transcript": {
       "loadOlder": "↑ Tải các tin nhắn cũ hơn"
-    }
+    },
+    "commits": "Commit"
+  },
+  "commits": {
+    "loading": "Đang tải commit…",
+    "error": "Không tải được commit cho phiên này.",
+    "notARepo": "Thư mục làm việc của phiên này không phải là kho git, nên không có commit nào để đối chiếu.",
+    "heuristicNote": "Các commit được tạo trong thư mục làm việc của phiên này trong khoảng thời gian phiên hoạt động. Việc đối chiếu dựa trên ngày tác giả — một commit do người khác thực hiện trong cùng kho và cùng khoảng thời gian cũng sẽ xuất hiện ở đây.",
+    "noneInWindow": "Không có commit nào được tạo trong kho này trong khoảng thời gian của phiên.",
+    "truncated": "Chỉ hiển thị {{n}} commit đầu tiên; các kết quả cũ hơn trong khoảng thời gian đã bị ẩn.",
+    "collapse": "Thu gọn thay đổi tệp",
+    "expand": "Hiện thay đổi tệp",
+    "filesChanged": "{{n}} tệp",
+    "viewRemote": "Xem commit",
+    "loadingDiff": "Đang tải thay đổi tệp…",
+    "diffError": "Không tải được thay đổi tệp cho commit này.",
+    "binary": "nhị phân",
+    "noFiles": "Không có thay đổi tệp nào được ghi lại cho commit này."
   }
 }

@@ -86,7 +86,24 @@
     "hookOnlySession": "Esta sesión de Codex se ejecutó sin escribir un rollout en disco (como con `codex exec --ephemeral`), por lo que su historial se reconstruyó a partir de los hooks del ciclo de vida. Se capturan los prompts, las llamadas a herramientas y las respuestas, pero no hay una transcripción completa que abrir.",
     "transcript": {
       "loadOlder": "↑ Cargar mensajes anteriores"
-    }
+    },
+    "commits": "Commits"
   },
-  "remoteSourceBadgeTitle": "Recopilado desde una máquina remota"
+  "remoteSourceBadgeTitle": "Recopilado desde una máquina remota",
+  "commits": {
+    "loading": "Cargando commits…",
+    "error": "No se pudieron cargar los commits de esta sesión.",
+    "notARepo": "El directorio de trabajo de esta sesión no es un repositorio git, por lo que no hay commits que correlacionar.",
+    "heuristicNote": "Commits creados en el directorio de trabajo de esta sesión durante su ventana de actividad. La correlación se basa en la fecha de autoría: un commit hecho por otra persona en el mismo repositorio y ventana también aparecería aquí.",
+    "noneInWindow": "No se creó ningún commit en este repositorio durante la ventana de la sesión.",
+    "truncated": "Mostrando los primeros {{n}} commits; las coincidencias más antiguas de la ventana están ocultas.",
+    "collapse": "Contraer cambios de archivos",
+    "expand": "Mostrar cambios de archivos",
+    "filesChanged": "{{n}} archivos",
+    "viewRemote": "Ver commit",
+    "loadingDiff": "Cargando cambios de archivos…",
+    "diffError": "No se pudieron cargar los cambios de archivos de este commit.",
+    "binary": "binario",
+    "noFiles": "No se registraron cambios de archivos para este commit."
+  }
 }

@@ -799,6 +799,8 @@ import type {
   Session,
   SessionDrillIn,
   SessionStats,
+  SessionCommits,
+  CommitStat,
   Stats,
   TranscriptListResult,
   TranscriptResult,
@@ -1127,6 +1129,38 @@ export const api = {
       const qs = applyScope(new URLSearchParams());
       return request<SessionStats>(
         `/sessions/${encodeURIComponent(id)}/stats${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
+    /**
+     * GET /api/sessions/:id/commits - git commits authored in the session's
+     * working directory during its active window (issue #291). Correlation is
+     * best-effort by author date and the panel degrades silently: `repo:false`
+     * means the cwd is not a git repo (or git is unavailable), in which case the
+     * UI hides the panel entirely.
+     *
+     * @param id The session id.
+     * @returns Repo state plus the correlated commit list.
+     */
+    commits: (id: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<SessionCommits>(
+        `/sessions/${encodeURIComponent(id)}/commits${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
+    /**
+     * GET /api/sessions/:id/commits/:hash - per-file stat for one correlated
+     * commit (the collapsed diff preview). 404s when the commit can't be read.
+     *
+     * @param id The session id.
+     * @param hash The commit hash.
+     * @returns The per-file stat for that commit.
+     */
+    commitStat: (id: string, hash: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<CommitStat>(
+        `/sessions/${encodeURIComponent(id)}/commits/${encodeURIComponent(hash)}${
+          qs.size ? `?${qs.toString()}` : ""
+        }`
       );
     },
     /**

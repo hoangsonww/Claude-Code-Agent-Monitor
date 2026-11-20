@@ -470,6 +470,91 @@ curl http://localhost:4820/api/sessions/sess_abc123/stats
 
 ---
 
+#### Get Session Commits
+
+```http
+GET /api/sessions/:id/commits
+```
+
+Correlates the session with the git commits authored in its working directory (`sessions.cwd`) during its active window. Computed **fresh** on every request by shelling out to the local `git` binary — nothing is persisted, so the result can never drift from the real repository. The server caches each session's result in memory for a few seconds to keep re-renders and polling cheap.
+
+**Correlation heuristic.** A commit is included when its **author date** falls within `[session.started_at, session.ended_at ?? now]`. This is deliberately best-effort: the dashboard can only observe the repository, not who typed which command, so a commit made by a human (or another tool) in the same repository during the same window will also appear. Treat the panel as "what landed in this repo while the session ran", not as proof of authorship. The git walk is additionally bounded by commit date (`--since`, a near-equal proxy for author date) and capped at a fixed number of commits; `truncated` is `true` when more matched than were returned.
+
+**Silent degradation.** When `cwd` is not inside a git repository (or `git` is unavailable), the endpoint returns `200` with `repo: false` and an empty list rather than an error, so the UI simply hides the panel.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Session ID |
+
+**Example Request:**
+
+```bash
+curl http://localhost:4820/api/sessions/sess_abc123/commits
+```
+
+**Example Response:**
+
+```json
+{
+  "session_id": "sess_abc123",
+  "repo": true,
+  "root": "/Users/me/work/api",
+  "count": 2,
+  "truncated": false,
+  "commits": [
+    {
+      "hash": "9f1c2ab7e5d4c3b2a1908f7e6d5c4b3a29180706",
+      "shortHash": "9f1c2ab",
+      "authorDate": "2026-04-29T20:14:03.000Z",
+      "authorName": "Dev",
+      "authorEmail": "dev@example.com",
+      "subject": "fix: guard against an empty tool payload",
+      "filesChanged": 3,
+      "insertions": 41,
+      "deletions": 9,
+      "url": "https://github.com/owner/repo/commit/9f1c2ab7e5d4c3b2a1908f7e6d5c4b3a29180706"
+    }
+  ]
+}
+```
+
+`url` is a link to the commit on GitHub or GitLab when the repo's remote is recognized, and `null` otherwise.
+
+---
+
+#### Get Session Commit Detail
+
+```http
+GET /api/sessions/:id/commits/:hash
+```
+
+Per-file line-change breakdown for one correlated commit (the collapsed diff preview in the Commits panel). Shells out to `git show --numstat` scoped to the session's `cwd`.
+
+**Example Response:**
+
+```json
+{
+  "session_id": "sess_abc123",
+  "hash": "9f1c2ab7e5d4c3b2a1908f7e6d5c4b3a29180706",
+  "files": [
+    { "path": "server/routes/sessions.js", "insertions": 38, "deletions": 9, "binary": false }
+  ],
+  "insertions": 41,
+  "deletions": 9
+}
+```
+
+**Error Responses:**
+
+| Code | Description |
+|------|-------------|
+| 404 | Session not found, or the commit could not be read in the session's repository |
+| 500 | Internal server error |
+
+---
+
 #### Get Session Agents
 
 ```http
