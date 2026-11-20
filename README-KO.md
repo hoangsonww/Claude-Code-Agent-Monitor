@@ -316,7 +316,7 @@ flowchart LR
 | **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. Provider 선택기는 온보딩 또는 Settings에서 선택한 제품 범위를 유지하면서 Claude Code, Cursor, Codex로 좁힐 수 있습니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. Cursor의 네이티브 생성 제목은 수집 메타데이터가 현재 이름을 CCAM이 소유함을 입증할 때만 임시 첫 프롬프트 대체 이름을 갱신하며, 수동 이름과 소유권이 불분명한 레거시 이름은 그대로 유지됩니다. |
 | **Session Detail** | 실시간 통계, 활성 작업, 도구 사용량, Subagent, 토큰, 계층, 필터링된 이벤트 타임라인, `tool_use_id` 그룹화, 도구별 렌더러를 제공합니다. Conversation 보기는 대기 중인 턴, 시스템 알림, Markdown, 구문 강조 코드, 스타일이 적용된 도구를 렌더링하고, 대기 배너에는 사유와 경과 시간을 표시합니다. |
 | **Activity Feed** | 공유 필터, 서버 페이지네이션, 그룹화, 프로젝트/세션/Subagent 출처, 세션 링크, 일관된 Claude/Codex 상태 배지를 갖춘 일시 정지 가능한 실시간 이벤트를 제공합니다. |
-| **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. |
+| **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. **비용 가정 시뮬레이터**로 모델 재매핑, 속도/등급 변경, 소개 요금 만료 같은 가정에 따라 실제 사용량을 다시 계산하여 실제와 시뮬레이션을 모델별 차액과 함께 비교하며, 서버의 데이터는 전혀 변경하지 않습니다. |
 | **Command Palette** | `Cmd/Ctrl+K`로 최근 명령, 모든 경로, 실시간 서버 세션, 페이지 작업, 프로젝트 디렉터리, 하위 보기, 필터, Settings, Agent Config, 기본 설정, 범위, 언어를 검색합니다. 부분 수열 순위, `>`/`@`/`#` 범위, 전체 키보드 제어, 번역된 레이블, 조용한 검색 실패, 파괴적 작업에 대한 탐색 전용 처리를 지원합니다. |
 | **One Shortcut** | `Cmd/Ctrl+K`는 입력 필드 안을 포함한 대시보드 전체의 유일한 전역 조합입니다. 여러 키 탐색을 제거해 숨은 모드를 피하고, Tabby는 `Cmd/Ctrl+B`를 유지합니다. |
 | **Live Updates** | WebSocket push로 polling 없이 인터페이스를 업데이트합니다. |
@@ -703,6 +703,7 @@ ccam webhooks list|get|providers|deliveries|create|update|enable|disable|delete|
 # 가격
 ccam pricing [list] | set <pattern> --input N --output N [--fast-* …] [--intro-* …] | delete | reset
 ccam pricing gpt|cursor [list|set|delete]   # OpenAI/Codex 및 Cursor 요금표
+ccam pricing simulate [--transform model:opus→claude-sonnet-5-5|speed:fast|expire-intro:DATE …] [--since|--until|--project|--provider|--session]   # 가정 재계산(데이터 변경 없음)
 
 # 가져오기 & 원격 소스
 ccam import guide|rescan|path <dir>|upload <files…>|reimport
