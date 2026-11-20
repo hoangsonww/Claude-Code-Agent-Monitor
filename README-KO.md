@@ -678,6 +678,7 @@ ccam overview [--watch]               # 한 화면 실시간 스냅샷 (별칭: 
 ccam stats | kanban                   # 합계 + 상태 분포 / 상태 레인
 ccam tail [--session id] [--type T] [--tool N]   # 실시간 이벤트 피드
 ccam stream [--type new_event,…]      # 원시 실시간 WebSocket 피드
+ccam tui [--interval s]               # 전체 화면 실시간 터미널 대시보드
 ccam watch -n 5 <command …>           # 임의 명령을 주기적으로 재실행
 
 # 데이터

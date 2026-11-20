@@ -676,6 +676,7 @@ ccam overview [--watch]               # one-screen live snapshot (alias: top)
 ccam stats | kanban                   # totals + status distributions / status lanes
 ccam tail [--session id] [--type T] [--tool N]   # live event feed
 ccam stream [--type new_event,…]      # raw real-time WebSocket feed
+ccam tui [--interval s]               # full-screen live terminal dashboard
 ccam watch -n 5 <command …>           # re-run any command on an interval
 
 # Data
