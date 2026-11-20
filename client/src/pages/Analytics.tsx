@@ -27,6 +27,8 @@
  *   selected-source views agree.
  *
  * ## Local dependency edges
+ * - `../components/Budgets` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
  * - `../components/CostCoverage` — repository-local contract consumed by this module; review its
  *   exports before changing assumptions here.
  * - `../components/PaginatedLegend` — repository-local contract consumed by this module; review its
@@ -269,6 +271,7 @@ import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
 import { CostEstimateInfo } from "../components/CostCoverage";
+import { BudgetBurndown } from "../components/Budgets";
 import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
 import { useUrlTab } from "../hooks/usePageShortcuts";
@@ -1490,111 +1493,116 @@ export function Analytics() {
             )}
 
             {activeTab === "cost" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Daily cost trends */}
-                <div className="card p-5">
-                  <h3 className="text-sm font-medium text-gray-300 mb-1">{t("dailyCostTrends")}</h3>
-                  {dailyCostsLocal.length === 0 ? (
-                    <p className="text-sm text-gray-500">{t("noDailyCostData")}</p>
-                  ) : (
-                    <>
-                      <p className="text-[11px] text-gray-600 mb-4">{t("costPerDay")}</p>
-                      <CostTrendLine data={dailyCostLast30} />
-                      <div className="flex justify-between text-[11px] text-gray-600 mt-2">
-                        <span>{dailyCostLast30[0]?.date?.slice(5)}</span>
-                        <span>{dailyCostLast30[dailyCostLast30.length - 1]?.date?.slice(5)}</span>
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-border space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">{t("peakCostDay")}</span>
-                          <span className="text-emerald-400 font-mono">
-                            <Tip raw={`${peakCostDay.date} • ${fmtCostFull(peakCostDay.cost)}`}>
-                              {fmtCost(peakCostDay.cost)}
-                            </Tip>
-                          </span>
+              <>
+                <BudgetBurndown />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Daily cost trends */}
+                  <div className="card p-5">
+                    <h3 className="text-sm font-medium text-gray-300 mb-1">
+                      {t("dailyCostTrends")}
+                    </h3>
+                    {dailyCostsLocal.length === 0 ? (
+                      <p className="text-sm text-gray-500">{t("noDailyCostData")}</p>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-gray-600 mb-4">{t("costPerDay")}</p>
+                        <CostTrendLine data={dailyCostLast30} />
+                        <div className="flex justify-between text-[11px] text-gray-600 mt-2">
+                          <span>{dailyCostLast30[0]?.date?.slice(5)}</span>
+                          <span>{dailyCostLast30[dailyCostLast30.length - 1]?.date?.slice(5)}</span>
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">{t("totalCost30d")}</span>
-                          <span className="text-emerald-400 font-mono">
+                        <div className="mt-4 pt-4 border-t border-border space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">{t("peakCostDay")}</span>
+                            <span className="text-emerald-400 font-mono">
+                              <Tip raw={`${peakCostDay.date} • ${fmtCostFull(peakCostDay.cost)}`}>
+                                {fmtCost(peakCostDay.cost)}
+                              </Tip>
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">{t("totalCost30d")}</span>
+                            <span className="text-emerald-400 font-mono">
+                              <Tip raw={fmtCostFull(totalCost30d)}>{fmtCost(totalCost30d)}</Tip>
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Cost by model */}
+                  <div className="card p-5">
+                    <h3 className="text-sm font-medium text-gray-300 mb-5">{t("costByModel")}</h3>
+                    {costBreakdown.length > 0 ? (
+                      <>
+                        <DonutChart
+                          segments={costBreakdown.map((b, i) => ({
+                            label: formatModelName(b.model) ?? b.model,
+                            value: Math.round(b.cost * 100),
+                            color:
+                              ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"][
+                                i % 6
+                              ] ?? "#6b7280",
+                          }))}
+                          formatTotal={(cents) => fmtCost(cents / 100)}
+                        />
+                        <div className="mt-4 pt-4 border-t border-border space-y-2">
+                          {costBreakdown.map((b) => (
+                            <div key={b.model} className="flex justify-between text-xs">
+                              <span className="text-gray-400 font-mono truncate">
+                                {formatModelName(b.model)}
+                              </span>
+                              <span className="text-emerald-400 font-mono font-medium ml-2">
+                                <Tip raw={fmtCostFull(b.cost)}>{fmtCost(b.cost)}</Tip>
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-xs pt-2 border-t border-border">
+                            <span className="text-gray-300 font-medium">{t("common:total")}</span>
+                            <span className="text-emerald-400 font-mono font-semibold">
+                              <Tip raw={fmtCostFull(costData?.total_cost ?? 0)}>
+                                {fmtCost(costData?.total_cost ?? 0)}
+                              </Tip>
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">{t("noCostData")}</p>
+                    )}
+                  </div>
+
+                  {/* Cost by weekday */}
+                  <div className="card p-5">
+                    <h3 className="text-sm font-medium text-gray-300 mb-1">{t("costByWeekday")}</h3>
+                    {dailyCostsLocal.length === 0 ? (
+                      <p className="text-sm text-gray-500">{t("noDailyCostData")}</p>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-gray-600 mb-4">{t("last30Days")}</p>
+                        <div className="space-y-3">
+                          {weekdayCosts.map(({ label, cost }) => (
+                            <CostBarRow
+                              key={label}
+                              label={label}
+                              cost={cost}
+                              max={maxWeekdayCost}
+                              color="bg-cyan-400"
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-border text-xs flex justify-between">
+                          <span className="text-gray-500">{t("common:total")}</span>
+                          <span className="text-cyan-400 font-mono">
                             <Tip raw={fmtCostFull(totalCost30d)}>{fmtCost(totalCost30d)}</Tip>
                           </span>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-
-                {/* Cost by model */}
-                <div className="card p-5">
-                  <h3 className="text-sm font-medium text-gray-300 mb-5">{t("costByModel")}</h3>
-                  {costBreakdown.length > 0 ? (
-                    <>
-                      <DonutChart
-                        segments={costBreakdown.map((b, i) => ({
-                          label: formatModelName(b.model) ?? b.model,
-                          value: Math.round(b.cost * 100),
-                          color:
-                            ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"][
-                              i % 6
-                            ] ?? "#6b7280",
-                        }))}
-                        formatTotal={(cents) => fmtCost(cents / 100)}
-                      />
-                      <div className="mt-4 pt-4 border-t border-border space-y-2">
-                        {costBreakdown.map((b) => (
-                          <div key={b.model} className="flex justify-between text-xs">
-                            <span className="text-gray-400 font-mono truncate">
-                              {formatModelName(b.model)}
-                            </span>
-                            <span className="text-emerald-400 font-mono font-medium ml-2">
-                              <Tip raw={fmtCostFull(b.cost)}>{fmtCost(b.cost)}</Tip>
-                            </span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-xs pt-2 border-t border-border">
-                          <span className="text-gray-300 font-medium">{t("common:total")}</span>
-                          <span className="text-emerald-400 font-mono font-semibold">
-                            <Tip raw={fmtCostFull(costData?.total_cost ?? 0)}>
-                              {fmtCost(costData?.total_cost ?? 0)}
-                            </Tip>
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">{t("noCostData")}</p>
-                  )}
-                </div>
-
-                {/* Cost by weekday */}
-                <div className="card p-5">
-                  <h3 className="text-sm font-medium text-gray-300 mb-1">{t("costByWeekday")}</h3>
-                  {dailyCostsLocal.length === 0 ? (
-                    <p className="text-sm text-gray-500">{t("noDailyCostData")}</p>
-                  ) : (
-                    <>
-                      <p className="text-[11px] text-gray-600 mb-4">{t("last30Days")}</p>
-                      <div className="space-y-3">
-                        {weekdayCosts.map(({ label, cost }) => (
-                          <CostBarRow
-                            key={label}
-                            label={label}
-                            cost={cost}
-                            max={maxWeekdayCost}
-                            color="bg-cyan-400"
-                          />
-                        ))}
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-border text-xs flex justify-between">
-                        <span className="text-gray-500">{t("common:total")}</span>
-                        <span className="text-cyan-400 font-mono">
-                          <Tip raw={fmtCostFull(totalCost30d)}>{fmtCost(totalCost30d)}</Tip>
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              </>
             )}
 
             {activeTab === "workflow" && (

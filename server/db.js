@@ -529,6 +529,26 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_alert_events_rule ON alert_events(rule_id);
   CREATE INDEX IF NOT EXISTS idx_alert_events_session ON alert_events(session_id);
 
+  -- Spending budgets: a per-period dollar target the dashboard measures real
+  -- spend against (computed live from the pricing engine; no cost is stored
+  -- here). scope_type 'project' uses scope_value as a cwd prefix so nested
+  -- repos roll up into the parent, exactly like the Sessions directory filter;
+  -- 'provider' matches sessions.provider; 'global' (scope_value NULL) is every
+  -- session. Additive and migration-safe like alert_rules; user configuration
+  -- that survives Clear Data.
+  CREATE TABLE IF NOT EXISTS cost_budgets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    scope_type TEXT NOT NULL CHECK(scope_type IN ('global','project','provider')),
+    scope_value TEXT,
+    period TEXT NOT NULL CHECK(period IN ('daily','weekly','monthly')),
+    limit_usd REAL NOT NULL,
+    warn_at_percent INTEGER NOT NULL DEFAULT 80,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
   -- Universal webhook delivery for fired alerts. A target is an outbound
   -- destination (Slack / Discord / Teams / any generic HTTP endpoint). When an
   -- alert fires, server/lib/webhooks.js formats a per-platform payload and
@@ -2518,6 +2538,17 @@ const stmts = {
     "UPDATE alert_rules SET name = COALESCE(?, name), config = COALESCE(?, config), enabled = COALESCE(?, enabled), cooldown_seconds = COALESCE(?, cooldown_seconds), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
   deleteAlertRule: db.prepare("DELETE FROM alert_rules WHERE id = ?"),
+
+  // Cost budgets (see the cost_budgets table) — CRUD used by routes/budgets.js.
+  listCostBudgets: db.prepare("SELECT * FROM cost_budgets ORDER BY created_at DESC"),
+  getCostBudget: db.prepare("SELECT * FROM cost_budgets WHERE id = ?"),
+  insertCostBudget: db.prepare(
+    "INSERT INTO cost_budgets (id, name, scope_type, scope_value, period, limit_usd, warn_at_percent, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ),
+  updateCostBudget: db.prepare(
+    "UPDATE cost_budgets SET name = COALESCE(?, name), scope_type = COALESCE(?, scope_type), scope_value = ?, period = COALESCE(?, period), limit_usd = COALESCE(?, limit_usd), warn_at_percent = COALESCE(?, warn_at_percent), enabled = COALESCE(?, enabled), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
+  deleteCostBudget: db.prepare("DELETE FROM cost_budgets WHERE id = ?"),
 
   insertAlertEvent: db.prepare(
     "INSERT INTO alert_events (rule_id, rule_name, rule_type, session_id, agent_id, message, details) VALUES (?, ?, ?, ?, ?, ?, ?)"

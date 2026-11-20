@@ -488,6 +488,52 @@ async function cmdCost({ opts }) {
 
 const RUN_ONLY = "dashboard-launched runs are managed by the running server";
 
+// ── Budgets ──────────────────────────────────────────────────────────────────
+
+async function cmdBudgets() {
+  const data = await get("/api/budgets");
+  if (isJson()) return printJson(data);
+  const budgets = data.budgets || [];
+  if (!budgets.length) return void console.log(c.dim("No budgets configured."));
+  table(
+    ["Name", "Scope", "Period", "Limit", "Warn", "On"],
+    budgets.map((b) => [
+      trunc(b.name, 28),
+      b.scope_type === "global" ? "all" : `${b.scope_type}:${trunc(b.scope_value || "", 24)}`,
+      b.period,
+      fmtCost(b.limit_usd),
+      `${b.warn_at_percent}%`,
+      b.enabled ? c.green("yes") : c.dim("no"),
+    ])
+  );
+}
+
+async function cmdBudgetStatus() {
+  const data = await get(`/api/budgets/status${qs({ tz_offset: tzOffset() })}`);
+  if (isJson()) return printJson(data);
+  const budgets = data.budgets || [];
+  if (!budgets.length) return void console.log(c.dim("No budgets configured."));
+  const paint = (s) =>
+    s === "over" ? c.red : s === "warn" ? c.yellow : s === "projected_over" ? c.magenta : c.green;
+  table(
+    ["Name", "Period", "Spent", "Limit", "Used", "Burn/h", "Proj.", "Runs out", "Status"],
+    budgets.map((b) => {
+      const p = paint(b.status);
+      return [
+        trunc(b.name, 24),
+        b.period,
+        fmtCost(b.spent_usd),
+        fmtCost(b.limit_usd),
+        b.percent_used === null ? "-" : `${b.percent_used}%`,
+        b.burn_rate_usd_per_hour === null ? "-" : fmtCost(b.burn_rate_usd_per_hour),
+        b.projected_end_usd === null ? "-" : fmtCost(b.projected_end_usd),
+        b.projected_exhaustion_at ? b.projected_exhaustion_at.slice(0, 10) : "-",
+        p(b.status),
+      ];
+    })
+  );
+}
+
 function register(program) {
   scopeOptions(
     program
@@ -662,6 +708,21 @@ function register(program) {
   ).action(
     run(cmdCost, { serverOnly: "cost math (pricing rules, compaction baselines) runs server-side" })
   );
+
+  const budgets = listGroup(program, "budgets", {
+    group: GROUP,
+    description: "Spending budgets: list, status (default: list)",
+    handler: cmdBudgets,
+    serverOnly: "budget spend is repriced from usage server-side",
+    listDescription: "List configured budgets",
+  });
+  budgets
+    .command("status")
+    .helpGroup(GROUP)
+    .description("Spend vs. limit with a burn-down forecast per budget")
+    .action(
+      run(cmdBudgetStatus, { serverOnly: "budget spend is repriced from usage server-side" })
+    );
 }
 
 module.exports = { register, renderCost };

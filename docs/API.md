@@ -1055,6 +1055,59 @@ curl http://localhost:4820/api/sessions/sess_abc123/notifications
 }
 ```
 
+### Budgets
+
+The `/api/budgets/*` namespace manages per-period spending budgets and a live burn-down forecast. No cost is stored: spend is measured on read by the pricing engine over the same token query `/api/pricing/cost` uses, scoped to the budget and windowed to the current period.
+
+```http
+GET    /api/budgets
+POST   /api/budgets
+PATCH  /api/budgets/:id
+DELETE /api/budgets/:id
+GET    /api/budgets/status
+```
+
+**Budget shape:**
+
+```json
+{
+  "id": "…",
+  "name": "API project weekly",
+  "scope_type": "project",
+  "scope_value": "/Users/me/work/api",
+  "period": "weekly",
+  "limit_usd": 40,
+  "warn_at_percent": 80,
+  "enabled": true,
+  "created_at": "2026-11-15T12:00:00.000Z",
+  "updated_at": "2026-11-15T12:00:00.000Z"
+}
+```
+
+`scope_type` is `global` (every session; `scope_value` null), `project` (`scope_value` is a `cwd` prefix, so nested repos roll up into the parent exactly like the Sessions directory filter), or `provider` (`scope_value` matches `sessions.provider`). `period` is `daily`, `weekly` (Sunday-aligned), or `monthly`. Create requires `name`, `scope_type`, `period`, `limit_usd` (and `scope_value` for project/provider); `warn_at_percent` defaults to 80. Invalid bodies return `400 INVALID_INPUT`; an unknown id returns `404 NOT_FOUND`.
+
+**`GET /api/budgets/status`** returns each budget plus its forecast (send `tz_offset` to align the period's day boundaries; `include_disabled=true` to include disabled budgets):
+
+```json
+{
+  "budgets": [
+    {
+      "id": "…", "name": "API project weekly", "scope_type": "project",
+      "scope_value": "/Users/me/work/api", "period": "weekly", "warn_at_percent": 80, "enabled": true,
+      "spent_usd": 31.6, "limit_usd": 40, "percent_used": 79,
+      "period_start": "2026-11-15T00:00:00.000Z", "period_end": "2026-11-22T00:00:00.000Z",
+      "elapsed_fraction": 0.42, "burn_rate_usd_per_hour": 0.31,
+      "projected_end_usd": 52.1, "projected_exhaustion_at": "2026-11-20T08:00:00.000Z",
+      "status": "projected_over"
+    }
+  ]
+}
+```
+
+`status` is `ok`, `warn` (at/over `warn_at_percent`), `projected_over` (current spend under the limit but the linear projection crosses it before period end), or `over`. `projected_end_usd` / `projected_exhaustion_at` are a straight linear fit over the elapsed portion of the period and are `null` before any time has elapsed or when exhaustion falls outside the period.
+
+> Wiring a `budget_threshold` alert rule type into the existing alert sweep (so a crossing pages you through the webhook/push path) is a planned follow-up; this endpoint set delivers the tracking and forecast.
+
 ### Webhooks
 
 The `/api/webhooks/*` namespace manages alert-delivery targets and their audit log.

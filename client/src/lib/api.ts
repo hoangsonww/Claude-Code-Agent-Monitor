@@ -790,6 +790,9 @@ import type {
   Agent,
   AlertEvent,
   AlertRule,
+  CostBudget,
+  BudgetInput,
+  BudgetStatus,
   Analytics,
   CostResult,
   CursorModelPricing,
@@ -2369,6 +2372,35 @@ export const api = {
       remove: (id: string) =>
         request<{ ok: true }>(`/alerts/rules/${encodeURIComponent(id)}`, { method: "DELETE" }),
     },
+  },
+
+  // ───────────────────────────────── Budgets API ──────────────────────────────
+  /** Spending budgets: CRUD plus a burn-down status that measures real spend in
+   *  the current period against the limit and projects period-end cost. */
+  budgets: {
+    /** GET /api/budgets - every configured budget. */
+    list: () => request<{ budgets: CostBudget[] }>("/budgets"),
+    /** GET /api/budgets/status - spend vs. limit + forecast per budget. The
+     *  viewer's tz offset aligns the period's day boundaries. */
+    status: () => {
+      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      return request<{ budgets: BudgetStatus[] }>(`/budgets/status?${qs.toString()}`);
+    },
+    /** POST /api/budgets - create a budget. */
+    create: (body: BudgetInput) =>
+      request<{ budget: CostBudget }>("/budgets", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    /** PATCH /api/budgets/:id - partial update. */
+    update: (id: string, body: Partial<BudgetInput>) =>
+      request<{ budget: CostBudget }>(`/budgets/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    /** DELETE /api/budgets/:id - remove a budget. */
+    remove: (id: string) =>
+      request<{ ok: boolean }>(`/budgets/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 
   // ───────────────────────────────── Webhooks API ─────────────────────────────

@@ -7814,6 +7814,32 @@ exports[`screen snapshots > Settings 1`] = `
         </button>
         <button
           class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+          data-settings-section="budgets"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-wallet w-3.5 h-3.5"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+            />
+            <path
+              d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"
+            />
+          </svg>
+          Budgets
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
           data-settings-section="data"
           type="button"
         >
@@ -11196,6 +11222,168 @@ exports[`screen snapshots > Settings 1`] = `
               Add a rule to start alerting on errors, inactivity, stuck agents, or token thresholds.
             </p>
           </div>
+        </div>
+      </div>
+    </section>
+    <section
+      class="scroll-mt-24"
+      id="budgets"
+    >
+      <div
+        class="card p-5"
+      >
+        <div
+          class="flex items-center gap-2 mb-1"
+        >
+          <svg
+            class="lucide lucide-wallet w-4 h-4 text-gray-500"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+            />
+            <path
+              d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"
+            />
+          </svg>
+          <h3
+            class="text-sm font-medium text-gray-300"
+          >
+            Spending budgets
+          </h3>
+        </div>
+        <p
+          class="text-xs text-gray-500 mb-4"
+        >
+          Set a dollar target per period and track real spend against it — nothing is enforced, it only warns.
+        </p>
+        <p
+          class="text-sm text-gray-500 mb-4"
+        >
+          No budgets yet.
+        </p>
+        <div
+          class="grid grid-cols-2 md:grid-cols-3 gap-3 pt-4 border-t border-border"
+        >
+          <label
+            class="flex flex-col gap-1 text-[11px] text-gray-500 col-span-2 md:col-span-1"
+          >
+            Name
+            <input
+              class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+              value=""
+            />
+          </label>
+          <label
+            class="flex flex-col gap-1 text-[11px] text-gray-500"
+          >
+            Scope
+            <select
+              class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+            >
+              <option
+                value="global"
+              >
+                All projects
+              </option>
+              <option
+                value="project"
+              >
+                Project
+              </option>
+              <option
+                value="provider"
+              >
+                Provider
+              </option>
+            </select>
+          </label>
+          <label
+            class="flex flex-col gap-1 text-[11px] text-gray-500"
+          >
+            Period
+            <select
+              class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+            >
+              <option
+                value="daily"
+              >
+                Daily
+              </option>
+              <option
+                value="weekly"
+              >
+                Weekly
+              </option>
+              <option
+                value="monthly"
+              >
+                Monthly
+              </option>
+            </select>
+          </label>
+          <label
+            class="flex flex-col gap-1 text-[11px] text-gray-500"
+          >
+            Limit (USD)
+            <input
+              class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+              min="0"
+              step="0.01"
+              type="number"
+              value="50"
+            />
+          </label>
+          <label
+            class="flex flex-col gap-1 text-[11px] text-gray-500"
+          >
+            Warn at %
+            <input
+              class="bg-[#12121f] border border-[#2a2a4a] rounded px-2 py-1.5 text-xs text-gray-200"
+              max="100"
+              min="1"
+              type="number"
+              value="80"
+            />
+          </label>
+        </div>
+        <div
+          class="flex items-center gap-2 mt-3"
+        >
+          <button
+            class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-medium rounded px-3 py-1.5"
+            disabled=""
+            type="button"
+          >
+            <svg
+              class="lucide lucide-plus w-3.5 h-3.5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            Create
+          </button>
         </div>
       </div>
     </section>

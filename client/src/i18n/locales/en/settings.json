@@ -656,5 +656,37 @@
     "remoteSourceBadgeTitle": "Collected from a remote machine",
     "retryLastError": "Retrying. Last error:"
   },
-  "cursorPathsNote": "Cursor is included with the Claude Code dashboard scope. Local history is discovered and snapshotted from ~/.cursor automatically; remote Cursor folders are not synced by Claude-only SSH imports."
+  "cursorPathsNote": "Cursor is included with the Claude Code dashboard scope. Local history is discovered and snapshotted from ~/.cursor automatically; remote Cursor folders are not synced by Claude-only SSH imports.",
+  "budgets": {
+    "navTitle": "Budgets",
+    "title": "Spending budgets",
+    "description": "Set a dollar target per period and track real spend against it — nothing is enforced, it only warns.",
+    "error": "Could not load budgets.",
+    "saveError": "Could not save the budget.",
+    "confirmDelete": "Delete this budget?",
+    "none": "No budgets yet.",
+    "on": "On",
+    "off": "Off",
+    "edit": "Edit",
+    "remove": "Delete",
+    "save": "Save",
+    "create": "Create",
+    "cancel": "Cancel",
+    "name": "Name",
+    "scope": "Scope",
+    "scope_global": "All projects",
+    "scope_project": "Project",
+    "scope_provider": "Provider",
+    "scopeValueProject": "Project path (cwd)",
+    "scopeValueProvider": "Provider (claude, codex, cursor)",
+    "period": "Period",
+    "period_daily": "Daily",
+    "period_weekly": "Weekly",
+    "period_monthly": "Monthly",
+    "limit": "Limit (USD)",
+    "warnAt": "Warn at %",
+    "burndownTitle": "Budgets",
+    "projected": "Projected: {{amount}}",
+    "runsOut": "Runs out {{date}}"
+  }
 }
