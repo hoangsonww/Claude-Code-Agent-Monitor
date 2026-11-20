@@ -11,6 +11,7 @@
   "providerClaude": "Claude Code",
   "providerCursor": "Cursor",
   "providerCodex": "Codex",
+  "providerAntigravity": "Antigravity",
   "sortTimeNewest": "Last active: newest",
   "sortTimeOldest": "Last active: oldest",
   "sortDurationLongest": "Duration: longest",

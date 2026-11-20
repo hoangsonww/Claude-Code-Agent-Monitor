@@ -1122,8 +1122,9 @@ export interface Session {
    * Remote Data Sources feature / `remote_sources`). Maps to `sessions.source`. */
   source?: string;
   /** Product that created this session. Historical records default to Claude;
-   *  Codex rollouts are marked `codex` and use the GPT price card. */
-  provider?: "claude" | "cursor" | "codex";
+   *  Codex rollouts are marked `codex` and use the GPT price card; Google
+   *  Antigravity CLI (agy) conversations are imported as `antigravity`. */
+  provider?: "claude" | "cursor" | "codex" | "antigravity";
   /** Compact latest task progress attached to Sessions-list rows. Null when the
    * provider never emitted task/checklist/plan state. */
   todo_summary?: SessionTodoSummary | null;
