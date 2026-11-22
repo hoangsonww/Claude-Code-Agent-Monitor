@@ -24,6 +24,7 @@ const { serverDown } = require("./lib/offline");
 const COMMAND_MODULES = [
   require("./commands/server"),
   require("./commands/monitor"),
+  require("./commands/tui"),
   require("./commands/data"),
   require("./commands/insights"),
   require("./commands/alerts"),
