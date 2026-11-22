@@ -258,6 +258,40 @@ async function sessionStats({ args }) {
   }
 }
 
+async function sessionCommits({ args }) {
+  const d = await get(`/api/sessions/${enc(args[0])}/commits`);
+  if (isJson()) return printJson(d);
+  heading("Session commits", d.session_id);
+  if (!d.repo) {
+    console.log(c.dim("This session's working directory is not a git repository."));
+    return;
+  }
+  const commits = d.commits || [];
+  if (!commits.length) {
+    console.log(c.dim("No commits were authored in this repository during the session's window."));
+    return;
+  }
+  console.log(
+    c.dim("Correlated by author date — commits by others in the same repo/window also appear.")
+  );
+  table(
+    ["commit", "when", "files", "churn", "author", "subject"],
+    commits.map((x) => [
+      c.magenta(x.shortHash),
+      fmtAgo(x.authorDate),
+      String(x.filesChanged ?? 0),
+      `${x.insertions ? c.green("+" + x.insertions) : ""}${
+        x.deletions ? " " + c.red("-" + x.deletions) : ""
+      }`.trim(),
+      trunc(x.authorName || "", 18),
+      trunc(x.subject || "", 60),
+    ])
+  );
+  if (d.truncated) {
+    console.log(c.dim(`Showing the first ${commits.length} commits; older matches are hidden.`));
+  }
+}
+
 async function sessionFacets({ opts }) {
   const d = await get(`/api/sessions/facets${qs(scopeParams(opts))}`);
   if (isJson()) return printJson(d);
@@ -707,6 +741,15 @@ function register(program) {
     .option("--limit <n>", "rows to return", posIntArg, 50)
     .option("--offset <n>", "rows to skip", intArg)
     .action(run(({ args, opts }) => listEvents({ opts: { ...opts, session: args[0] } })));
+  sessions
+    .command("commits")
+    .description("Git commits authored in the session's cwd during its active window")
+    .argument("<id>", "session id")
+    .action(
+      run(sessionCommits, {
+        serverOnly: "commit correlation shells out to git in the session's working directory",
+      })
+    );
   transcriptOptions(
     sessions
       .command("transcript")

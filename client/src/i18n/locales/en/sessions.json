@@ -86,7 +86,24 @@
     "hookOnlySession": "This Codex session ran without writing a rollout to disk (as with `codex exec --ephemeral`), so its history was reconstructed from lifecycle hooks. Prompts, tool calls, and replies are captured, but there is no full transcript to open.",
     "transcript": {
       "loadOlder": "↑ Load older messages"
-    }
+    },
+    "commits": "Commits"
   },
-  "remoteSourceBadgeTitle": "Collected from a remote machine"
+  "remoteSourceBadgeTitle": "Collected from a remote machine",
+  "commits": {
+    "loading": "Loading commits…",
+    "error": "Couldn't load commits for this session.",
+    "notARepo": "This session's working directory isn't a git repository, so there are no commits to correlate.",
+    "heuristicNote": "Commits authored in this session's working directory during its active window. Correlation is by author date — a commit made by someone else in the same repository and window would also appear here.",
+    "noneInWindow": "No commits were authored in this repository during the session's window.",
+    "truncated": "Showing the first {{n}} commits; older matches in the window are hidden.",
+    "collapse": "Collapse file changes",
+    "expand": "Show file changes",
+    "filesChanged": "{{n}} files",
+    "viewRemote": "View commit",
+    "loadingDiff": "Loading file changes…",
+    "diffError": "Couldn't load file changes for this commit.",
+    "binary": "binary",
+    "noFiles": "No file changes recorded for this commit."
+  }
 }

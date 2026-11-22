@@ -87,6 +87,23 @@
     "hookOnlySession": "此 Codex 会话运行时未将 rollout 写入磁盘（例如 `codex exec --ephemeral`），因此其历史记录由生命周期 hook 重建。提示词、工具调用和回复均已捕获，但没有完整的 transcript 可供打开。",
     "transcript": {
       "loadOlder": "↑ 加载更早的消息"
-    }
+    },
+    "commits": "提交"
+  },
+  "commits": {
+    "loading": "正在加载提交…",
+    "error": "无法加载该会话的提交记录。",
+    "notARepo": "该会话的工作目录不是 git 仓库，因此没有可关联的提交。",
+    "heuristicNote": "在该会话活动期间于其工作目录中创作的提交。关联依据作者日期——同一仓库、同一时间窗口内由他人所做的提交也会出现在这里。",
+    "noneInWindow": "在该会话的时间窗口内，此仓库没有任何提交。",
+    "truncated": "仅显示前 {{n}} 条提交；窗口内更早的匹配项已隐藏。",
+    "collapse": "收起文件改动",
+    "expand": "显示文件改动",
+    "filesChanged": "{{n}} 个文件",
+    "viewRemote": "查看提交",
+    "loadingDiff": "正在加载文件改动…",
+    "diffError": "无法加载该提交的文件改动。",
+    "binary": "二进制",
+    "noFiles": "该提交没有记录任何文件改动。"
   }
 }

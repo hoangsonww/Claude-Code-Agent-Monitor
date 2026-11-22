@@ -56,6 +56,8 @@
  *   changing its name, shape, or timing.
  * - `CcConfigChangedPayload` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
+ * - `CommitStat` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `CompactionImpactData` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
  * - `ConcurrencyData` (interface) — exported contract; search downstream imports and tests before
@@ -116,6 +118,10 @@
  *   before changing its name, shape, or timing.
  * - `sessionAwaitingReason` (function) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
+ * - `SessionCommit` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SessionCommits` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `SessionComplexityItem` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
  * - `SessionDrillIn` (interface) — exported contract; search downstream imports and tests before
@@ -224,6 +230,8 @@
  *   selection.
  * - `CcConfigChangedPayload` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
+ * - `CommitStat` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
  * - `CompactionImpactData` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
  * - `ConcurrencyData` (interface) — top-level declaration that helps orient code review and focused
@@ -284,6 +292,10 @@
  *   focused test selection.
  * - `sessionAwaitingReason` (function) — top-level declaration that helps orient code review and
  *   focused test selection.
+ * - `SessionCommit` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SessionCommits` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
  * - `SessionComplexityItem` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
  * - `SessionDrillIn` (interface) — top-level declaration that helps orient code review and focused
@@ -2402,6 +2414,62 @@ export interface SessionStats {
     /** Prompt-cache-write tokens summed over this session's agents. */
     cache_write_tokens: number;
   };
+}
+
+// ───── Session → git commit correlation (issue #291) ─────
+// Computed fresh on every request by shelling out to the local `git` binary in
+// the session's `cwd`; never persisted, so it can't drift from the real repo.
+
+/** One commit correlated with a session by author date. */
+export interface SessionCommit {
+  /** Full 40-char commit sha. */
+  hash: string;
+  /** Abbreviated sha for display. */
+  shortHash: string;
+  /** ISO-8601 author date (what the correlation window is measured against). */
+  authorDate: string | null;
+  /** Commit author name. */
+  authorName: string;
+  /** Commit author email. */
+  authorEmail: string;
+  /** First line of the commit message. */
+  subject: string;
+  /** Number of files changed in the commit. */
+  filesChanged: number;
+  /** Total inserted lines (binary files contribute 0). */
+  insertions: number;
+  /** Total deleted lines (binary files contribute 0). */
+  deletions: number;
+  /** Web URL to the commit on GitHub/GitLab, or null for unrecognized remotes. */
+  url: string | null;
+}
+
+/** Response of `GET /api/sessions/:id/commits`. */
+export interface SessionCommits {
+  /** The session these commits were correlated with. */
+  session_id: string;
+  /** False when `cwd` is not a git repo (or git is unavailable) — hide the panel. */
+  repo: boolean;
+  /** The resolved git work-tree root, when `repo` is true. */
+  root?: string | null;
+  /** Number of commits returned (after windowing and truncation). */
+  count?: number;
+  /** True when more commits matched than the server's display cap. */
+  truncated: boolean;
+  /** The correlated commits, newest first. */
+  commits: SessionCommit[];
+}
+
+/** Response of `GET /api/sessions/:id/commits/:hash` — the collapsed diff preview. */
+export interface CommitStat {
+  session_id: string;
+  hash: string;
+  /** Per-file line-change breakdown. */
+  files: Array<{ path: string; insertions: number; deletions: number; binary: boolean }>;
+  /** Total inserted lines across the commit. */
+  insertions: number;
+  /** Total deleted lines across the commit. */
+  deletions: number;
 }
 
 // ───── Workflow intelligence (events-derived) ─────

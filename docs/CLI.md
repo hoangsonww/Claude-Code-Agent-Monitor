@@ -176,7 +176,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 
 | Works offline | Server required (the refusal prints the reason) |
 | ------------- | ----------------------------------------------- |
-| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), and every mutation |
+| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), git correlation (`sessions commits`), and every mutation |
 
 \* shows everything except cost. Offline exports carry `"exported_offline": true`.
 
@@ -205,6 +205,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 | `ccam sessions cost <id>` | Per-model cost for one session |
 | `ccam sessions agents <id>` | The agent tree alone |
 | `ccam sessions events <id> [--type] [--tool] [--limit]` | One session's events |
+| `ccam sessions commits <id>` | Git commits authored in the session's `cwd` during its active window (best-effort by author date; see [API.md](API.md)) |
 | `ccam sessions transcript <id> [--agent id] [--run id] [--limit n] [--offset n] [--after line] [--before line] [--full]` | The conversation as a **readable chat log** (user/assistant turns, `⚙` tool calls, `↳` results, long blocks clipped unless `--full`); `--json` returns the raw DTO |
 | `ccam sessions transcripts <id>` | Transcript files for the session (main + subagents) |
 | `ccam sessions facets` | Distinct working directories, sources, providers |
