@@ -656,5 +656,37 @@
     "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
     "retryLastError": "재시도 중. 마지막 오류:"
   },
-  "cursorPathsNote": "Cursor는 Claude Code 대시보드 범위에 포함됩니다. 로컬 기록은 ~/.cursor에서 자동 검색 및 스냅샷되며 Claude 전용 SSH 가져오기는 원격 Cursor 폴더를 동기화하지 않습니다."
+  "cursorPathsNote": "Cursor는 Claude Code 대시보드 범위에 포함됩니다. 로컬 기록은 ~/.cursor에서 자동 검색 및 스냅샷되며 Claude 전용 SSH 가져오기는 원격 Cursor 폴더를 동기화하지 않습니다.",
+  "budgets": {
+    "navTitle": "예산",
+    "title": "지출 예산",
+    "description": "기간별 금액 목표를 정하고 실제 지출을 대조해 추적합니다 — 강제하지 않고 경고만 합니다.",
+    "error": "예산을 불러올 수 없습니다.",
+    "saveError": "예산을 저장할 수 없습니다.",
+    "confirmDelete": "이 예산을 삭제할까요?",
+    "none": "아직 예산이 없습니다.",
+    "on": "켜짐",
+    "off": "꺼짐",
+    "edit": "편집",
+    "remove": "삭제",
+    "save": "저장",
+    "create": "생성",
+    "cancel": "취소",
+    "name": "이름",
+    "scope": "범위",
+    "scope_global": "모든 프로젝트",
+    "scope_project": "프로젝트",
+    "scope_provider": "제공자",
+    "scopeValueProject": "프로젝트 경로 (cwd)",
+    "scopeValueProvider": "제공자 (claude, codex, cursor)",
+    "period": "기간",
+    "period_daily": "매일",
+    "period_weekly": "매주",
+    "period_monthly": "매월",
+    "limit": "한도 (USD)",
+    "warnAt": "경고 기준 %",
+    "burndownTitle": "예산",
+    "projected": "예상: {{amount}}",
+    "runsOut": "소진 예정 {{date}}"
+  }
 }
