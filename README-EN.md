@@ -317,7 +317,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Sessions** | Searchable, filterable, server-paginated history with visible-page cost calculation and a temporary in-memory Codex startup row. Its provider selector narrows to Claude Code, Cursor, or Codex while respecting the product scope chosen in onboarding or Settings. Search covers `id`, `name`, and `cwd` with a 300 ms debounce. Names resolve from explicit title, AI title, then the first meaningful user prompt. Cursor replaces a temporary first-prompt fallback with the native generated title only when ingestion metadata proves CCAM owns the current name; manual and ambiguous legacy names remain unchanged. |
 | **Session Detail** | Live stats, active work, tool usage, subagents, tokens, hierarchy, filtered event timelines, `tool_use_id` grouping, and tool-specific renderers. Conversation view renders queued turns, system notices, Markdown, highlighted code, and styled tools; waiting banners show the reason and elapsed time. |
 | **Activity Feed** | Pausable real-time events with shared filters, server pagination, grouping, project/session/subagent origin, session links, and consistent Claude/Codex status badges. |
-| **Analytics** | Model tokens, tool frequency, Sunday-aligned activity heatmaps, session trends, connection state, layout-matched loading skeletons, and paged long legends. |
+| **Analytics** | Model tokens, tool frequency, Sunday-aligned activity heatmaps, session trends, connection state, layout-matched loading skeletons, and paged long legends. A **what-if cost simulator** reprices your real usage under model remaps, speed/tier changes, or intro-rate expiry — actual vs. simulated with a per-model delta, nothing changed server-side. |
 | **Command Palette** | `Cmd/Ctrl+K` searches recent commands, all routes, live server-side sessions, page actions, project directories, subviews, filters, Settings, Agent Config, preferences, scope, and language. It supports subsequence ranking, `>`/`@`/`#` scopes, full keyboard control, translated labels, quiet search failure, and navigation-only handling for destructive actions. |
 | **One Shortcut** | `Cmd/Ctrl+K` is the sole global dashboard chord, including inside fields. Removed multi-key navigation avoids hidden modes; Tabby retains `Cmd/Ctrl+B`. |
 | **Live Updates** | WebSocket push updates the interface without polling. |
@@ -701,6 +701,7 @@ ccam webhooks list|get|providers|deliveries|create|update|enable|disable|delete|
 # Pricing
 ccam pricing [list] | set <pattern> --input N --output N [--fast-* …] [--intro-* …] | delete | reset
 ccam pricing gpt|cursor [list|set|delete]   # OpenAI/Codex and Cursor rate cards
+ccam pricing simulate [--transform model:opus→claude-sonnet-5-5|speed:fast|expire-intro:DATE …] [--since|--until|--project|--provider|--session]   # what-if repricing (nothing changed)
 
 # Import & remote sources
 ccam import guide|rescan|path <dir>|upload <files…>|reimport

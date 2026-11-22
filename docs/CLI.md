@@ -176,7 +176,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 
 | Works offline | Server required (the refusal prints the reason) |
 | ------------- | ----------------------------------------------- |
-| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`), and every mutation |
+| `sessions` / `sessions list`, `session <id>` / `sessions get <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules` / `alert-rules` (list), `export`, `doctor` | everything else — live feeds (`tail`, `stream`, `overview`), aggregation and pricing math (`analytics`, `workflows`, `runs`, `cost`, `sessions stats/cost`, `pricing simulate`), and every mutation |
 
 \* shows everything except cost. Offline exports carry `"exported_offline": true`.
 
@@ -259,6 +259,7 @@ All rule and webhook writes are [confirmed](#safety-model).
 | `ccam pricing set <pattern> --input N --output N [--cache-read] [--cache-write] [--cache-write-1h] [--fast-input] [--fast-output] [--intro-* …] [--intro-until [date]] [--name]` | Create/update a rule. **Omitted flags keep the rule's current values** (a new rule defaults them to 0). Intro fields are only sent when an `--intro-*` flag is present (a plain edit never clobbers a promo); bare `--intro-until` clears it |
 | `ccam pricing delete <pattern>` | Delete a rule |
 | `ccam pricing reset --yes` | Restore the shipped defaults (confirmed — replaces custom rules) |
+| `ccam pricing simulate [--transform spec …] [--since date] [--until date] [--project cwd] [--provider name] [--session id …]` | **What-if repricing** of real usage — actual vs. simulated with a per-model delta. `--transform` is repeatable: `model:opus→claude-sonnet-5-5`, `speed:fast`, `geo:us`, `tier:batch`, `expire-intro:2026-09-01` (`→`, `->`, or `=>`). A bare model token is widened to `*token*`. Nothing is changed server-side; shows the "assumes identical token usage" caveat |
 | `ccam pricing gpt [list]` · `pricing gpt set <pattern> [--input] [--cached-input] [--cache-write] [--output] [--long-*] [--fast-*] [--data JSON]` · `pricing gpt delete <pattern>` | OpenAI/Codex rate card. `set` **merges flags onto the existing row**, so a partial edit never zeroes other rates |
 | `ccam pricing cursor [list]` · `pricing cursor set <pattern> [--input] [--output] [--cache-read] [--cache-write]` · `pricing cursor delete <pattern>` | Cursor rate card (same merge semantics) |
 | `ccam gpt-pricing [set\|delete]` | Legacy raw-JSON GPT entry point (`set` takes `--data`/`--file` and `--yes`) |

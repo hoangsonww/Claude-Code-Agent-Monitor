@@ -792,6 +792,8 @@ import type {
   AlertRule,
   Analytics,
   CostResult,
+  SimulateRequest,
+  SimulateResult,
   CursorModelPricing,
   DashboardEvent,
   GptModelPricing,
@@ -1853,6 +1855,23 @@ export const api = {
       const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
       applyScope(qs);
       return request<CostResult>(`/pricing/cost/${encodeURIComponent(sessionId)}?${qs.toString()}`);
+    },
+    /**
+     * POST /api/pricing/simulate - deterministic "what-if" repricing of real
+     * usage. Reprices the scoped `token_usage` under a list of transforms
+     * (remap a model, force speed/geo/tier, expire intro rates as of a date) by
+     * feeding the transformed rows back through the SAME calculator `cost` uses,
+     * so an empty transform list returns exactly the `totalCost` figure.
+     *
+     * @param body {@link SimulateRequest} - the scope and the transforms.
+     * @returns {@link SimulateResult} - actual vs. simulated with a per-model delta.
+     */
+    simulate: (body: SimulateRequest) => {
+      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      return request<SimulateResult>(`/pricing/simulate?${qs.toString()}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
     },
   },
 

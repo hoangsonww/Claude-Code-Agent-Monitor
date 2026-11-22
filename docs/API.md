@@ -995,6 +995,74 @@ The response contains `total_cost`, `breakdown`, `daily_costs`, feature surcharg
 client can link the missing rate to the correct Settings editor; its tokens contribute $0 until a
 matching rule exists.
 
+#### Reprice Simulator (What-If)
+
+```http
+POST /api/pricing/simulate
+```
+
+A deterministic, offline "what-if": it reprices the **real** `token_usage` for a scope under a
+list of transformations and returns the actual cost, the simulated cost, and a per-model delta.
+No new tables, no ingestion — and it **reuses the same calculator** `GET /api/pricing/cost` uses,
+so an **empty `transforms` list reprices to exactly the `/cost` figure** for that scope (a
+standing guard against the two paths drifting).
+
+**Request body:**
+
+```jsonc
+{
+  "scope": {
+    "since": "2026-07-01",      // optional, YYYY-MM-DD, local day (uses tz_offset)
+    "until": "2026-07-31",      // optional, YYYY-MM-DD
+    "project": "/Users/me/work/api", // optional, exact sessions.cwd
+    "provider": "claude",       // optional, string or array (claude|codex|cursor)
+    "session_ids": ["sess_abc"] // optional, explicit sessions
+  },
+  "transforms": [
+    { "type": "remap_model", "from": "claude-opus-*", "to": "claude-sonnet-5-5" },
+    { "type": "set_speed", "value": "standard" },   // standard | fast; optional "model" glob
+    { "type": "set_geo",   "value": "global" },     // global | us
+    { "type": "set_tier",  "value": "batch" },      // standard | batch
+    { "type": "expire_intro_rates", "as_of": "2026-09-01" }
+  ]
+}
+```
+
+`from` is a `*`-glob; `to` must be a real model id (an unknown id reprices to $0 and shows as
+unpriced). `expire_intro_rates` reprices the matched usage as of `as_of`, so any introductory
+discount that had ended by that date drops out — the simulator never hard-codes a rate.
+
+**Honesty constraint:** a model remap is a **cost** model, not a **behavior** model. The response
+carries an `assumptions` array ("assumes identical token usage; a different model may take more or
+fewer turns") that clients must surface rather than presenting the delta as a prediction.
+
+**Example response (abridged):**
+
+```json
+{
+  "scope": { "since": "2026-07-01" },
+  "actual": { "total_cost": 128.4, "breakdown": [ ... ], "unpriced_models": [] },
+  "simulated": { "total_cost": 41.2, "breakdown": [ ... ], "unpriced_models": [] },
+  "delta": {
+    "total": -87.2,
+    "total_pct": -67.9,
+    "by_model": [
+      { "model": "claude-opus-4-8", "actual_cost": 128.4, "simulated_cost": 0, "delta": -128.4, "delta_pct": -100 },
+      { "model": "claude-sonnet-5-5", "actual_cost": 0, "simulated_cost": 41.2, "delta": 41.2, "delta_pct": null }
+    ]
+  },
+  "assumptions": ["Assumes identical token usage. A model remap is a cost model, not a behavior model — ..."],
+  "transforms": [ ... ]
+}
+```
+
+**Error Responses:**
+
+| Code | Description |
+|------|-------------|
+| 400 | `INVALID_TRANSFORM` — unknown transform type, or a required field (`from`/`to`, `value`, `as_of`) missing/invalid |
+| 400 | `INVALID_SCOPE` — malformed `since`/`until` date, or a non-string `project`/`provider`/`session_ids` |
+
 ---
 
 ### Workflows

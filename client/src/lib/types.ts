@@ -100,6 +100,8 @@
  *   changing its name, shape, or timing.
  * - `OrchestrationEdge` (interface) — exported contract; search downstream imports and tests before
  *   changing its name, shape, or timing.
+ * - `PricingTransform` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `RemoteDataUpdatedPayload` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
  * - `RemoteSourceStatusPayload` (interface) — exported contract; search downstream imports and
@@ -134,6 +136,14 @@
  *   changing its name, shape, or timing.
  * - `SessionTodoSummary` (interface) — exported contract; search downstream imports and tests
  *   before changing its name, shape, or timing.
+ * - `SimulateModelDelta` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SimulateRequest` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SimulateResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SimulateScope` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
  * - `Stats` (interface) — exported contract; search downstream imports and tests before changing
  *   its name, shape, or timing.
  * - `STATUS_CONFIG` (variable) — exported contract; search downstream imports and tests before
@@ -268,6 +278,8 @@
  *   focused test selection.
  * - `OrchestrationEdge` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
+ * - `PricingTransform` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
  * - `RemoteDataUpdatedPayload` (interface) — top-level declaration that helps orient code review
  *   and focused test selection.
  * - `RemoteSourceStatusPayload` (interface) — top-level declaration that helps orient code review
@@ -302,6 +314,14 @@
  *   test selection.
  * - `SessionTodoSummary` (interface) — top-level declaration that helps orient code review and
  *   focused test selection.
+ * - `SimulateModelDelta` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SimulateRequest` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SimulateResult` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SimulateScope` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
  * - `Stats` (interface) — top-level declaration that helps orient code review and focused test
  *   selection.
  * - `STATUS_CONFIG` (variable) — top-level declaration that helps orient code review and focused
@@ -1805,6 +1825,74 @@ export interface CostResult {
   feature_costs?: CostFeatureCosts;
   /** Present only when at least one model had usage but no pricing rule. */
   unpriced_models?: UnpricedModel[];
+}
+
+/** One transformation in a {@link SimulateRequest}. A remap rewrites the model
+ *  id (`from` is a `*`-glob, `to` a concrete id); the dimension setters force a
+ *  speed / data-residency / service-tier; `expire_intro_rates` reprices as of a
+ *  date so any introductory discount that ended by then drops out. */
+export type PricingTransform =
+  | { type: "remap_model"; from: string; to: string }
+  | { type: "set_speed"; value: "standard" | "fast"; model?: string }
+  | { type: "set_geo"; value: "global" | "us"; model?: string }
+  | { type: "set_tier"; value: "standard" | "batch"; model?: string }
+  | { type: "expire_intro_rates"; as_of: string; model?: string };
+
+/** Scope for POST /api/pricing/simulate: which real usage to reprice. All
+ *  fields are optional; an empty scope reprices every session's usage. */
+export interface SimulateScope {
+  /** Only usage on/after this local day (`YYYY-MM-DD`). */
+  since?: string;
+  /** Only usage on/before this local day (`YYYY-MM-DD`). */
+  until?: string;
+  /** Restrict to a single project working directory (`sessions.cwd`). */
+  project?: string;
+  /** Restrict to one or more providers. */
+  provider?: string | string[];
+  /** Restrict to explicit session ids. */
+  session_ids?: string[];
+}
+
+/** Request body for POST /api/pricing/simulate. */
+export interface SimulateRequest {
+  scope?: SimulateScope;
+  transforms: PricingTransform[];
+}
+
+/** One per-model row of the simulated vs. actual waterfall. A remap's `from`
+ *  model shows a negative delta and its `to` model a positive one, so the rows
+ *  account for every dollar of the total difference. */
+export interface SimulateModelDelta {
+  model: string;
+  actual_cost: number;
+  simulated_cost: number;
+  delta: number;
+  /** Percent change vs. this model's actual cost, or null when it had none
+   *  (e.g. a model that appears only after a remap). */
+  delta_pct: number | null;
+}
+
+/** Response shape of POST /api/pricing/simulate: the actual cost, the cost
+ *  under the hypothetical, and the per-model delta that reconciles the two. */
+export interface SimulateResult {
+  /** Echo of the requested scope. */
+  scope: SimulateScope;
+  /** Actual cost of the scoped usage (equals /api/pricing/cost for that scope). */
+  actual: CostResult;
+  /** Cost of the same usage after the transforms are applied. */
+  simulated: CostResult;
+  delta: {
+    /** Simulated minus actual total (USD; negative = cheaper). */
+    total: number;
+    /** Percent change vs. the actual total, or null when actual is $0. */
+    total_pct: number | null;
+    by_model: SimulateModelDelta[];
+  };
+  /** Honesty caveats the UI must surface (e.g. "assumes identical token usage").
+   *  A model remap is a cost model, not a behavior model. */
+  assumptions: string[];
+  /** Echo of the applied transforms. */
+  transforms: PricingTransform[];
 }
 
 // ───── Import progress ─────
