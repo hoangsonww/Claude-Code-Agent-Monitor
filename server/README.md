@@ -1632,7 +1632,7 @@ graph TB
     end
     
     subgraph "Post-Deployment"
-        Verify[Verify API<br/>curl localhost:4820/api/sessions]
+        Verify[Verify API<br/>curl localhost:4820/dashboard/api/sessions]
         WebSocket[Test WebSocket<br/>Browser connection]
     end
     
@@ -1647,6 +1647,9 @@ graph TB
     style Start fill:#10B981
     style Verify fill:#F59E0B
 ```
+
+When `DASHBOARD_BASE_URL` is unset, use the root endpoint instead:
+`curl http://localhost:4820/api/sessions`.
 
 ### Environment Variables
 
