@@ -50,15 +50,15 @@ spec:
               protocol: TCP
           {{- with .Values.livenessProbe }}
           livenessProbe:
-            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" $.Values.config.DASHBOARD_BASE_URL) | nindent 12 }}
+            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" (include "agent-monitor.baseUrl" $)) | nindent 12 }}
           {{- end }}
           {{- with .Values.readinessProbe }}
           readinessProbe:
-            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" $.Values.config.DASHBOARD_BASE_URL) | nindent 12 }}
+            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" (include "agent-monitor.baseUrl" $)) | nindent 12 }}
           {{- end }}
           {{- with .Values.startupProbe }}
           startupProbe:
-            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" $.Values.config.DASHBOARD_BASE_URL) | nindent 12 }}
+            {{- include "agent-monitor.probe" (dict "probe" . "baseUrl" (include "agent-monitor.baseUrl" $)) | nindent 12 }}
           {{- end }}
           envFrom:
             - configMapRef:
@@ -120,7 +120,7 @@ spec:
             - name: MCP_HTTP_AUTH_TOKEN_FILE
               value: /run/ccam-secrets/mcp-token
             - name: MCP_DASHBOARD_BASE_URL
-              value: {{ printf "http://127.0.0.1:4820%s" (trimSuffix "/" (default "" $.Values.config.DASHBOARD_BASE_URL)) | quote }}
+              value: {{ printf "http://127.0.0.1:4820%s" (trimSuffix "/" (include "agent-monitor.baseUrl" $)) | quote }}
             - name: MCP_DASHBOARD_API_TOKEN_FILE
               value: /run/ccam-secrets/dashboard-token
             - name: MCP_DASHBOARD_ALLOW_MUTATIONS

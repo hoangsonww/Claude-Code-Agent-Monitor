@@ -23,7 +23,7 @@ spec:
         - '--timeout=10'
         - '--tries=3'
         - '-qO-'
-        - 'http://{{ include "agent-monitor.fullname" . }}:{{ .Values.service.port }}{{ trimSuffix "/" (default "" .Values.config.DASHBOARD_BASE_URL) }}/api/health'
+        - 'http://{{ include "agent-monitor.fullname" . }}:{{ .Values.service.port }}{{ trimSuffix "/" (include "agent-monitor.baseUrl" .) }}/api/health'
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

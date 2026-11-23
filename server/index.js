@@ -184,6 +184,79 @@ function createApp() {
   return app;
 }
 
+function configureProductionClient(app, clientDist, baseUrl) {
+  const clientIndexPath = path.join(clientDist, "index.html");
+
+  function readClientIndex() {
+    return fs.readFileSync(clientIndexPath, "utf8");
+  }
+
+  function sendClientIndex(res) {
+    res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    try {
+      res.type("html").send(injectBaseUrlIntoHtml(readClientIndex(), baseUrl));
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        res.status(404).type("text").send("Dashboard client is not built.");
+        return;
+      }
+      throw error;
+    }
+  }
+
+  // The app shell contains runtime base-path placeholders. Prevent the static
+  // middleware from returning index.html before the injection handler runs.
+  // Cache policy designed to survive client rebuilds without forcing a hard
+  // refresh:
+  //   - Hashed bundles under /assets/ never change for a given URL, so cache
+  //     them aggressively (immutable).
+  //   - index.html, /sw.js, and /manifest.json *are* the cache-bust signal,
+  //     so they must revalidate every load — without this the browser's
+  //     heuristic cache happily serves a stale index.html that references
+  //     asset hashes that no longer exist on disk.
+  // express.static still serves an explicitly requested /index.html when
+  // `index: false` is set, so route it through the injector before static.
+  app.get("/index.html", (_req, res) => sendClientIndex(res));
+  app.use(
+    express.static(clientDist, {
+      index: false,
+      etag: true,
+      lastModified: true,
+      setHeaders(res, filePath) {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          return;
+        }
+        const base = path.basename(filePath);
+        if (base === "index.html" || base === "sw.js" || base === "manifest.json") {
+          res.setHeader("Cache-Control", "no-cache, must-revalidate");
+          return;
+        }
+        // Other static files (favicon, og-image, etc.): short revalidation
+        // window — long enough to be friendly, short enough to recover from
+        // a typo without telling users to hard-refresh.
+        res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+      },
+    })
+  );
+  // API handlers (including Swagger and ReDoc) are registered above. Never
+  // let an unrecognised `/api/*` request fall through to the React shell:
+  // otherwise a typo or stale reference asset can mount the dashboard's
+  // first-run overlay over API documentation instead of returning a useful
+  // API-shaped 404 response.
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      error: {
+        code: "ENOTFOUND",
+        message: `API route not found: ${req.method} ${req.originalUrl}`,
+      },
+    });
+  });
+  app.get("*", (_req, res) => {
+    sendClientIndex(res);
+  });
+}
+
 function startServer(app, port) {
   const server = http.createServer(app);
   const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
@@ -192,53 +265,7 @@ function startServer(app, port) {
   const isProduction = process.env.NODE_ENV === "production";
   if (isProduction) {
     const clientDist = path.join(__dirname, "..", "client", "dist");
-    const clientIndex = fs.readFileSync(path.join(clientDist, "index.html"), "utf8");
-    // Cache policy designed to survive client rebuilds without forcing a hard
-    // refresh:
-    //   - Hashed bundles under /assets/ never change for a given URL, so cache
-    //     them aggressively (immutable).
-    //   - index.html, /sw.js, and /manifest.json *are* the cache-bust signal,
-    //     so they must revalidate every load — without this the browser's
-    //     heuristic cache happily serves a stale index.html that references
-    //     asset hashes that no longer exist on disk.
-    app.use(
-      express.static(clientDist, {
-        etag: true,
-        lastModified: true,
-        setHeaders(res, filePath) {
-          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-            return;
-          }
-          const base = path.basename(filePath);
-          if (base === "index.html" || base === "sw.js" || base === "manifest.json") {
-            res.setHeader("Cache-Control", "no-cache, must-revalidate");
-            return;
-          }
-          // Other static files (favicon, og-image, etc.): short revalidation
-          // window — long enough to be friendly, short enough to recover from
-          // a typo without telling users to hard-refresh.
-          res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
-        },
-      })
-    );
-    // API handlers (including Swagger and ReDoc) are registered above. Never
-    // let an unrecognised `/api/*` request fall through to the React shell:
-    // otherwise a typo or stale reference asset can mount the dashboard's
-    // first-run overlay over API documentation instead of returning a useful
-    // API-shaped 404 response.
-    app.use("/api", (req, res) => {
-      res.status(404).json({
-        error: {
-          code: "ENOTFOUND",
-          message: `API route not found: ${req.method} ${req.originalUrl}`,
-        },
-      });
-    });
-    app.get("*", (_req, res) => {
-      res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      res.type("html").send(injectBaseUrlIntoHtml(clientIndex, baseUrl));
-    });
+    configureProductionClient(app, clientDist, baseUrl);
   }
 
   // Bind to loopback by default so the dashboard is not network-reachable out
@@ -1807,6 +1834,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  configureProductionClient,
   createApp,
   startServer,
   startBackgroundServices,

@@ -14,7 +14,7 @@ export function resolveDashboardBasePath(runtimeBase: string | null, viteBase: s
 const runtimeBase =
   typeof document === "undefined"
     ? null
-    : document.querySelector('meta[name="dashboard-base-url"]')?.getAttribute("content") ?? null;
+    : (document.querySelector('meta[name="dashboard-base-url"]')?.getAttribute("content") ?? null);
 
 export const DASHBOARD_BASE_PATH = resolveDashboardBasePath(runtimeBase, import.meta.env.BASE_URL);
 

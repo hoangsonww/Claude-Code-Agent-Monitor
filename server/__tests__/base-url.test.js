@@ -27,7 +27,8 @@ describe("dashboard base URL", () => {
   });
 
   it("injects runtime base paths into the HTML base tag and client config", () => {
-    const html = '<base href="./" data-dashboard-base /><meta name="dashboard-base-url" content="__DASHBOARD_BASE_URL__" />';
+    const html =
+      '<base href="./" data-dashboard-base /><meta name="dashboard-base-url" content="__DASHBOARD_BASE_URL__" />';
     assert.equal(
       injectBaseUrlIntoHtml(html, "/dashboard"),
       '<base href="/dashboard/" data-dashboard-base /><meta name="dashboard-base-url" content="/dashboard" />'
@@ -37,5 +38,4 @@ describe("dashboard base URL", () => {
       '<base href="/" data-dashboard-base /><meta name="dashboard-base-url" content="" />'
     );
   });
-
 });

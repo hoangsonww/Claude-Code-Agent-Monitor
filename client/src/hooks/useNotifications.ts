@@ -182,6 +182,7 @@ import { useEffect } from "react";
 import i18n from "../i18n";
 import { eventBus } from "../lib/eventBus";
 import { dashboardApiUrl } from "../lib/api";
+import { withDashboardBase } from "../lib/baseUrl";
 import { subscribeToPush } from "../lib/push";
 import type { WSMessage, Session, Agent, DashboardEvent } from "../lib/types";
 
@@ -249,7 +250,7 @@ function loadPrefs(): NotifPrefs {
 async function notify(title: string, body: string) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
-  await fetch(dashboardApiUrl("/push/send"), {
+    await fetch(dashboardApiUrl("/push/send"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, body }),
@@ -259,9 +260,13 @@ async function notify(title: string, body: string) {
     try {
       if ("serviceWorker" in navigator) {
         const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(title, { body, icon: "/favicon.ico", silent: false });
+        await registration.showNotification(title, {
+          body,
+          icon: withDashboardBase("/favicon.svg"),
+          silent: false,
+        });
       } else {
-        new Notification(title, { body, icon: "/favicon.ico" });
+        new Notification(title, { body, icon: withDashboardBase("/favicon.svg") });
       }
     } catch {
       // Silently ignore

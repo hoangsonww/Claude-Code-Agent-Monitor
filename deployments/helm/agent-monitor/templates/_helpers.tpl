@@ -74,6 +74,15 @@ Create the name of the service account to use
 {{- toYaml $probe -}}
 {{- end -}}
 
+{{/* Resolve the preferred Helm subpath setting with the legacy environment-variable alias. */}}
+{{- define "agent-monitor.baseUrl" -}}
+{{- $configured := default .Values.config.DASHBOARD_BASE_URL .Values.config.baseUrl | trim -}}
+{{- $path := trimAll "/" $configured -}}
+{{- if $path -}}
+{{- printf "/%s" $path -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Return the container image string
 */}}
