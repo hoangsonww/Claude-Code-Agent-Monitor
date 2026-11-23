@@ -218,7 +218,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist",
-      sourcemap: true,
+      // The production dashboard is served by the same Express process, so
+      // browser debugging does not need to expose build-machine source URLs.
+      sourcemap: false,
     },
   };
 });

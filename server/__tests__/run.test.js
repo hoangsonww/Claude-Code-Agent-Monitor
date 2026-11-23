@@ -8,7 +8,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { describe, it, before, after, beforeEach } = require("node:test");
+const { describe, it, before, after, afterEach, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -106,6 +106,10 @@ describe("/api/run", () => {
     runs.__reset();
   });
 
+  afterEach(() => {
+    delete process.env.DASHBOARD_ALLOWED_HOSTS;
+  });
+
   it("rejects cross-origin browser requests", async () => {
     const { status, body } = await fetchJson("/api/run", {
       headers: { Origin: "http://evil.example.com" },
@@ -125,6 +129,18 @@ describe("/api/run", () => {
       headers: { Origin: "http://localhost:5173" },
     });
     assert.equal(status, 200);
+  });
+
+  it("allows an Origin configured with DASHBOARD_ALLOWED_HOSTS", async () => {
+    process.env.DASHBOARD_ALLOWED_HOSTS = "dashboard.internal";
+    const { status, body } = await fetchJson("/api/run", {
+      headers: {
+        Host: "dashboard.internal",
+        Origin: "https://dashboard.internal",
+      },
+    });
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body.items));
   });
 
   it("POST / requires prompt", async () => {

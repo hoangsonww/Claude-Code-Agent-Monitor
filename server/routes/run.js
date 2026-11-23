@@ -25,23 +25,23 @@ const path = require("node:path");
 const claudeRuns = require("../lib/run-spawner");
 const codexRuns = require("../lib/codex-run-spawner");
 const { startCodexAppServer } = require("../lib/codex-app-server");
+const { isHostAllowed } = require("../lib/security");
 
 const router = Router();
 
-const ALLOWED_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
-
 /**
- * Loopback-Origin guard. Browser requests carry Origin; if it's not localhost,
- * we reject. Server/CLI requests (curl) typically don't carry Origin and pass.
+ * Same-origin guard. Browser requests carry Origin; it must use a loopback or
+ * operator-allowlisted hostname. Server/CLI requests (curl) typically don't
+ * carry Origin and pass.
  *
  * Referer is checked as a fallback for older browsers / fetch with credentials
- * disabled — the same loopback-host rule applies.
+ * disabled — the same trusted-host rule applies.
  */
 function sameOriginGuard(req, res, next) {
   const checkHost = (raw) => {
     try {
       const u = new URL(raw);
-      return ALLOWED_ORIGIN_HOSTS.has(u.hostname);
+      return isHostAllowed(u.hostname);
     } catch {
       return false;
     }

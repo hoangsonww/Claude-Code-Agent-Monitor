@@ -22,15 +22,15 @@ const tags = [
 ];
 
 /**
- * Reusable response fragment for the loopback same-origin guard. Applied to
+ * Reusable response fragment for the trusted-host same-origin guard. Applied to
  * EVERY route in `server/routes/run.js` (the router-level `sameOriginGuard`
  * middleware): browser requests whose `Origin`/`Referer` host is not one of
- * localhost / 127.0.0.1 / ::1 / 0.0.0.0 are rejected before any handler runs.
+ * a loopback host or DASHBOARD_ALLOWED_HOSTS are rejected before any handler runs.
  * Server/CLI requests (curl) usually carry no `Origin` and pass through.
  */
 const ebadOrigin403 = {
   description:
-    "Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.",
+    "Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without an Origin header (e.g. curl) are allowed.",
   content: {
     "application/json": {
       schema: { $ref: "#/components/schemas/ErrorResponse" },
