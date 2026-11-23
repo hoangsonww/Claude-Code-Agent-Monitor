@@ -234,6 +234,15 @@ describe("DashboardApiClient", () => {
     assert.equal(requestedUrl, "http://127.0.0.1:4820/dashboard/api/health");
   });
 
+  it("rejects a prefixed API URL that resolves to another origin", async () => {
+    const client = new DashboardApiClient(
+      config({ dashboardBaseUrl: new URL("http://127.0.0.1:4820//example.com") }),
+      new Logger("error")
+    );
+
+    await assert.rejects(client.get("/api/health"), { code: "INVALID_PATH" });
+  });
+
   it("sends the configured dashboard bearer token", async () => {
     globalThis.fetch = (async (_input, init) => {
       const headers = new Headers(init?.headers);

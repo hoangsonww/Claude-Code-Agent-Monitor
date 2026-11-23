@@ -3,7 +3,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { after, describe, it } = require("node:test");
+const { after, before, describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const express = require("express");
 const fs = require("fs");
@@ -31,9 +31,12 @@ after(async () => {
 });
 
 describe("production client under a dashboard base URL", () => {
-  it("injects the prefix for the root and explicit index.html requests", async () => {
+  before(async () => {
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     listening = true;
+  });
+
+  it("injects the prefix for the root and explicit index.html requests", async () => {
     const base = `http://127.0.0.1:${server.address().port}`;
 
     for (const requestPath of ["/", "/index.html"]) {

@@ -2106,7 +2106,7 @@ flowchart LR
   MCP["Authenticated MCP sidecar"] --> APP
 ```
 
-- **Helm:** schema-enforced one writer, digest support, retained PVC, Ingress or Gateway API, External-Secret-compatible token mount, NetworkPolicy, optional MCP and ServiceMonitor. Set `config.DASHBOARD_BASE_URL` and the matching Ingress path to host the UI below a prefix; probes, metrics, and MCP follow the configured path.
+- **Helm:** schema-enforced one writer, digest support, retained PVC, Ingress or Gateway API, External-Secret-compatible token mount, NetworkPolicy, optional MCP and ServiceMonitor. Set `config.baseUrl` and the matching Ingress path to host the UI below a prefix; probes, metrics, and MCP follow the configured path. `config.DASHBOARD_BASE_URL` remains a compatibility alias.
 - **Kustomize:** restricted-PSS base plus dev/staging/production overlays and optional MCP, monitoring, Gateway API, and CSI snapshot components.
 - **Terraform:** deploys the validated Helm chart to an existing Kubernetes cluster. Cloud networking, cluster identity, CSI, TLS, and secret synchronization remain provider-owned.
 - **Operations:** consistent SQLite online backup with SHA-256, verified restore with scale-to-zero, backup-first deploy/rollback/teardown, and authenticated health checks.

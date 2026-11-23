@@ -127,6 +127,31 @@ function resolveAppVersion(): string {
 /** Version injected as `__APP_VERSION__`. */
 const APP_VERSION = resolveAppVersion();
 
+/** Read the dashboard-owned dotenv file when development uses DASHBOARD_ENV_PATH. */
+function loadDashboardEnv(): Record<string, string> {
+  const envPath = process.env.DASHBOARD_ENV_PATH;
+  if (!envPath) return {};
+  try {
+    return Object.fromEntries(
+      readFileSync(resolve(envPath), "utf8")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#") && line.includes("="))
+        .map((line) => {
+          const index = line.indexOf("=");
+          const key = line.slice(0, index).trim();
+          const value = line
+            .slice(index + 1)
+            .trim()
+            .replace(/^(?:\"|')|(?:\"|')$/g, "");
+          return [key, value];
+        })
+    );
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Port of the dashboard server the dev proxy forwards to. Honors `DASHBOARD_PORT`, so the proxy
  * follows when `npm run dev:server` is moved off the default 4820 (for example when an SSH
@@ -141,8 +166,17 @@ const APP_VERSION = resolveAppVersion();
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, resolve(process.cwd(), ".."), "");
-  const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || env.DASHBOARD_PORT || "4820", 10);
-  const requestedBaseUrl = (process.env.DASHBOARD_BASE_URL || env.DASHBOARD_BASE_URL || "").trim();
+  const dashboardEnv = loadDashboardEnv();
+  const DASHBOARD_PORT = parseInt(
+    process.env.DASHBOARD_PORT || dashboardEnv.DASHBOARD_PORT || env.DASHBOARD_PORT || "4820",
+    10
+  );
+  const requestedBaseUrl = (
+    process.env.DASHBOARD_BASE_URL ||
+    dashboardEnv.DASHBOARD_BASE_URL ||
+    env.DASHBOARD_BASE_URL ||
+    ""
+  ).trim();
   if (/^[a-z][a-z\d+.-]*:\/\//i.test(requestedBaseUrl) || /[?#\\]/.test(requestedBaseUrl)) {
     throw new Error("DASHBOARD_BASE_URL must be a URL path, such as /dashboard");
   }

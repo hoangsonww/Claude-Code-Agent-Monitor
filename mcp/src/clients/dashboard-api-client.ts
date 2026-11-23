@@ -522,7 +522,7 @@ export class DashboardApiClient {
     const base = this.config.dashboardBaseUrl;
     const basePath = base.pathname.replace(/\/+$/, "");
     const url = new URL(`${basePath}${path}`, base.origin);
-    if (!url.pathname.startsWith(`${basePath}/api/`)) {
+    if (url.origin !== base.origin || !url.pathname.startsWith(`${basePath}/api/`)) {
       throw new ApiError(`Invalid path "${path}". MCP client can only call /api/* endpoints.`, {
         code: "INVALID_PATH",
       });

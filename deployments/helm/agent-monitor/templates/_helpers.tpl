@@ -68,8 +68,8 @@ Create the name of the service account to use
 {{- $probe := deepCopy .probe -}}
 {{- $baseUrl := trimSuffix "/" (default "" .baseUrl) -}}
 {{- $httpGet := get $probe "httpGet" -}}
-{{- if and $baseUrl $httpGet (hasKey $httpGet "path") -}}
-{{- $_ := set $httpGet "path" (printf "%s%s" $baseUrl $httpGet.path) -}}
+{{- if and $baseUrl $httpGet -}}
+{{- $_ := set $httpGet "path" (printf "%s%s" $baseUrl (default "/" $httpGet.path)) -}}
 {{- end -}}
 {{- toYaml $probe -}}
 {{- end -}}
