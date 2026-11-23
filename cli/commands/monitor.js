@@ -356,7 +356,10 @@ async function cmdStream({ opts }) {
     });
   }
   await get("/api/health"); // route offline messaging before connecting
-  const wsUrl = new URL("/ws", baseUrl().replace(/^http/, "ws"));
+  const wsUrl = new URL(baseUrl().replace(/^http/, "ws"));
+  wsUrl.pathname = `${wsUrl.pathname.replace(/\/+$/, "")}/ws`;
+  wsUrl.search = "";
+  wsUrl.hash = "";
   // Send the token as a header (accepted by the /ws upgrade check) rather
   // than a query parameter, which would land in proxy and access logs.
   const token = apiToken();
@@ -371,7 +374,7 @@ async function cmdStream({ opts }) {
       if (!isJson())
         console.log(
           c.dim(
-            `Streaming ${wsUrl.origin}/ws${types ? ` (types: ${[...types].join(", ")})` : ""} — Ctrl+C to stop`
+            `Streaming ${wsUrl}${types ? ` (types: ${[...types].join(", ")})` : ""} — Ctrl+C to stop`
           )
         );
     });

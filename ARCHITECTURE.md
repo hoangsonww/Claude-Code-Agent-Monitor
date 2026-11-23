@@ -101,6 +101,8 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 
 Agent Dashboard is a local-first monitoring platform for Claude Code, Cursor, and Codex sessions. It combines native lifecycle hooks with provider-aware transcript discovery, persists them in SQLite, and presents them through a React dashboard with real-time WebSocket updates.
 
+`DASHBOARD_BASE_URL` optionally mounts the production UI, REST API, and WebSocket below a reverse-proxy path prefix; the server injects that prefix into the client at runtime, including prebuilt images. Local hook ingestion remains available at its existing loopback path.
+
 ```mermaid
 C4Context
     title System Context Diagram
@@ -2772,7 +2774,7 @@ Remote history import checks both source ownership and provider before writing m
 | **Input validation**   | Required fields checked before database operations; CHECK constraints on status enums                                                                      |
 | **Hook safety**        | Hook handler always exits 0; 5s max lifetime; uses `127.0.0.1` not external hosts                                                                          |
 | **CORS**               | Loopback-only (`corsOptions()` in `server/lib/security.js`): cross-origin pages can't read responses; No-Origin requests (curl/CLI) still pass. The legacy `Access-Control-Allow-Origin: *` via bare `cors()` is gone                                          |
-| **Network posture**    | Server binds **`127.0.0.1` (loopback) by default** — not network-reachable out of the box (fix for GHSA-gr74-4xfh-6jw9; it previously bound `0.0.0.0` with no auth). Widen the bind via `DASHBOARD_HOST` (e.g. `0.0.0.0`), which logs a startup warning. A Host-header allowlist on HTTP + WebSocket upgrades blocks DNS-rebinding; extra LAN names go in `DASHBOARD_ALLOWED_HOSTS` (comma-separated) |
+| **Network posture**    | Server binds **`127.0.0.1` (loopback) by default** — not network-reachable out of the box (fix for GHSA-gr74-4xfh-6jw9; it previously bound `0.0.0.0` with no auth). Widen the bind via `DASHBOARD_HOST` (e.g. `0.0.0.0`), which logs a startup warning. `DASHBOARD_BASE_URL` mounts the UI, API, and WebSocket below an optional reverse-proxy path prefix. A Host-header allowlist on HTTP + WebSocket upgrades blocks DNS-rebinding; extra LAN names go in `DASHBOARD_ALLOWED_HOSTS` (comma-separated) |
 | **Auth (optional)**    | Off by default — the loopback bind is the trust boundary. Set `DASHBOARD_TOKEN` to gate every `/api/*` request **and** the WebSocket, presented as `Authorization: Bearer <token>`, an `x-dashboard-token` header, or `?token=`. Exempt even when set: `/api/health`, `/api/openapi.json`, `/api/docs`, and `/api/hooks` (local Claude Code hook ingestion) |
 | **No secrets**         | No API keys, tokens, or credentials stored or transmitted                                                                                                  |
 | **Dependency surface** | Minimal: 5 runtime server deps, 6 runtime client deps (includes `d3` and `d3-sankey` for Workflows visualizations)                                          |

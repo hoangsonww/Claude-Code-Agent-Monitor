@@ -50,6 +50,10 @@ and Grafana. Every host port binds loopback by default.
 
 Create `agent-monitor-secrets` with `dashboard-token`, `hook-token`, and
 `mcp-token`, then use Helm or Kustomize. Prefer immutable image tags or digests.
+For Helm subpath hosting, set `config.DASHBOARD_BASE_URL` and make the Ingress
+path match it (for example, both `/dashboard`). The chart adjusts health probes,
+ServiceMonitor metrics, and the MCP sidecar URL, and the server injects the
+prefix into prebuilt client assets at runtime.
 
 ```bash
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"

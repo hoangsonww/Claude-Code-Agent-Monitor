@@ -63,6 +63,17 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
+{{/* Prefix HTTP probe paths when the dashboard is mounted below a URL path. */}}
+{{- define "agent-monitor.probe" -}}
+{{- $probe := deepCopy .probe -}}
+{{- $baseUrl := trimSuffix "/" (default "" .baseUrl) -}}
+{{- $httpGet := get $probe "httpGet" -}}
+{{- if and $baseUrl $httpGet (hasKey $httpGet "path") -}}
+{{- $_ := set $httpGet "path" (printf "%s%s" $baseUrl $httpGet.path) -}}
+{{- end -}}
+{{- toYaml $probe -}}
+{{- end -}}
+
 {{/*
 Return the container image string
 */}}

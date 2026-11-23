@@ -1653,6 +1653,7 @@ graph TB
 ```bash
 # Server configuration
 DASHBOARD_PORT=4820                # Server port
+DASHBOARD_BASE_URL=                # Optional runtime reverse-proxy path prefix, e.g. /dashboard
 NODE_ENV=production                # Environment mode
 
 # Network exposure & hardening (see server/lib/security.js)

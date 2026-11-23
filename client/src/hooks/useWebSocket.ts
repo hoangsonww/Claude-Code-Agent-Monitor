@@ -174,6 +174,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import type { WSMessage } from "../lib/types";
 import { eventBus } from "../lib/eventBus";
 import { dashboardToken } from "../lib/api";
+import { withDashboardBase } from "../lib/baseUrl";
 
 /** Callback invoked with each parsed {@link WSMessage} the socket receives. */
 type MessageHandler = (msg: WSMessage) => void;
@@ -230,7 +231,7 @@ export function useWebSocket(onMessage: MessageHandler) {
     // when one is configured; omitted entirely for the default loopback bind.
     const token = dashboardToken();
     const query = token ? `?token=${encodeURIComponent(token)}` : "";
-    const ws = new WebSocket(`${protocol}//${host}/ws${query}`);
+    const ws = new WebSocket(`${protocol}//${host}${withDashboardBase("/ws")}${query}`);
 
     ws.onopen = () => {
       if (mountedRef.current) {

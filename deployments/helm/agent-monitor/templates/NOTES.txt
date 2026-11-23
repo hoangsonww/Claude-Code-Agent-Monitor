@@ -43,7 +43,7 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔍 Health Check:
-  kubectl exec -n {{ .Release.Namespace }} deploy/{{ $fullName }} -- wget -qO- http://localhost:{{ .Values.service.targetPort }}/api/health
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ $fullName }} -- wget -qO- http://localhost:{{ .Values.service.targetPort }}{{ trimSuffix "/" (default "" .Values.config.DASHBOARD_BASE_URL) }}/api/health
 
 🧪 Run Tests:
   helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

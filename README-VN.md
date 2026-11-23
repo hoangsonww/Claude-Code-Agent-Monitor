@@ -618,6 +618,7 @@ flowchart LR
 | Biến môi trường | Mặc định | Mục đích |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Cổng máy chủ Express. |
+| `DASHBOARD_BASE_URL` | để trống | Tiền tố đường dẫn URL tùy chọn lúc chạy khi triển khai sau reverse proxy (ví dụ `/dashboard`). Máy chủ tự chèn giá trị này vào client, kể cả ảnh Docker và Helm đã build sẵn. |
 | `CLAUDE_DASHBOARD_PORT` | chưa đặt (discovery) | Ghi đè cổng tường minh cho trình xử lý hook; lưu bền khi cài đặt bằng `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Dùng `production` để phục vụ client đã build. |
 | `DASHBOARD_UPDATE_CHECK` | bật | Đặt `0`, `false` hoặc `off` để tắt kiểm tra upstream theo lịch. |
@@ -2068,7 +2069,7 @@ graph LR
 
 `deployments/` chạy trên mọi Kubernetes tương thích, gồm EKS, GKE, AKS, OKE và cụm tự quản lý. CCAM dùng SQLite, vì vậy mọi manifest được hỗ trợ đều bắt buộc **chính xác một dashboard writer đang hoạt động trên mỗi persistent volume** với Recreate. HPA, active-active, nhiều replica, blue-green và canary không được hỗ trợ khi SQLite vẫn là persistence backend.
 
-- **Helm:** schema chặn nhiều replica/HPA, hỗ trợ image digest, retained PVC, Ingress hoặc Gateway API, external Secret, NetworkPolicy, MCP và ServiceMonitor tùy chọn.
+- **Helm:** schema chặn nhiều replica/HPA, hỗ trợ image digest, retained PVC, Ingress hoặc Gateway API, external Secret, NetworkPolicy, MCP và ServiceMonitor tùy chọn. Đặt `config.DASHBOARD_BASE_URL` cùng đường dẫn Ingress tương ứng để phục vụ UI dưới một tiền tố; probe, metrics và MCP sẽ dùng cùng đường dẫn.
 - **Kustomize:** Restricted PSS base, overlay dev/staging/production, component MCP, monitoring, Gateway API và CSI snapshot.
 - **Terraform:** triển khai Helm chart đã kiểm chứng lên Kubernetes cluster có sẵn; networking, identity, CSI, TLS và secret sync do lớp cloud quản lý.
 - **Operations:** SQLite online backup, integrity check, SHA-256, scale-to-zero restore, backup trước deploy/rollback/teardown và health check có auth.

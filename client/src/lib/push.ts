@@ -23,6 +23,7 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+import { dashboardApiUrl } from "./api";
 /*
  * GENERATED_MAINTAINER_REFERENCE:BEGIN
  *
@@ -262,7 +263,7 @@ export async function subscribeToPush(): Promise<void> {
   if (existing) return; // already subscribed -> idempotent no-op
 
   // Fetch the server's VAPID public key and decode it for `applicationServerKey`.
-  const res = await fetch("/api/push/vapid-public-key");
+  const res = await fetch(dashboardApiUrl("/push/vapid-public-key"));
   const { publicKey } = await res.json();
 
   const subscription = await registration.pushManager.subscribe({
@@ -271,7 +272,7 @@ export async function subscribeToPush(): Promise<void> {
   });
 
   // Register the endpoint + keys with the backend so it can push to this browser.
-  await fetch("/api/push/subscribe", {
+  await fetch(dashboardApiUrl("/push/subscribe"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(subscription.toJSON()), // { endpoint, keys: { p256dh, auth } }
@@ -301,7 +302,7 @@ export async function unsubscribeFromPush(): Promise<void> {
   await subscription.unsubscribe(); // remove the browser-side subscription
 
   // Tell the backend to forget this endpoint so it stops attempting deliveries.
-  await fetch("/api/push/subscribe", {
+  await fetch(dashboardApiUrl("/push/subscribe"), {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ endpoint }),

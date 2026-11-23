@@ -22,7 +22,7 @@ spec:
   {{- end }}
   endpoints:
     - port: http
-      path: {{ .Values.monitoring.serviceMonitor.path | default "/api/metrics" }}
+      path: {{ printf "%s%s" (trimSuffix "/" (default "" .Values.config.DASHBOARD_BASE_URL)) (.Values.monitoring.serviceMonitor.path | default "/api/metrics") | quote }}
       interval: {{ .Values.monitoring.serviceMonitor.interval | default "30s" }}
       scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | default "10s" }}
       honorLabels: {{ .Values.monitoring.serviceMonitor.honorLabels | default false }}

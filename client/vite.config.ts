@@ -1,6 +1,6 @@
 /**
  * @file vite.config.ts
- * @description Vite build and dev-server configuration for the dashboard client — React plugin, an API/WebSocket proxy that honours DASHBOARD_PORT, and build-time injection of the project version as `__APP_VERSION__`.
+ * @description Vite build and dev-server configuration for the dashboard client — React plugin, API/WebSocket proxies honoring DASHBOARD_PORT and DASHBOARD_BASE_URL, and build-time project-version injection.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /*
@@ -100,7 +100,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
@@ -139,28 +139,52 @@ const APP_VERSION = resolveAppVersion();
  * socket specificity, so `localhost` can reach the wrong process. An explicit IPv4 loopback is also
  * what the embedded production server binds to.
  */
-const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, resolve(process.cwd(), ".."), "");
+  const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || env.DASHBOARD_PORT || "4820", 10);
+  const requestedBaseUrl = (process.env.DASHBOARD_BASE_URL || env.DASHBOARD_BASE_URL || "").trim();
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(requestedBaseUrl) || /[?#\\]/.test(requestedBaseUrl)) {
+    throw new Error("DASHBOARD_BASE_URL must be a URL path, such as /dashboard");
+  }
+  const DASHBOARD_BASE_URL = requestedBaseUrl.replace(/^\/+|\/+$/g, "");
+  if (DASHBOARD_BASE_URL.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error("DASHBOARD_BASE_URL cannot contain dot path segments");
+  }
+  const BASE_PATH = DASHBOARD_BASE_URL ? `/${DASHBOARD_BASE_URL}` : "";
+  const API_PATH = `${BASE_PATH}/api`;
+  const WS_PATH = `${BASE_PATH}/ws`;
 
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __APP_VERSION__: JSON.stringify(APP_VERSION),
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: `http://127.0.0.1:${DASHBOARD_PORT}`,
-        changeOrigin: true,
+  return {
+    base: mode === "production" ? "./" : `${BASE_PATH}/`,
+    plugins: [
+      react(),
+      {
+        name: "dashboard-base-path",
+        apply: "serve",
+        transformIndexHtml(html) {
+          return html.replaceAll("__DASHBOARD_BASE_URL__", BASE_PATH);
+        },
       },
-      "/ws": {
-        target: `ws://127.0.0.1:${DASHBOARD_PORT}`,
-        ws: true,
+    ],
+    define: {
+      __APP_VERSION__: JSON.stringify(APP_VERSION),
+    },
+    server: {
+      port: 5173,
+      proxy: {
+        [API_PATH]: {
+          target: `http://127.0.0.1:${DASHBOARD_PORT}`,
+          changeOrigin: true,
+        },
+        [WS_PATH]: {
+          target: `ws://127.0.0.1:${DASHBOARD_PORT}`,
+          ws: true,
+        },
       },
     },
-  },
-  build: {
-    outDir: "dist",
-    sourcemap: true,
-  },
+    build: {
+      outDir: "dist",
+      sourcemap: true,
+    },
+  };
 });

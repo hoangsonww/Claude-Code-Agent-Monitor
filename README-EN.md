@@ -618,6 +618,7 @@ flowchart LR
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Express server port. |
+| `DASHBOARD_BASE_URL` | empty | Optional runtime URL path prefix for reverse-proxy deployments (for example, `/dashboard`). The server injects it into the client, including prebuilt Docker and Helm images. |
 | `CLAUDE_DASHBOARD_PORT` | unset (discovery) | Explicit port override used by the hook handler; persist it during installation with `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Use `production` to serve the built client. |
 | `DASHBOARD_UPDATE_CHECK` | enabled | Set `0`, `false`, or `off` to disable scheduled upstream checks. |
@@ -2105,7 +2106,7 @@ flowchart LR
   MCP["Authenticated MCP sidecar"] --> APP
 ```
 
-- **Helm:** schema-enforced one writer, digest support, retained PVC, Ingress or Gateway API, External-Secret-compatible token mount, NetworkPolicy, optional MCP and ServiceMonitor.
+- **Helm:** schema-enforced one writer, digest support, retained PVC, Ingress or Gateway API, External-Secret-compatible token mount, NetworkPolicy, optional MCP and ServiceMonitor. Set `config.DASHBOARD_BASE_URL` and the matching Ingress path to host the UI below a prefix; probes, metrics, and MCP follow the configured path.
 - **Kustomize:** restricted-PSS base plus dev/staging/production overlays and optional MCP, monitoring, Gateway API, and CSI snapshot components.
 - **Terraform:** deploys the validated Helm chart to an existing Kubernetes cluster. Cloud networking, cluster identity, CSI, TLS, and secret synchronization remain provider-owned.
 - **Operations:** consistent SQLite online backup with SHA-256, verified restore with scale-to-zero, backup-first deploy/rollback/teardown, and authenticated health checks.

@@ -617,6 +617,7 @@ flowchart LR
 | Variable de entorno | Valor predeterminado | Propósito |
 | --- | --- | --- |
 | `DASHBOARD_PORT` | `4820` | Puerto del servidor Express. |
+| `DASHBOARD_BASE_URL` | vacío | Prefijo opcional de ruta URL en tiempo de ejecución para despliegues detrás de un proxy inverso (por ejemplo, `/dashboard`). El servidor lo inyecta en el cliente, también en imágenes Docker y Helm ya compiladas. |
 | `CLAUDE_DASHBOARD_PORT` | sin definir (descubrimiento) | Anulación explícita del puerto del handler de hooks; se puede conservar al instalar con `--dashboard-port N`. |
 | `NODE_ENV` | `development` | Usa `production` para servir el cliente compilado. |
 | `DASHBOARD_UPDATE_CHECK` | enabled | Configura `0`, `false` u `off` para desactivar las comprobaciones programadas del upstream. |
@@ -2090,7 +2091,7 @@ flowchart LR
   MCP["Authenticated MCP sidecar"] --> APP
 ```
 
-- **Helm:** un único proceso de escritura impuesto por el esquema, compatibilidad con digest, PVC retenido, Ingress o Gateway API, montaje de tokens compatible con External Secret, NetworkPolicy y MCP y ServiceMonitor opcionales.
+- **Helm:** un único proceso de escritura impuesto por el esquema, compatibilidad con digest, PVC retenido, Ingress o Gateway API, montaje de tokens compatible con External Secret, NetworkPolicy y MCP y ServiceMonitor opcionales. Configura `config.DASHBOARD_BASE_URL` y la misma ruta de Ingress para servir la UI bajo un prefijo; las sondas, métricas y MCP siguen esa ruta.
 - **Kustomize:** base restricted-PSS con overlays de desarrollo, staging y producción, además de componentes opcionales para MCP, monitoring, Gateway API y snapshots CSI.
 - **Terraform:** despliega el chart Helm validado en un clúster Kubernetes existente. Las redes de nube, la identidad del clúster, CSI, TLS y la sincronización de secretos siguen a cargo del proveedor.
 - **Operaciones:** copia de seguridad online coherente de SQLite con SHA-256, restauración verificada escalando a cero, despliegue, rollback y teardown con copia previa y comprobaciones de estado autenticadas.

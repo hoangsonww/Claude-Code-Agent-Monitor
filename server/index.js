@@ -1,5 +1,5 @@
 /**
- * @file Sets up the Express server, API routes, WebSocket, production client,
+ * @file Sets up the Express server, base-path-aware API routes, WebSocket, production client,
  * and non-blocking Claude/Cursor/Codex synchronizers and maintenance jobs.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -12,9 +12,11 @@ require("./lib/dotenv").loadDotEnv();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
+const { injectBaseUrlIntoHtml, normalizeBaseUrl, stripBaseUrl } = require("./lib/base-url");
 const { createOpenApiSpec } = require("./openapi");
 const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
 const {
@@ -71,6 +73,25 @@ const DASHBOARD_FAVICON_PATH = path.join(__dirname, "..", "client", "public", "f
 function createApp() {
   const app = express();
   const openApiSpec = createOpenApiSpec();
+  const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
+
+  // Make every HTTP surface (API, static assets, and SPA routes) live under
+  // the configured reverse-proxy prefix while keeping route definitions local.
+  if (baseUrl) {
+    app.use((req, res, next) => {
+      const requestPath = req.url.split("?", 1)[0];
+      const pathWithoutPrefix = stripBaseUrl(requestPath, baseUrl);
+      // Local Claude/Codex hook handlers still target the loopback `/api/hooks`
+      // endpoint discovered from the server registry; keep that ingestion path
+      // working while the browser-facing API moves below the configured prefix.
+      if (pathWithoutPrefix === null) {
+        if (requestPath === "/api/hooks" || requestPath.startsWith("/api/hooks/")) return next();
+        return res.status(404).end();
+      }
+      req.url = `${pathWithoutPrefix}${req.url.slice(req.url.split("?", 1)[0].length)}`;
+      next();
+    });
+  }
 
   // Security hardening (GHSA-gr74-4xfh-6jw9): loopback-only CORS, a Host-header
   // allowlist (anti DNS-rebinding), and an optional bearer-token gate on /api/*.
@@ -114,7 +135,7 @@ function createApp() {
     swaggerUi.serve,
     swaggerUi.setup(openApiSpec, {
       customSiteTitle: "Agent Dashboard API Docs",
-      customfavIcon: "/favicon.svg",
+      customfavIcon: `${baseUrl}/favicon.svg`,
     })
   );
 
@@ -131,10 +152,10 @@ function createApp() {
       .type("html")
       .send(
         renderRedocHtml(
-          "/api/openapi.json",
-          "/api/redoc/redoc.standalone.js",
+          `${baseUrl}/api/openapi.json`,
+          `${baseUrl}/api/redoc/redoc.standalone.js`,
           "Agent Dashboard API Reference",
-          "/favicon.svg"
+          `${baseUrl}/favicon.svg`
         )
       );
   });
@@ -165,11 +186,13 @@ function createApp() {
 
 function startServer(app, port) {
   const server = http.createServer(app);
-  initWebSocket(server);
+  const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
+  initWebSocket(server, baseUrl);
 
   const isProduction = process.env.NODE_ENV === "production";
   if (isProduction) {
     const clientDist = path.join(__dirname, "..", "client", "dist");
+    const clientIndex = fs.readFileSync(path.join(clientDist, "index.html"), "utf8");
     // Cache policy designed to survive client rebuilds without forcing a hard
     // refresh:
     //   - Hashed bundles under /assets/ never change for a given URL, so cache
@@ -214,7 +237,7 @@ function startServer(app, port) {
     });
     app.get("*", (_req, res) => {
       res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      res.sendFile(path.join(clientDist, "index.html"));
+      res.type("html").send(injectBaseUrlIntoHtml(clientIndex, baseUrl));
     });
   }
 

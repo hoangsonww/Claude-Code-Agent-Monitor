@@ -181,6 +181,7 @@
 import { useEffect } from "react";
 import i18n from "../i18n";
 import { eventBus } from "../lib/eventBus";
+import { dashboardApiUrl } from "../lib/api";
 import { subscribeToPush } from "../lib/push";
 import type { WSMessage, Session, Agent, DashboardEvent } from "../lib/types";
 
@@ -248,7 +249,7 @@ function loadPrefs(): NotifPrefs {
 async function notify(title: string, body: string) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
-    await fetch("/api/push/send", {
+  await fetch(dashboardApiUrl("/push/send"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, body }),

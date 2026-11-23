@@ -113,6 +113,8 @@ config:
   NODE_ENV: production
   DASHBOARD_HOST: "0.0.0.0"
   DASHBOARD_PORT: "4820"
+  # Runtime URL prefix; also set the Ingress path to the same prefix.
+  DASHBOARD_BASE_URL: ""
   DASHBOARD_DATA_DIR: /app/data
   DASHBOARD_ENV_PATH: /app/data/config/.env
   CLAUDE_HOME: /app/data/claude

@@ -4,8 +4,8 @@
   "short_name": "Agent Dashboard",
   "description": "Real-time monitoring platform for Claude Code agent activity.",
   "author": "Son Nguyen",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "theme_color": "#6366f1",
   "background_color": "#0f1117",
@@ -13,13 +13,13 @@
   "categories": ["developer-tools", "productivity"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"

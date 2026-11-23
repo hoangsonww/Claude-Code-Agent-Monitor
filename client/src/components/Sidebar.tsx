@@ -275,6 +275,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
+import { withDashboardBase } from "../lib/baseUrl";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 import { Select } from "./Select";
@@ -1215,7 +1216,7 @@ function ConnectionStatusModal({
   const wsUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}/ws`;
+    return `${protocol}//${window.location.host}${withDashboardBase("/ws")}`;
   }, []);
 
   if (!open || typeof document === "undefined") return null;

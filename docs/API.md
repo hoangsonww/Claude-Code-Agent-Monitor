@@ -110,6 +110,12 @@ For production, use HTTPS:
 https://dashboard.example.com
 ```
 
+When deployed below a reverse-proxy path, set `DASHBOARD_BASE_URL` to that path (for example,
+`/dashboard`) and use `https://dashboard.example.com/dashboard` as the base URL. REST endpoints and
+the WebSocket endpoint are served below the same prefix. The server injects the path into the
+client at runtime, including prebuilt Docker and Helm images.
+Configure the reverse proxy to forward the path prefix unchanged to the dashboard server.
+
 ---
 
 ## REST API

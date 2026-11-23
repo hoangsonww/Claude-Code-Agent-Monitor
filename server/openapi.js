@@ -4,6 +4,7 @@
  */
 
 const pkg = require("../package.json");
+const { normalizeBaseUrl } = require("./lib/base-url");
 const extraSpec = require("./openapi-extra");
 
 function normalizeRepositoryUrl(url) {
@@ -43,6 +44,7 @@ function createOpenApiSpec() {
         ? `${repositoryUrl}/issues`
         : null;
   const defaultPort = Number.parseInt(process.env.DASHBOARD_PORT || "4820", 10) || 4820;
+  const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
 
   const spec = {
     openapi: "3.0.3",
@@ -69,12 +71,12 @@ function createOpenApiSpec() {
       : undefined,
     servers: [
       {
-        url: `http://localhost:${defaultPort}`,
+        url: `http://localhost:${defaultPort}${baseUrl}`,
         description: "Local dashboard server (default)",
       },
       {
-        url: "http://127.0.0.1:4820",
-        description: "Local loopback endpoint used by hook-handler",
+        url: `http://127.0.0.1:4820${baseUrl}`,
+        description: "Local loopback endpoint (default port)",
       },
     ],
     tags: [
