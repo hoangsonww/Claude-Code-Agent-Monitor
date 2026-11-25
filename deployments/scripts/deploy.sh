@@ -342,6 +342,9 @@ run_health_check() {
 
   # Determine health check URL
   local health_url=""
+  local dashboard_prefix="${DASHBOARD_BASE_URL:-}"
+  dashboard_prefix="${dashboard_prefix%/}"
+  [[ -z "$dashboard_prefix" || "$dashboard_prefix" == /* ]] || dashboard_prefix="/${dashboard_prefix}"
 
   # Try to get service URL from cluster
   local svc_type
@@ -354,13 +357,13 @@ run_health_check() {
         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
       [[ -z "$lb_host" ]] && lb_host=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-      [[ -n "$lb_host" ]] && health_url="http://${lb_host}/api/health"
+      [[ -n "$lb_host" ]] && health_url="http://${lb_host}${dashboard_prefix}/api/health"
       ;;
     NodePort)
       local node_port
       node_port=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
-      [[ -n "$node_port" ]] && health_url="http://localhost:${node_port}/api/health"
+      [[ -n "$node_port" ]] && health_url="http://localhost:${node_port}${dashboard_prefix}/api/health"
       ;;
     *)
       # Use port-forward for ClusterIP
@@ -369,7 +372,7 @@ run_health_check() {
       kubectl port-forward "svc/${service_name}" "${local_port}:80" -n "${NAMESPACE}" &
       local pf_pid=$!
       sleep 3
-      health_url="http://localhost:${local_port}/api/health"
+      health_url="http://localhost:${local_port}${dashboard_prefix}/api/health"
       ;;
   esac
 

@@ -21,6 +21,7 @@ const net = require("node:net");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
 const { normalizeBaseUrl } = require("../server/lib/base-url");
+require("../server/lib/dotenv").loadDotEnv();
 
 const START = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
 const RANGE = 40;

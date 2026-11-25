@@ -69,7 +69,7 @@ Create the name of the service account to use
 {{- $baseUrl := trimSuffix "/" (default "" .baseUrl) -}}
 {{- $httpGet := get $probe "httpGet" -}}
 {{- if and $baseUrl $httpGet -}}
-{{- $_ := set $httpGet "path" (printf "%s%s" $baseUrl (default "/" $httpGet.path)) -}}
+{{- $_ := set $httpGet "path" (printf "%s/%s" $baseUrl (trimPrefix "/" (default "/" $httpGet.path))) -}}
 {{- end -}}
 {{- toYaml $probe -}}
 {{- end -}}

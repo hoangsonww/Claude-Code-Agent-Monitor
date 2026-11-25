@@ -168,13 +168,16 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, resolve(process.cwd(), ".."), "");
   const dashboardEnv = loadDashboardEnv();
   const DASHBOARD_PORT = parseInt(
-    process.env.DASHBOARD_PORT || dashboardEnv.DASHBOARD_PORT || env.DASHBOARD_PORT || "4820",
+    process.env.DASHBOARD_PORT ||
+      dashboardEnv.DASHBOARD_PORT ||
+      (!process.env.DASHBOARD_ENV_PATH && env.DASHBOARD_PORT) ||
+      "4820",
     10
   );
   const requestedBaseUrl = (
     process.env.DASHBOARD_BASE_URL ||
     dashboardEnv.DASHBOARD_BASE_URL ||
-    env.DASHBOARD_BASE_URL ||
+    (!process.env.DASHBOARD_ENV_PATH && env.DASHBOARD_BASE_URL) ||
     ""
   ).trim();
   if (/^[a-z][a-z\d+.-]*:\/\//i.test(requestedBaseUrl) || /[?#\\]/.test(requestedBaseUrl)) {

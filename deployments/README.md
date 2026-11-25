@@ -56,6 +56,22 @@ ServiceMonitor metrics, and the MCP sidecar URL, and the server injects the
 prefix into prebuilt client assets at runtime. Existing values files using
 `config.DASHBOARD_BASE_URL` remain supported as a compatibility alias.
 
+**Kustomize subpaths require coordinated configuration.** The manifests use
+root paths by default and do not derive the other paths from the ConfigMap.
+For example, a `/dashboard` deployment needs these matching overlay patches:
+
+| Resource | Setting | Value |
+| --- | --- | --- |
+| Dashboard ConfigMap | `DASHBOARD_BASE_URL` | `/dashboard` |
+| Ingress | `spec.rules[].http.paths[].path` | `/dashboard` |
+| Dashboard Deployment | startup, readiness and liveness `httpGet.path` | `/dashboard/api/health` |
+| ServiceMonitor, if enabled | `spec.endpoints[].path` | `/dashboard/api/metrics` |
+| MCP sidecar, if enabled | `MCP_DASHBOARD_BASE_URL` | `http://127.0.0.1:4820/dashboard` |
+
+The proxy must forward the prefix without stripping it. Include the external
+hostname in `DASHBOARD_ALLOWED_HOSTS`. Set `DASHBOARD_BASE_URL=/dashboard` when
+running `deployments/scripts/deploy.sh` so its health check uses the same path.
+
 ```bash
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"
 IMAGE_TAG="$(git rev-parse --short HEAD)"

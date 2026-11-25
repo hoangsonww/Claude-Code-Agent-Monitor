@@ -16,6 +16,10 @@ const http = require("http");
 
 const POLL_INTERVAL_MS = 5000;
 const SPARK_HISTORY = 20;
+const basePath = () => {
+  const value = (process.env.DASHBOARD_BASE_URL || "").replace(/^\/+|\/+$/g, "");
+  return value ? `/${value}` : "";
+};
 
 class DashboardWebviewProvider {
   constructor(context, output) {
@@ -245,7 +249,12 @@ class DashboardWebviewProvider {
         resolve(v);
       };
       const req = http.get(
-        { hostname: "127.0.0.1", port: p, path: p === 4820 ? "/api/health" : "/", timeout: 800 },
+        {
+          hostname: "127.0.0.1",
+          port: p,
+          path: `${basePath()}${p === 4820 ? "/api/health" : "/"}`,
+          timeout: 800,
+        },
         (res) => {
           res.resume();
           finish(true);
@@ -267,17 +276,20 @@ class DashboardWebviewProvider {
         } catch (_) {}
         fn(v);
       };
-      const req = http.get({ hostname: "127.0.0.1", port: p, path, timeout: 1500 }, (r) => {
-        let d = "";
-        r.on("data", (c) => (d += c));
-        r.on("end", () => {
-          try {
-            finish(resolve, JSON.parse(d));
-          } catch (e) {
-            finish(reject, e);
-          }
-        });
-      });
+      const req = http.get(
+        { hostname: "127.0.0.1", port: p, path: `${basePath()}${path}`, timeout: 1500 },
+        (r) => {
+          let d = "";
+          r.on("data", (c) => (d += c));
+          r.on("end", () => {
+            try {
+              finish(resolve, JSON.parse(d));
+            } catch (e) {
+              finish(reject, e);
+            }
+          });
+        }
+      );
       req.on("error", (e) => finish(reject, e));
       req.on("timeout", () => finish(reject, new Error("timeout")));
     });

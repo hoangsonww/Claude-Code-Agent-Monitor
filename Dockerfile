@@ -65,7 +65,7 @@ ENV NODE_ENV=production \
 VOLUME ["/app/data", "/app/config"]
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
-  CMD ["node", "-e", "const {normalizeBaseUrl}=require('./server/lib/base-url');const base=normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);fetch('http://127.0.0.1:4820'+base+'/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "require('./server/lib/dotenv').loadDotEnv();const {normalizeBaseUrl}=require('./server/lib/base-url');const base=normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);fetch('http://127.0.0.1:4820'+base+'/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"]
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "server/index.js"]

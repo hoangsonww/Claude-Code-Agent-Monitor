@@ -264,7 +264,14 @@ export function Layout({ wsConnected }: LayoutProps) {
   return (
     <PaletteActionProvider>
       <div className="min-h-screen bg-surface-0">
-        <a href="#main-content" className="skip-to-content">
+        <a
+          href="#main-content"
+          className="skip-to-content"
+          onClick={(event) => {
+            event.preventDefault();
+            document.getElementById("main-content")?.focus();
+          }}
+        >
           {t("skipToContent")}
         </a>
         <LayoutActions onToggleSidebar={toggle} />
