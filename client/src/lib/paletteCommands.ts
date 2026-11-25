@@ -328,6 +328,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { DataScope, ProviderScope } from "./dataScope";
+import { withDashboardBase } from "./baseUrl";
 
 /** Result buckets, rendered in this order. */
 export type CommandGroup =
@@ -908,7 +909,7 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
       keywords: ["swagger", "openapi", "reference"],
       group: "actions",
       icon: BookOpen,
-      run: () => window.open("/api/docs", "_blank", "noopener,noreferrer"),
+      run: () => window.open(withDashboardBase("/api/docs"), "_blank", "noopener,noreferrer"),
     },
     {
       id: "action:issues",

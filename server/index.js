@@ -1533,7 +1533,12 @@ function startSessionSync(broadcast) {
 function probeDashboardHealth(port, timeoutMs = 1500) {
   return new Promise((resolve) => {
     const req = http.get(
-      { host: "127.0.0.1", port, path: "/api/health", timeout: timeoutMs },
+      {
+        host: "127.0.0.1",
+        port,
+        path: `${normalizeBaseUrl(process.env.DASHBOARD_BASE_URL)}/api/health`,
+        timeout: timeoutMs,
+      },
       (res) => {
         let buf = "";
         res.setEncoding("utf8");

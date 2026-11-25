@@ -43,7 +43,7 @@ function buildTargets(resolvePorts, endpointPath) {
       throw new Error("Remote CCAM_DASHBOARD_URL values require CCAM_HOOK_TOKEN");
     }
     const target = new URL(remote.toString());
-    target.pathname = endpointPath;
+    target.pathname = `${remote.pathname.replace(/\/+$/, "")}${endpointPath}`;
     target.search = "";
     target.hash = "";
     return [target];

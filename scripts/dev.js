@@ -20,6 +20,7 @@
 const net = require("node:net");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
+const { normalizeBaseUrl } = require("../server/lib/base-url");
 
 const START = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
 const RANGE = 40;
@@ -27,18 +28,26 @@ const RANGE = 40;
 /** Resolve true if a healthy dashboard already answers /api/health on `port`. */
 function healthyDashboardOn(port) {
   return new Promise((resolve) => {
-    const req = http.get({ host: "127.0.0.1", port, path: "/api/health", timeout: 600 }, (res) => {
-      let buf = "";
-      res.setEncoding("utf8");
-      res.on("data", (c) => (buf += c));
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(buf)?.status === "ok");
-        } catch {
-          resolve(false);
-        }
-      });
-    });
+    const req = http.get(
+      {
+        host: "127.0.0.1",
+        port,
+        path: `${normalizeBaseUrl(process.env.DASHBOARD_BASE_URL)}/api/health`,
+        timeout: 600,
+      },
+      (res) => {
+        let buf = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (buf += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(buf)?.status === "ok");
+          } catch {
+            resolve(false);
+          }
+        });
+      }
+    );
     req.on("error", () => resolve(false));
     req.on("timeout", () => {
       req.destroy();
