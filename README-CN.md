@@ -2065,7 +2065,7 @@ graph LR
 
 `deployments/` 可部署到任何兼容 Kubernetes 的平台，包括 EKS、GKE、AKS、OKE 和自建集群。CCAM 使用 SQLite，因此所有受支持的清单都强制 **每个持久卷只有一个活动 Dashboard writer**，并采用 Recreate 更新。只要 SQLite 仍是持久化后端，就不支持 HPA、active-active、多副本、蓝绿或金丝雀。
 
-- **Helm：** Schema 拒绝多副本/HPA，支持镜像 digest、保留 PVC、Ingress 或 Gateway API、外部 Secret、NetworkPolicy、可选 MCP 与 ServiceMonitor。设置 `config.baseUrl` 并配置匹配的 Ingress 路径，即可将 UI 部署在路径前缀下；探针、指标抓取和 MCP 会同步使用该路径。`config.DASHBOARD_BASE_URL` 仍作为兼容别名保留。
+- **Helm：** Schema 拒绝多副本/HPA，支持镜像 digest、保留 PVC、Ingress 或 Gateway API、外部 Secret、NetworkPolicy、可选 MCP 与 ServiceMonitor。设置 `config.DASHBOARD_BASE_URL` 并配置匹配的 Ingress 路径，即可将 UI 部署在路径前缀下；探针、指标抓取和 MCP 会同步使用该路径。
 - **Kustomize：** Restricted PSS 基础、dev/staging/production overlay，以及 MCP、监控、Gateway API、CSI Snapshot 组件。
 - **Terraform：** 将经过验证的 Helm Chart 部署到现有 Kubernetes 集群；云网络、身份、CSI、TLS 与 Secret 同步由平台层负责。
 - **运维：** SQLite 在线备份、完整性检查、SHA-256、scale-to-zero 恢复、部署/回滚/拆除前备份、带认证的健康检查。

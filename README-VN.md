@@ -2069,7 +2069,7 @@ graph LR
 
 `deployments/` chạy trên mọi Kubernetes tương thích, gồm EKS, GKE, AKS, OKE và cụm tự quản lý. CCAM dùng SQLite, vì vậy mọi manifest được hỗ trợ đều bắt buộc **chính xác một dashboard writer đang hoạt động trên mỗi persistent volume** với Recreate. HPA, active-active, nhiều replica, blue-green và canary không được hỗ trợ khi SQLite vẫn là persistence backend.
 
-- **Helm:** schema chặn nhiều replica/HPA, hỗ trợ image digest, retained PVC, Ingress hoặc Gateway API, external Secret, NetworkPolicy, MCP và ServiceMonitor tùy chọn. Đặt `config.baseUrl` cùng đường dẫn Ingress tương ứng để phục vụ UI dưới một tiền tố; probe, metrics và MCP sẽ dùng cùng đường dẫn. `config.DASHBOARD_BASE_URL` vẫn được hỗ trợ như một bí danh tương thích.
+- **Helm:** schema chặn nhiều replica/HPA, hỗ trợ image digest, retained PVC, Ingress hoặc Gateway API, external Secret, NetworkPolicy, MCP và ServiceMonitor tùy chọn. Đặt `config.DASHBOARD_BASE_URL` cùng đường dẫn Ingress tương ứng để phục vụ UI dưới một tiền tố; probe, metrics và MCP sẽ dùng cùng đường dẫn.
 - **Kustomize:** Restricted PSS base, overlay dev/staging/production, component MCP, monitoring, Gateway API và CSI snapshot.
 - **Terraform:** triển khai Helm chart đã kiểm chứng lên Kubernetes cluster có sẵn; networking, identity, CSI, TLS và secret sync do lớp cloud quản lý.
 - **Operations:** SQLite online backup, integrity check, SHA-256, scale-to-zero restore, backup trước deploy/rollback/teardown và health check có auth.

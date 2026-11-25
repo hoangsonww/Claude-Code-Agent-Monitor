@@ -104,15 +104,12 @@
     "config": {
       "type": "object",
       "properties": {
-        "baseUrl": {
-          "type": "string",
-          "description": "Optional reverse-proxy path prefix, such as /dashboard."
-        },
         "DASHBOARD_BASE_URL": {
           "type": "string",
-          "description": "Compatibility alias for config.baseUrl."
+          "description": "Optional reverse-proxy path prefix, such as /dashboard."
         }
-      }
+      },
+      "not": { "required": ["baseUrl"] }
     }
   },
   "allOf": [

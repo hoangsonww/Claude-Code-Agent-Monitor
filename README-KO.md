@@ -2091,7 +2091,7 @@ flowchart LR
 
 `deployments/`는 EKS, GKE, AKS, OKE 및 자체 관리형 클러스터를 포함한 모든 호환 Kubernetes 환경을 대상으로 합니다. CCAM은 SQLite를 사용하므로 모든 지원 manifest는 Recreate 전략과 함께 **persistent volume마다 정확히 하나의 활성 dashboard writer**를 강제합니다. SQLite가 persistence backend인 동안 HPA, active-active, 다중 replica, blue-green, canary는 지원하지 않습니다.
 
-- **Helm:** schema가 다중 replica/HPA를 거부하고 image digest, retained PVC, Ingress 또는 Gateway API, 외부 Secret, NetworkPolicy, 선택적 MCP 및 ServiceMonitor를 지원합니다. `config.baseUrl`과 같은 Ingress 경로를 설정하면 UI를 경로 접두사 아래 제공하며 probe, metrics, MCP도 해당 경로를 사용합니다. `config.DASHBOARD_BASE_URL`은 호환성 별칭으로 계속 지원됩니다.
+- **Helm:** schema가 다중 replica/HPA를 거부하고 image digest, retained PVC, Ingress 또는 Gateway API, 외부 Secret, NetworkPolicy, 선택적 MCP 및 ServiceMonitor를 지원합니다. `config.DASHBOARD_BASE_URL`과 같은 Ingress 경로를 설정하면 UI를 경로 접두사 아래 제공하며 probe, metrics, MCP도 해당 경로를 사용합니다.
 - **Kustomize:** Restricted PSS base, dev/staging/production overlay, MCP·monitoring·Gateway API·CSI snapshot component를 제공합니다.
 - **Terraform:** 검증된 Helm chart를 기존 Kubernetes cluster에 배포합니다. Cloud networking, identity, CSI, TLS, secret sync는 플랫폼 계층이 소유합니다.
 - **Operations:** SQLite online backup, integrity check, SHA-256, scale-to-zero restore, deploy/rollback/teardown 전 백업, 인증된 health check를 제공합니다.

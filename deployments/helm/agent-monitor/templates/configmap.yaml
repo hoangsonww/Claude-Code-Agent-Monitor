@@ -6,7 +6,7 @@ metadata:
     {{- include "agent-monitor.labels" . | nindent 4 }}
 data:
   DASHBOARD_BASE_URL: {{ include "agent-monitor.baseUrl" . | quote }}
-  {{- $config := omit .Values.config "baseUrl" "DASHBOARD_BASE_URL" }}
+  {{- $config := omit .Values.config "DASHBOARD_BASE_URL" }}
   {{- range $key, $value := $config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}

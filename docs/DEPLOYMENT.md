@@ -196,7 +196,7 @@ helm upgrade --install agent-monitor deployments/helm/agent-monitor \
 
 Prefer `image.digest=sha256:...` after CI publishes the image. The chart supports standard Ingress and Gateway API `HTTPRoute`, but the schema rejects enabling both.
 
-To serve the dashboard below a path, set `config.baseUrl` in the Helm values (for example `/dashboard`) and use the same path in `ingress.hosts[].paths[].path`. The chart prefixes health probes, ServiceMonitor metrics, and the MCP sidecar URL; the dashboard server injects the runtime path into the prebuilt client image. Configure the edge proxy to preserve that prefix when forwarding requests. Existing values files using `config.DASHBOARD_BASE_URL` remain supported as a compatibility alias.
+To serve the dashboard below a path, set `config.DASHBOARD_BASE_URL` in the Helm values (for example `/dashboard`) and use the same path in `ingress.hosts[].paths[].path`. The chart prefixes health probes, ServiceMonitor metrics, and the MCP sidecar URL; the dashboard server injects the runtime path into the prebuilt client image. Configure the edge proxy to preserve that prefix when forwarding requests.
 
 ### Kustomize
 
