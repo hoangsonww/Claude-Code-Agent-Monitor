@@ -27,8 +27,9 @@ function probePath(port, path, timeoutMs) {
 
 async function probeDashboardHealth(port, baseUrl, timeoutMs = 1500) {
   const base = normalizeBaseUrl(baseUrl);
-  if (await probePath(port, `${base}/api/health`, timeoutMs)) return true;
-  return base ? probePath(port, "/api/health", timeoutMs) : false;
+  if (await probePath(port, `${base}/api/health`, timeoutMs)) return { baseUrl: base };
+  if (base && (await probePath(port, "/api/health", timeoutMs))) return { baseUrl: "" };
+  return null;
 }
 
 module.exports = { probeDashboardHealth };

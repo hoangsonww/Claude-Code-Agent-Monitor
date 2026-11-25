@@ -25,7 +25,7 @@ require("../server/lib/dotenv").loadDotEnv();
 const START = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
 const RANGE = 40;
 
-/** Resolve true if a healthy dashboard already answers /api/health on `port`. */
+/** Detect a healthy dashboard already answering on `port`. */
 const healthyDashboardOn = (port) =>
   probeDashboardHealth(port, process.env.DASHBOARD_BASE_URL, 600);
 

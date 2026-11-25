@@ -293,7 +293,7 @@ function startServer(app, port) {
       }
       const mode = isProduction ? "production" : "development";
       const shown = boundLoopback ? "localhost" : host;
-      console.log(`Agent Dashboard server running on http://${shown}:${port} (${mode})`);
+      console.log(`Agent Dashboard server running on http://${shown}:${port}${baseUrl} (${mode})`);
       if (!boundLoopback) {
         console.warn(
           `⚠️  Dashboard bound to ${host} — reachable from the network. ` +
@@ -1542,7 +1542,7 @@ if (require.main === module) {
   probeDashboardHealth(PORT, process.env.DASHBOARD_BASE_URL).then((alreadyRunning) => {
     if (alreadyRunning && !isWatchMode) {
       console.log(
-        `Agent Dashboard is already running on http://localhost:${PORT} — not starting a ` +
+        `Agent Dashboard is already running on http://localhost:${PORT}${alreadyRunning.baseUrl} — not starting a ` +
           `second instance. Open that URL, or stop the other dashboard first.`
       );
       process.exit(0);

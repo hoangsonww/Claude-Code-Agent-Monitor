@@ -18,14 +18,14 @@ it("recognizes the configured prefix and a legacy root dashboard", async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
     const port = server.address().port;
-    assert.equal(await probeDashboardHealth(port, " /dashboard/ "), true);
+    assert.deepEqual(await probeDashboardHealth(port, " /dashboard/ "), { baseUrl: "/dashboard" });
     assert.deepEqual(paths.splice(0), ["/dashboard/api/health"]);
     activePath = "/api/health";
-    assert.equal(await probeDashboardHealth(port, "/dashboard"), true);
+    assert.deepEqual(await probeDashboardHealth(port, "/dashboard"), { baseUrl: "" });
     assert.deepEqual(paths.splice(0), ["/dashboard/api/health", "/api/health"]);
     activePath = "/different/api/health";
-    assert.equal(await probeDashboardHealth(port, "/dashboard"), false);
-    assert.equal(await probeDashboardHealth(port, ""), false);
+    assert.equal(await probeDashboardHealth(port, "/dashboard"), null);
+    assert.equal(await probeDashboardHealth(port, ""), null);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

@@ -22,15 +22,15 @@ const tags = [
 ];
 
 /**
- * Reusable response fragment for the trusted-host same-origin guard. Applied to
+ * Reusable response fragment for the trusted-host guard. Applied to
  * EVERY route in `server/routes/run.js` (the router-level `sameOriginGuard`
  * middleware): browser requests whose `Origin`/`Referer` host is not one of
- * a loopback host or DASHBOARD_ALLOWED_HOSTS are rejected before any handler runs.
+ * a loopback host, POD_IP, or DASHBOARD_ALLOWED_HOSTS are rejected before any handler runs.
  * Server/CLI requests (curl) with neither header pass through.
  */
 const ebadOrigin403 = {
   description:
-    "Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.",
+    "Untrusted Origin or Referer hostname rejected (EBADORIGIN). The /api/run routes accept loopback hostnames, POD_IP, and hostnames configured in DASHBOARD_ALLOWED_HOSTS. Origin is checked first; Referer is checked only when Origin is absent. Requests without either header are allowed. This hostname check does not compare scheme, port, or request host.",
   content: {
     "application/json": {
       schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -677,7 +677,7 @@ const paths = {
       tags: ["Run"],
       summary: "List live + recently-exited runs",
       description:
-        "Returns every run handle currently held in memory (newest first) plus concurrency telemetry (`maxConcurrent`, `activeCount`). Handles are reaped 5 minutes after the process exits, so terminal runs disappear from here but remain in GET /api/run/history. Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Returns every run handle currently held in memory (newest first) plus concurrency telemetry (`maxConcurrent`, `activeCount`). Handles are reaped 5 minutes after the process exits, so terminal runs disappear from here but remain in GET /api/run/history. Read-only — no process is spawned. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runList",
       responses: {
         200: {
@@ -732,7 +732,7 @@ const paths = {
       tags: ["Run"],
       summary: "Spawn a new run",
       description:
-        "Spawns a Claude Code subprocess or a native interactive Codex app-server thread in the sanitised `cwd`. Claude supports headless and multi-turn conversation modes; Codex always starts/resumes a multi-turn thread and emits structured app-server events in `run_stream`. Provider-specific approval/sandbox settings are validated before spawning. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped after exit. Concurrency is capped (ECONCURRENCY -> 429). The loopback same-origin guard applies. Returns the freshly-created RunHandle.",
+        "Spawns a Claude Code subprocess or a native interactive Codex app-server thread in the sanitised `cwd`. Claude supports headless and multi-turn conversation modes; Codex always starts/resumes a multi-turn thread and emits structured app-server events in `run_stream`. Provider-specific approval/sandbox settings are validated before spawning. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped after exit. Concurrency is capped (ECONCURRENCY -> 429). The trusted-host Origin/Referer hostname guard applies. Returns the freshly-created RunHandle.",
       operationId: "runSpawn",
       requestBody: {
         required: true,
@@ -874,7 +874,7 @@ const paths = {
       tags: ["Run"],
       summary: "List persisted run history",
       description:
-        "Returns the persistent history of runs spawned via the dashboard, sourced from the `dashboard_runs` sqlite table (newest first). Unlike GET /api/run, this survives the 5-minute in-memory reap so past runs stay visible and resumable for days. Each item is cross-referenced against live handles to set `isLive`. Returns `{ items: [] }` if the persistence DB is unavailable. Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Returns the persistent history of runs spawned via the dashboard, sourced from the `dashboard_runs` sqlite table (newest first). Unlike GET /api/run, this survives the 5-minute in-memory reap so past runs stay visible and resumable for days. Each item is cross-referenced against live handles to set `isLive`. Returns `{ items: [] }` if the persistence DB is unavailable. Read-only — no process is spawned. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runHistory",
       parameters: [
         {
@@ -925,7 +925,7 @@ const paths = {
       tags: ["Run"],
       summary: "Suggest working directories",
       description:
-        "Suggests plausible working directories for the Run launcher: the dashboard server's cwd (always first), $HOME, and distinct recent cwds Claude Code has been used in (from the sessions table). Only directories that still exist on disk are returned; the DB lookup is best-effort. Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Suggests plausible working directories for the Run launcher: the dashboard server's cwd (always first), $HOME, and distinct recent cwds Claude Code has been used in (from the sessions table). Only directories that still exist on disk are returned; the DB lookup is best-effort. Read-only — no process is spawned. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runCwds",
       parameters: [
         {
@@ -967,7 +967,7 @@ const paths = {
       tags: ["Run"],
       summary: "Autocomplete files within a cwd",
       description:
-        "Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor's `@` references. The cwd is validated via the same sanitiser as spawning: it must be an existing absolute directory, is canonicalized with realpath, and intentionally may be outside this repository. Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor's `@` references. The cwd is validated via the same sanitiser as spawning: it must be an existing absolute directory, is canonicalized with realpath, and intentionally may be outside this repository. Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runFiles",
       parameters: [
         {
@@ -1017,7 +1017,7 @@ const paths = {
       tags: ["Run"],
       summary: "Check whether the selected agent binary is on PATH",
       description:
-        "Probes PATH (via which/where) for the selected `claude` or `codex` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The loopback same-origin guard applies.",
+        "Probes PATH (via which/where) for the selected `claude` or `codex` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runBinary",
       parameters: [
         {
@@ -1046,7 +1046,7 @@ const paths = {
       tags: ["Run"],
       summary: "Send a follow-up turn to a conversation run",
       description:
-        "Writes a stream-json user envelope to a running conversation's stdin and broadcasts a `run_input_ack` WebSocket message. Only valid for `conversation`-mode runs that are still `running`/`spawning` with writable stdin. SIDE EFFECT: the child resumes processing the new turn and emits further `run_stream`/`run_status` messages. The loopback same-origin guard applies.",
+        "Writes a stream-json user envelope to a running conversation's stdin and broadcasts a `run_input_ack` WebSocket message. Only valid for `conversation`-mode runs that are still `running`/`spawning` with writable stdin. SIDE EFFECT: the child resumes processing the new turn and emits further `run_stream`/`run_status` messages. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runSendMessage",
       parameters: [
         {
@@ -1122,7 +1122,7 @@ const paths = {
       tags: ["Run"],
       summary: "Get a single run",
       description:
-        "Returns the in-memory handle for one run. Pass `?envelopes=1` to additionally include the bounded (≤500) stream-json envelope replay buffer so a client can re-attach to an in-flight run and see what it missed. Available only while the handle is live or within the 5-minute post-exit reap window — afterwards use GET /api/run/history. Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Returns the in-memory handle for one run. Pass `?envelopes=1` to additionally include the bounded (≤500) stream-json envelope replay buffer so a client can re-attach to an in-flight run and see what it missed. Available only while the handle is live or within the 5-minute post-exit reap window — afterwards use GET /api/run/history. Read-only — no process is spawned. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runGet",
       parameters: [
         {
@@ -1208,7 +1208,7 @@ const paths = {
       tags: ["Run"],
       summary: "Kill a run",
       description:
-        "Terminates a live run: sends SIGTERM (escalating to SIGKILL after ~5s if needed), sets the handle status to `killed`, broadcasts a `run_status` WebSocket message, persists the status to `dashboard_runs`, and schedules the handle for the 5-minute reap. Idempotent — returns `{ ok: true }` even if the run had already terminated. The loopback same-origin guard applies.",
+        "Terminates a live run: sends SIGTERM (escalating to SIGKILL after ~5s if needed), sets the handle status to `killed`, broadcasts a `run_status` WebSocket message, persists the status to `dashboard_runs`, and schedules the handle for the 5-minute reap. Idempotent — returns `{ ok: true }` even if the run had already terminated. The trusted-host Origin/Referer hostname guard applies.",
       operationId: "runKill",
       parameters: [
         {
