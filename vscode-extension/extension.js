@@ -10,13 +10,10 @@
 const vscode = require("vscode");
 const http = require("http");
 const { DashboardWebviewProvider } = require("./sidebar");
+const { basePath } = require("./base-url");
 
 let statusBarItem;
 let outputChannel;
-const basePath = () => {
-  const value = (process.env.DASHBOARD_BASE_URL || "").replace(/^\/+|\/+$/g, "");
-  return value ? `/${value}` : "";
-};
 
 function activate(context) {
   outputChannel = vscode.window.createOutputChannel("Claude Code Monitor");

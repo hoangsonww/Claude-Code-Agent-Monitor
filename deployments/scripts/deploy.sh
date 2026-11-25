@@ -341,10 +341,15 @@ run_health_check() {
   [[ -n "$service_name" ]] || fatal "No CCAM Service found in ${NAMESPACE}"
 
   # Determine health check URL
-  local health_url=""
-  local dashboard_prefix="${DASHBOARD_BASE_URL:-}"
-  dashboard_prefix="${dashboard_prefix%/}"
-  [[ -z "$dashboard_prefix" || "$dashboard_prefix" == /* ]] || dashboard_prefix="/${dashboard_prefix}"
+  local health_url="" dashboard_prefix
+  # Resolve the same environment and dotenv file the deployed server reads.
+  # Never roll back a healthy release merely because its prefix is unknown.
+  if ! dashboard_prefix=$(kubectl exec "deployment/${deployment_name}" -n "${NAMESPACE}" \
+    -c agent-monitor -- node -e \
+    'require("./server/lib/dotenv").loadDotEnv(); process.stdout.write(require("./server/lib/base-url").normalizeBaseUrl(process.env.DASHBOARD_BASE_URL));'); then
+    err "Could not read the deployed dashboard base URL; health check was not run and no rollback was attempted."
+    return 1
+  fi
 
   # Try to get service URL from cluster
   local svc_type
@@ -400,7 +405,7 @@ run_health_check() {
       chmod 600 "$token_file"
     fi
     local health_args=(
-      --url "${health_url}"
+      --url "${health_url%/api/health}"
       --retries "${HEALTH_CHECK_RETRIES}"
       --interval "${HEALTH_CHECK_INTERVAL}"
     )
@@ -519,4 +524,6 @@ main() {
   echo ""
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

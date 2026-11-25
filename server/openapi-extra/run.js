@@ -26,11 +26,11 @@ const tags = [
  * EVERY route in `server/routes/run.js` (the router-level `sameOriginGuard`
  * middleware): browser requests whose `Origin`/`Referer` host is not one of
  * a loopback host or DASHBOARD_ALLOWED_HOSTS are rejected before any handler runs.
- * Server/CLI requests (curl) usually carry no `Origin` and pass through.
+ * Server/CLI requests (curl) with neither header pass through.
  */
 const ebadOrigin403 = {
   description:
-    "Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without an Origin header (e.g. curl) are allowed.",
+    "Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.",
   content: {
     "application/json": {
       schema: { $ref: "#/components/schemas/ErrorResponse" },

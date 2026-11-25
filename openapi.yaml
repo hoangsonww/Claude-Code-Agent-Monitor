@@ -19,7 +19,7 @@ servers:
   - url: http://localhost:4820
     description: Local dashboard server (default)
   - url: http://127.0.0.1:4820
-    description: Local loopback endpoint used by hook-handler
+    description: Local loopback endpoint (default port)
 tags:
   - name: Health
     description: Service liveness checks
@@ -10037,7 +10037,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RunModelsResponse'
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10100,7 +10100,7 @@ paths:
                 maxConcurrent: 10000
                 activeCount: 1
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10201,7 +10201,7 @@ paths:
                       code: EBADSESSION
                       message: resumeSessionId is not a valid session id
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10277,7 +10277,7 @@ paths:
                     ended_at: '2026-06-25T17:01:42.500Z'
                     isLive: false
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10320,7 +10320,7 @@ paths:
                     path: /Users/dev/projects/my-app
                     label: my-app
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10374,7 +10374,7 @@ paths:
                   code: EBADCWD
                   message: 'cwd does not exist: /no/such/dir'
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10408,7 +10408,7 @@ paths:
                 path: /usr/local/bin/codex
                 provider: codex
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10478,7 +10478,7 @@ paths:
                       code: ESTDINCLOSED
                       message: stdin is not writable
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10568,7 +10568,7 @@ paths:
                         - type: text
                           text: Working on it...
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:
@@ -10612,7 +10612,7 @@ paths:
               example:
                 ok: true
         '403':
-          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level trusted-host same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is neither loopback nor configured with DASHBOARD_ALLOWED_HOSTS is refused. Requests without either Origin or Referer (e.g. curl) are allowed.'
           content:
             application/json:
               schema:

@@ -17,6 +17,7 @@ const http = require("http");
 const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
 const { injectBaseUrlIntoHtml, normalizeBaseUrl, stripBaseUrl } = require("./lib/base-url");
+const { probeDashboardHealth } = require("./lib/health-probe");
 const { createOpenApiSpec } = require("./openapi");
 const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
 const {
@@ -1523,43 +1524,6 @@ function startSessionSync(broadcast) {
   }
 }
 
-/**
- * Resolve true when a healthy dashboard already answers `/api/health` on
- * `port`. Used by the standalone entry point to avoid starting a SECOND server
- * on the now-shared database — two live servers would each persist the
- * fanned-out hook events and double-count them. Never rejects; any
- * error/timeout (nothing listening, or a non-dashboard process) resolves false.
- */
-function probeDashboardHealth(port, timeoutMs = 1500) {
-  return new Promise((resolve) => {
-    const req = http.get(
-      {
-        host: "127.0.0.1",
-        port,
-        path: `${normalizeBaseUrl(process.env.DASHBOARD_BASE_URL)}/api/health`,
-        timeout: timeoutMs,
-      },
-      (res) => {
-        let buf = "";
-        res.setEncoding("utf8");
-        res.on("data", (c) => (buf += c));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(buf)?.status === "ok");
-          } catch {
-            resolve(false);
-          }
-        });
-      }
-    );
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
-}
-
 if (require.main === module) {
   const PORT = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
   let httpServer = null;
@@ -1575,7 +1539,7 @@ if (require.main === module) {
   // races the old process on the same port, and adopting there would wedge
   // hot-reload. Dev already runs its own isolated server by design.
   const isWatchMode = process.execArgv.some((a) => a.startsWith("--watch"));
-  probeDashboardHealth(PORT).then((alreadyRunning) => {
+  probeDashboardHealth(PORT, process.env.DASHBOARD_BASE_URL).then((alreadyRunning) => {
     if (alreadyRunning && !isWatchMode) {
       console.log(
         `Agent Dashboard is already running on http://localhost:${PORT} — not starting a ` +

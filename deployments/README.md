@@ -69,8 +69,9 @@ For example, a `/dashboard` deployment needs these matching overlay patches:
 | MCP sidecar, if enabled | `MCP_DASHBOARD_BASE_URL` | `http://127.0.0.1:4820/dashboard` |
 
 The proxy must forward the prefix without stripping it. Include the external
-hostname in `DASHBOARD_ALLOWED_HOSTS`. Set `DASHBOARD_BASE_URL=/dashboard` when
-running `deployments/scripts/deploy.sh` so its health check uses the same path.
+hostname in `DASHBOARD_ALLOWED_HOSTS`. The deployment script reads the effective
+prefix from the running dashboard container for its post-deployment check; the
+operator must have permission to execute commands in that container.
 
 ```bash
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"

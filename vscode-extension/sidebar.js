@@ -13,13 +13,10 @@
 
 const vscode = require("vscode");
 const http = require("http");
+const { basePath } = require("./base-url");
 
 const POLL_INTERVAL_MS = 5000;
 const SPARK_HISTORY = 20;
-const basePath = () => {
-  const value = (process.env.DASHBOARD_BASE_URL || "").replace(/^\/+|\/+$/g, "");
-  return value ? `/${value}` : "";
-};
 
 class DashboardWebviewProvider {
   constructor(context, output) {

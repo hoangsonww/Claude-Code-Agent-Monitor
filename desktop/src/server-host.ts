@@ -686,7 +686,7 @@ async function waitForHealthy(port: number, timeoutMs = HEALTH_TIMEOUT_MS): Prom
  *     on 4820?" check and always start our own.
  */
 function dashboardBasePath(): string {
-  const value = (process.env.DASHBOARD_BASE_URL || "").replace(/^\/+|\/+$/g, "");
+  const value = (process.env.DASHBOARD_BASE_URL || "").trim().replace(/^\/+|\/+$/g, "");
   return value ? `/${value}` : "";
 }
 
