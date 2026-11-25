@@ -42,6 +42,17 @@ npm install
 npm run dev
 ```
 
+When the server uses a subpath, export the same `DASHBOARD_BASE_URL` in the
+environment that starts VS Code. The extension host does not read the server's
+`.env` file. For example:
+
+```bash
+DASHBOARD_BASE_URL=/dashboard code .
+```
+
+Fully restart any existing VS Code instance so the extension host inherits the
+updated environment.
+
 ### 2. Installation
 - Search for **"Claude Code Agent Monitor"** in the VS Code Marketplace.
 - Click **Install**.

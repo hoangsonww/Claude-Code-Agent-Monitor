@@ -73,6 +73,14 @@ describe("Host allowlist (DNS-rebinding defense)", () => {
     assert.equal(sec.isHostAllowed("10.42.1.23:4820"), true);
     assert.equal(sec.isHostAllowed("10.42.1.24:4820"), false);
   });
+  it("permits IPv6 pod IPs in Host headers", () => {
+    process.env.POD_IP = "fd00:0:0:0:0:0:0:1234";
+    assert.equal(sec.isHostAllowed("[fd00::1234]:4820"), true);
+    assert.equal(sec.isHostAllowed("[fd00:0:0:0:0:0:0:1234]:4820"), true);
+    assert.equal(sec.isHostAllowed("[fd00::1235]:4820"), false);
+    process.env.POD_IP = "fd00::1234";
+    assert.equal(sec.isHostAllowed("[fd00:0:0:0:0:0:0:1234]:4820"), true);
+  });
   it("hostGuard middleware 403s a disallowed Host", () => {
     const res = mockRes();
     let nexted = false;
@@ -98,6 +106,11 @@ describe("CORS", () => {
   it("allows loopback origins", async () => {
     assert.equal(await allowed("http://localhost:5173"), true);
     assert.equal(await allowed("http://127.0.0.1:4820"), true);
+  });
+  it("allows the IPv6 pod origin and refuses other IPv6 hosts", async () => {
+    process.env.POD_IP = "fd00:0:0:0:0:0:0:1234";
+    assert.equal(await allowed("http://[fd00::1234]:4820"), true);
+    assert.equal(await allowed("http://[fd00::1235]:4820"), false);
   });
   it("refuses cross-origin pages", async () => {
     assert.equal(await allowed("https://evil.example"), false);

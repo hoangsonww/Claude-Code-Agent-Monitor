@@ -110,6 +110,9 @@ affinity: {}
 topologySpreadConstraints: []
 
 config:
+  # Runtime URL prefix. Set this and the Ingress path to the same
+  # value when serving the dashboard below a reverse-proxy subpath.
+  DASHBOARD_BASE_URL: ""
   NODE_ENV: production
   DASHBOARD_HOST: "0.0.0.0"
   DASHBOARD_PORT: "4820"

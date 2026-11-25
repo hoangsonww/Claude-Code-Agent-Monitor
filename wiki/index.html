@@ -2041,6 +2041,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Port the Express server listens on</td>
                 </tr>
                 <tr>
+                  <td><code>DASHBOARD_BASE_URL</code></td>
+                  <td><code>(empty)</code></td>
+                  <td>Optional runtime URL path prefix for reverse-proxy deployments, such as <code>/dashboard</code>. The server injects it into the client, including prebuilt images.</td>
+                </tr>
+                <tr>
                   <td><code>CLAUDE_DASHBOARD_PORT</code></td>
                   <td><code>(unset; discovery)</code></td>
                   <td>
@@ -7322,7 +7327,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=126" defer></script>
+    <script src="i18n-content.js?v=127" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

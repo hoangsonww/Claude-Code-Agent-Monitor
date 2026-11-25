@@ -1632,7 +1632,7 @@ graph TB
     end
     
     subgraph "Post-Deployment"
-        Verify[Verify API<br/>curl localhost:4820/api/sessions]
+        Verify[Verify API<br/>curl localhost:4820/dashboard/api/sessions]
         WebSocket[Test WebSocket<br/>Browser connection]
     end
     
@@ -1648,11 +1648,15 @@ graph TB
     style Verify fill:#F59E0B
 ```
 
+When `DASHBOARD_BASE_URL` is unset, use the root endpoint instead:
+`curl http://localhost:4820/api/sessions`.
+
 ### Environment Variables
 
 ```bash
 # Server configuration
 DASHBOARD_PORT=4820                # Server port
+DASHBOARD_BASE_URL=                # Optional runtime reverse-proxy path prefix, e.g. /dashboard
 NODE_ENV=production                # Environment mode
 
 # Network exposure & hardening (see server/lib/security.js)

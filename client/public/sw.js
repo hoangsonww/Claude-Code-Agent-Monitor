@@ -31,10 +31,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  const scopePath = new URL(self.registration.scope).pathname;
+  const apiPath = `${scopePath}api/`;
+  const wsPath = `${scopePath}ws`;
   // Skip API, WebSocket, and Vite HMR endpoints
   if (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/ws") ||
+    url.pathname.startsWith(apiPath) ||
+    url.pathname.startsWith(wsPath) ||
     url.pathname.includes("__vite")
   )
     return;
@@ -42,7 +45,7 @@ self.addEventListener("fetch", (event) => {
   // Hashed bundles under /assets/ are immutable for a given URL - cache-first
   // is safe and fast. A new build emits new filenames, so stale entries simply
   // don't get re-requested.
-  if (url.pathname.startsWith("/assets/")) {
+  if (url.pathname.startsWith(`${scopePath}assets/`)) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
@@ -71,7 +74,11 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(request).then((c) => c || caches.match("/")))
+      .catch(() =>
+        caches
+          .match(request)
+          .then((c) => c || caches.match(new URL("./", self.registration.scope).href))
+      )
   );
 });
 

@@ -334,7 +334,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useLocation } from "react-router";
-import { api, type SnapshotStorage as SnapshotStorageInfo } from "../lib/api";
+import { api, dashboardApiUrl, type SnapshotStorage as SnapshotStorageInfo } from "../lib/api";
 import { usePaletteAction } from "../components/PaletteActionProvider";
 
 import { eventBus } from "../lib/eventBus";
@@ -3380,7 +3380,7 @@ export function Settings() {
                   onClick={async () => {
                     if (!("Notification" in window) || Notification.permission !== "granted")
                       return;
-                    await fetch("/api/push/send", {
+                    await fetch(dashboardApiUrl("/push/send"), {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({

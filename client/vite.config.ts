@@ -1,6 +1,6 @@
 /**
  * @file vite.config.ts
- * @description Vite build and dev-server configuration for the dashboard client — React plugin, an API/WebSocket proxy that honours DASHBOARD_PORT, and build-time injection of the project version as `__APP_VERSION__`.
+ * @description Vite build and dev-server configuration for the dashboard client — React plugin, API/WebSocket proxies honoring DASHBOARD_PORT and DASHBOARD_BASE_URL, and build-time project-version injection.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /*
@@ -100,7 +100,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
@@ -127,6 +127,31 @@ function resolveAppVersion(): string {
 /** Version injected as `__APP_VERSION__`. */
 const APP_VERSION = resolveAppVersion();
 
+/** Read the dashboard-owned dotenv file when development uses DASHBOARD_ENV_PATH. */
+function loadDashboardEnv(): Record<string, string> {
+  const envPath = process.env.DASHBOARD_ENV_PATH;
+  if (!envPath) return {};
+  try {
+    return Object.fromEntries(
+      readFileSync(resolve(envPath), "utf8")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#") && line.includes("="))
+        .map((line) => {
+          const index = line.indexOf("=");
+          const key = line.slice(0, index).trim();
+          const value = line
+            .slice(index + 1)
+            .trim()
+            .replace(/^(?:\"|')|(?:\"|')$/g, "");
+          return [key, value];
+        })
+    );
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Port of the dashboard server the dev proxy forwards to. Honors `DASHBOARD_PORT`, so the proxy
  * follows when `npm run dev:server` is moved off the default 4820 (for example when an SSH
@@ -139,28 +164,66 @@ const APP_VERSION = resolveAppVersion();
  * socket specificity, so `localhost` can reach the wrong process. An explicit IPv4 loopback is also
  * what the embedded production server binds to.
  */
-const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, resolve(process.cwd(), ".."), "");
+  const dashboardEnv = loadDashboardEnv();
+  const DASHBOARD_PORT = parseInt(
+    process.env.DASHBOARD_PORT ||
+      dashboardEnv.DASHBOARD_PORT ||
+      (!process.env.DASHBOARD_ENV_PATH && env.DASHBOARD_PORT) ||
+      "4820",
+    10
+  );
+  const requestedBaseUrl = (
+    process.env.DASHBOARD_BASE_URL ||
+    dashboardEnv.DASHBOARD_BASE_URL ||
+    (!process.env.DASHBOARD_ENV_PATH && env.DASHBOARD_BASE_URL) ||
+    ""
+  ).trim();
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(requestedBaseUrl) || /[?#\\]/.test(requestedBaseUrl)) {
+    throw new Error("DASHBOARD_BASE_URL must be a URL path, such as /dashboard");
+  }
+  const DASHBOARD_BASE_URL = requestedBaseUrl.replace(/^\/+|\/+$/g, "");
+  if (DASHBOARD_BASE_URL.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error("DASHBOARD_BASE_URL cannot contain dot path segments");
+  }
+  const BASE_PATH = DASHBOARD_BASE_URL ? `/${DASHBOARD_BASE_URL}` : "";
+  const API_PATH = `${BASE_PATH}/api`;
+  const WS_PATH = `${BASE_PATH}/ws`;
 
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __APP_VERSION__: JSON.stringify(APP_VERSION),
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: `http://127.0.0.1:${DASHBOARD_PORT}`,
-        changeOrigin: true,
+  return {
+    base: mode === "production" ? "./" : `${BASE_PATH}/`,
+    plugins: [
+      react(),
+      {
+        name: "dashboard-base-path",
+        apply: "serve",
+        transformIndexHtml(html) {
+          return html.replaceAll("__DASHBOARD_BASE_URL__", BASE_PATH);
+        },
       },
-      "/ws": {
-        target: `ws://127.0.0.1:${DASHBOARD_PORT}`,
-        ws: true,
+    ],
+    define: {
+      __APP_VERSION__: JSON.stringify(APP_VERSION),
+    },
+    server: {
+      port: 5173,
+      proxy: {
+        [API_PATH]: {
+          target: `http://127.0.0.1:${DASHBOARD_PORT}`,
+          changeOrigin: true,
+        },
+        [WS_PATH]: {
+          target: `ws://127.0.0.1:${DASHBOARD_PORT}`,
+          ws: true,
+        },
       },
     },
-  },
-  build: {
-    outDir: "dist",
-    sourcemap: true,
-  },
+    build: {
+      outDir: "dist",
+      // The production dashboard is served by the same Express process, so
+      // browser debugging does not need to expose build-machine source URLs.
+      sourcemap: false,
+    },
+  };
 });

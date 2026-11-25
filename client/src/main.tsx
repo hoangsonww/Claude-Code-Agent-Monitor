@@ -171,6 +171,7 @@ import "@fontsource/inter/latin-700.css";
 import "@fontsource/jetbrains-mono/latin-400.css";
 import "@fontsource/jetbrains-mono/latin-500.css";
 import App from "./App";
+import { withDashboardBase } from "./lib/baseUrl";
 import "./i18n";
 import "./index.css";
 
@@ -189,7 +190,7 @@ if ("serviceWorker" in navigator) {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("/sw.js")
+    .register(withDashboardBase("/sw.js"))
     .then((reg) => {
       // Poke the registration so a freshly-built SW activates promptly
       // instead of waiting for the browser's lazy update check.

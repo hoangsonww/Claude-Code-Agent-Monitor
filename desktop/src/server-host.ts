@@ -451,7 +451,7 @@ function fetchSnapshotOverHttp(port: number, timeoutMs = 2500): Promise<ServerSn
       {
         host: "127.0.0.1",
         port,
-        path: `/api/stats?tz_offset=${tzOffset}&day_start=${encodeURIComponent(dayStart)}`,
+        path: `${dashboardBasePath()}/api/stats?tz_offset=${tzOffset}&day_start=${encodeURIComponent(dayStart)}`,
         timeout: timeoutMs,
       },
       (res) => {
@@ -602,7 +602,7 @@ async function probePort(port: number, timeoutMs = 1500): Promise<"healthy" | "b
   // 2. Does it answer /api/health like our server would?
   const healthy = await new Promise<boolean>((resolve) => {
     const req = http.get(
-      { host: "127.0.0.1", port, path: "/api/health", timeout: timeoutMs },
+      { host: "127.0.0.1", port, path: `${dashboardBasePath()}/api/health`, timeout: timeoutMs },
       (res) => {
         let buf = "";
         res.setEncoding("utf8");
@@ -685,7 +685,19 @@ async function waitForHealthy(port: number, timeoutMs = HEALTH_TIMEOUT_MS): Prom
  *   - `CCAM_DESKTOP_NO_ADOPT=1`: skip the "is there already a healthy server
  *     on 4820?" check and always start our own.
  */
+function dashboardBasePath(): string {
+  const value = (process.env.DASHBOARD_BASE_URL || "").trim().replace(/^\/+|\/+$/g, "");
+  return value ? `/${value}` : "";
+}
+
 export async function startEmbeddedServer(): Promise<ServerHandle> {
+  const appRoot = resolveAppRoot();
+  if (!process.env.DASHBOARD_ENV_PATH && app.isPackaged) {
+    process.env.DASHBOARD_ENV_PATH = path.join(app.getPath("userData"), ".env");
+  }
+  (
+    require(path.join(appRoot, "server", "lib", "dotenv.js")) as { loadDotEnv: () => void }
+  ).loadDotEnv();
   const forcedPort = process.env.CCAM_DESKTOP_BIND_PORT
     ? parseInt(process.env.CCAM_DESKTOP_BIND_PORT, 10)
     : null;
@@ -697,7 +709,7 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
     if (adopt === "healthy") {
       log.info("adopting existing healthy server on port", PREFERRED_PORT);
       return {
-        url: `http://127.0.0.1:${PREFERRED_PORT}`,
+        url: `http://127.0.0.1:${PREFERRED_PORT}${dashboardBasePath()}/`,
         port: PREFERRED_PORT,
         ownedByUs: false,
         stop: async () => {
@@ -708,7 +720,6 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
   }
 
   const port = forcedPort ?? (await pickFreePort());
-  const appRoot = resolveAppRoot();
   const serverEntry = path.join(appRoot, "server", "index.js");
 
   // The server reads from process.env. Set everything up before require()ing.
@@ -758,7 +769,7 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
   bootstrapOwnedServer(appRoot, serverModule);
 
   return {
-    url: `http://127.0.0.1:${port}`,
+    url: `http://127.0.0.1:${port}${dashboardBasePath()}/`,
     port,
     ownedByUs: true,
     stop: () =>

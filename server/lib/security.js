@@ -19,6 +19,7 @@
  */
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const net = require("node:net");
 
 // Hostnames that count as "this machine". "0.0.0.0" is included because a
 // browser may resolve a 0.0.0.0 bind via localhost; an empty Host is treated as
@@ -35,6 +36,14 @@ function isLoopbackHostname(name) {
   return LOOPBACK_HOSTS.has(String(name || "").toLowerCase());
 }
 
+function canonicalIpv6(host) {
+  try {
+    return new URL(`http://${host}`).hostname;
+  } catch {
+    return host;
+  }
+}
+
 /** Extra Host-header names the operator allows (set when binding to a LAN). */
 function allowedHostnames() {
   const configured = (process.env.DASHBOARD_ALLOWED_HOSTS || "")
@@ -42,7 +51,14 @@ function allowedHostnames() {
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   const podIp = (process.env.POD_IP || "").trim().toLowerCase();
-  return podIp ? [...new Set([...configured, podIp])] : configured;
+  if (!podIp) return configured;
+  if (net.isIP(podIp) === 6) {
+    // WHATWG URL parsing compresses IPv6 addresses and retains brackets.
+    // Accept the original spelling too, as Host headers may use it directly.
+    const bracketed = `[${podIp}]`;
+    return [...new Set([...configured, bracketed, canonicalIpv6(bracketed)])];
+  }
+  return [...new Set([...configured, podIp])];
 }
 
 /** Strip the port from a Host header, preserving bracketed IPv6 literals. */
@@ -57,7 +73,12 @@ function hostnameOf(hostHeader) {
 
 function isHostAllowed(hostHeader) {
   const name = hostnameOf(hostHeader);
-  return isLoopbackHostname(name) || allowedHostnames().includes(name);
+  const allowed = allowedHostnames();
+  if (isLoopbackHostname(name) || allowed.includes(name)) return true;
+  if (name.startsWith("[") && net.isIP(name.slice(1, -1)) === 6) {
+    return allowed.includes(canonicalIpv6(name));
+  }
+  return false;
 }
 
 /**

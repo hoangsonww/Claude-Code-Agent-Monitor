@@ -22,9 +22,9 @@
  * socket for incremental changes. The two mechanisms are complementary; neither replaces the other.
  *
  * ## Conventions shared by (almost) every call
- * - **Base path.** All paths passed to {@link request} are relative to {@link BASE} ("/api"). The
- *   Vite dev server proxies "/api" to the Express port in development, and in production the same
- *   origin serves both the built client and the API, so a relative base works in both modes.
+ * - **Base path.** All paths passed to {@link request} are relative to {@link BASE}, which combines
+ *   Vite's configured `BASE_URL` with `/api`. The dev proxy and production server share the same
+ *   optional `DASHBOARD_BASE_URL` path prefix.
  * - **Auth.** When the operator has locked the server down with a `DASHBOARD_TOKEN`, the token is
  *   attached to every request as the `x-dashboard-token` header. In the default zero-config loopback
  *   setup there is no token and the header is omitted. See {@link dashboardToken}.
@@ -815,13 +815,19 @@ import type {
 } from "./types";
 
 import { activeProvidersParam, activeSourcesParam } from "./dataScope";
+import { withDashboardBase } from "./baseUrl";
 
 /**
  * Root path every endpoint path is appended to. Kept relative (no host) so the same client bundle
  * works behind the Vite dev proxy and in same-origin production, where the Express server serves
  * both the built UI and `/api`.
  */
-const BASE = "/api";
+const BASE = withDashboardBase("/api");
+
+/** Build a same-origin API URL for the few request paths outside this module. */
+export function dashboardApiUrl(path: string): string {
+  return `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 /**
  * Append the current global data-scope (see {@link activeSourcesParam}) as a

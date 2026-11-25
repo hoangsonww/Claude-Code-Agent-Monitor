@@ -1,5 +1,5 @@
 /**
- * @file Sets up the Express server, API routes, WebSocket, production client,
+ * @file Sets up the Express server, base-path-aware API routes, WebSocket, production client,
  * and non-blocking Claude/Cursor/Codex synchronizers and maintenance jobs.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -12,9 +12,12 @@ require("./lib/dotenv").loadDotEnv();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
+const { injectBaseUrlIntoHtml, normalizeBaseUrl, stripBaseUrl } = require("./lib/base-url");
+const { probeDashboardHealth } = require("./lib/health-probe");
 const { createOpenApiSpec } = require("./openapi");
 const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
 const {
@@ -71,6 +74,25 @@ const DASHBOARD_FAVICON_PATH = path.join(__dirname, "..", "client", "public", "f
 function createApp() {
   const app = express();
   const openApiSpec = createOpenApiSpec();
+  const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
+
+  // Make every HTTP surface (API, static assets, and SPA routes) live under
+  // the configured reverse-proxy prefix while keeping route definitions local.
+  if (baseUrl) {
+    app.use((req, res, next) => {
+      const requestPath = req.url.split("?", 1)[0];
+      const pathWithoutPrefix = stripBaseUrl(requestPath, baseUrl);
+      // Local Claude/Codex hook handlers still target the loopback `/api/hooks`
+      // endpoint discovered from the server registry; keep that ingestion path
+      // working while the browser-facing API moves below the configured prefix.
+      if (pathWithoutPrefix === null) {
+        if (requestPath === "/api/hooks" || requestPath.startsWith("/api/hooks/")) return next();
+        return res.status(404).end();
+      }
+      req.url = `${pathWithoutPrefix}${req.url.slice(req.url.split("?", 1)[0].length)}`;
+      next();
+    });
+  }
 
   // Security hardening (GHSA-gr74-4xfh-6jw9): loopback-only CORS, a Host-header
   // allowlist (anti DNS-rebinding), and an optional bearer-token gate on /api/*.
@@ -114,7 +136,7 @@ function createApp() {
     swaggerUi.serve,
     swaggerUi.setup(openApiSpec, {
       customSiteTitle: "Agent Dashboard API Docs",
-      customfavIcon: "/favicon.svg",
+      customfavIcon: `${baseUrl}/favicon.svg`,
     })
   );
 
@@ -131,10 +153,10 @@ function createApp() {
       .type("html")
       .send(
         renderRedocHtml(
-          "/api/openapi.json",
-          "/api/redoc/redoc.standalone.js",
+          `${baseUrl}/api/openapi.json`,
+          `${baseUrl}/api/redoc/redoc.standalone.js`,
           "Agent Dashboard API Reference",
-          "/favicon.svg"
+          `${baseUrl}/favicon.svg`
         )
       );
   });
@@ -163,59 +185,88 @@ function createApp() {
   return app;
 }
 
+function configureProductionClient(app, clientDist, baseUrl) {
+  const clientIndexPath = path.join(clientDist, "index.html");
+
+  function readClientIndex() {
+    return fs.readFileSync(clientIndexPath, "utf8");
+  }
+
+  function sendClientIndex(res) {
+    res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    try {
+      res.type("html").send(injectBaseUrlIntoHtml(readClientIndex(), baseUrl));
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        res.status(404).type("text").send("Dashboard client is not built.");
+        return;
+      }
+      throw error;
+    }
+  }
+
+  // The app shell contains runtime base-path placeholders. Prevent the static
+  // middleware from returning index.html before the injection handler runs.
+  // Cache policy designed to survive client rebuilds without forcing a hard
+  // refresh:
+  //   - Hashed bundles under /assets/ never change for a given URL, so cache
+  //     them aggressively (immutable).
+  //   - index.html, /sw.js, and /manifest.json *are* the cache-bust signal,
+  //     so they must revalidate every load — without this the browser's
+  //     heuristic cache happily serves a stale index.html that references
+  //     asset hashes that no longer exist on disk.
+  // express.static still serves an explicitly requested /index.html when
+  // `index: false` is set, so route it through the injector before static.
+  app.get("/index.html", (_req, res) => sendClientIndex(res));
+  app.use(
+    express.static(clientDist, {
+      index: false,
+      etag: true,
+      lastModified: true,
+      setHeaders(res, filePath) {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          return;
+        }
+        const base = path.basename(filePath);
+        if (base === "index.html" || base === "sw.js" || base === "manifest.json") {
+          res.setHeader("Cache-Control", "no-cache, must-revalidate");
+          return;
+        }
+        // Other static files (favicon, og-image, etc.): short revalidation
+        // window — long enough to be friendly, short enough to recover from
+        // a typo without telling users to hard-refresh.
+        res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+      },
+    })
+  );
+  // API handlers (including Swagger and ReDoc) are registered above. Never
+  // let an unrecognised `/api/*` request fall through to the React shell:
+  // otherwise a typo or stale reference asset can mount the dashboard's
+  // first-run overlay over API documentation instead of returning a useful
+  // API-shaped 404 response.
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      error: {
+        code: "ENOTFOUND",
+        message: `API route not found: ${req.method} ${req.originalUrl}`,
+      },
+    });
+  });
+  app.get("*", (_req, res) => {
+    sendClientIndex(res);
+  });
+}
+
 function startServer(app, port) {
   const server = http.createServer(app);
-  initWebSocket(server);
+  const baseUrl = normalizeBaseUrl(process.env.DASHBOARD_BASE_URL);
+  initWebSocket(server, baseUrl);
 
   const isProduction = process.env.NODE_ENV === "production";
   if (isProduction) {
     const clientDist = path.join(__dirname, "..", "client", "dist");
-    // Cache policy designed to survive client rebuilds without forcing a hard
-    // refresh:
-    //   - Hashed bundles under /assets/ never change for a given URL, so cache
-    //     them aggressively (immutable).
-    //   - index.html, /sw.js, and /manifest.json *are* the cache-bust signal,
-    //     so they must revalidate every load — without this the browser's
-    //     heuristic cache happily serves a stale index.html that references
-    //     asset hashes that no longer exist on disk.
-    app.use(
-      express.static(clientDist, {
-        etag: true,
-        lastModified: true,
-        setHeaders(res, filePath) {
-          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-            return;
-          }
-          const base = path.basename(filePath);
-          if (base === "index.html" || base === "sw.js" || base === "manifest.json") {
-            res.setHeader("Cache-Control", "no-cache, must-revalidate");
-            return;
-          }
-          // Other static files (favicon, og-image, etc.): short revalidation
-          // window — long enough to be friendly, short enough to recover from
-          // a typo without telling users to hard-refresh.
-          res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
-        },
-      })
-    );
-    // API handlers (including Swagger and ReDoc) are registered above. Never
-    // let an unrecognised `/api/*` request fall through to the React shell:
-    // otherwise a typo or stale reference asset can mount the dashboard's
-    // first-run overlay over API documentation instead of returning a useful
-    // API-shaped 404 response.
-    app.use("/api", (req, res) => {
-      res.status(404).json({
-        error: {
-          code: "ENOTFOUND",
-          message: `API route not found: ${req.method} ${req.originalUrl}`,
-        },
-      });
-    });
-    app.get("*", (_req, res) => {
-      res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      res.sendFile(path.join(clientDist, "index.html"));
-    });
+    configureProductionClient(app, clientDist, baseUrl);
   }
 
   // Bind to loopback by default so the dashboard is not network-reachable out
@@ -242,7 +293,7 @@ function startServer(app, port) {
       }
       const mode = isProduction ? "production" : "development";
       const shown = boundLoopback ? "localhost" : host;
-      console.log(`Agent Dashboard server running on http://${shown}:${port} (${mode})`);
+      console.log(`Agent Dashboard server running on http://${shown}:${port}${baseUrl} (${mode})`);
       if (!boundLoopback) {
         console.warn(
           `⚠️  Dashboard bound to ${host} — reachable from the network. ` +
@@ -1473,38 +1524,6 @@ function startSessionSync(broadcast) {
   }
 }
 
-/**
- * Resolve true when a healthy dashboard already answers `/api/health` on
- * `port`. Used by the standalone entry point to avoid starting a SECOND server
- * on the now-shared database — two live servers would each persist the
- * fanned-out hook events and double-count them. Never rejects; any
- * error/timeout (nothing listening, or a non-dashboard process) resolves false.
- */
-function probeDashboardHealth(port, timeoutMs = 1500) {
-  return new Promise((resolve) => {
-    const req = http.get(
-      { host: "127.0.0.1", port, path: "/api/health", timeout: timeoutMs },
-      (res) => {
-        let buf = "";
-        res.setEncoding("utf8");
-        res.on("data", (c) => (buf += c));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(buf)?.status === "ok");
-          } catch {
-            resolve(false);
-          }
-        });
-      }
-    );
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
-}
-
 if (require.main === module) {
   const PORT = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
   let httpServer = null;
@@ -1520,10 +1539,10 @@ if (require.main === module) {
   // races the old process on the same port, and adopting there would wedge
   // hot-reload. Dev already runs its own isolated server by design.
   const isWatchMode = process.execArgv.some((a) => a.startsWith("--watch"));
-  probeDashboardHealth(PORT).then((alreadyRunning) => {
+  probeDashboardHealth(PORT, process.env.DASHBOARD_BASE_URL).then((alreadyRunning) => {
     if (alreadyRunning && !isWatchMode) {
       console.log(
-        `Agent Dashboard is already running on http://localhost:${PORT} — not starting a ` +
+        `Agent Dashboard is already running on http://localhost:${PORT}${alreadyRunning.baseUrl} — not starting a ` +
           `second instance. Open that URL, or stop the other dashboard first.`
       );
       process.exit(0);
@@ -1784,6 +1803,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  configureProductionClient,
   createApp,
   startServer,
   startBackgroundServices,

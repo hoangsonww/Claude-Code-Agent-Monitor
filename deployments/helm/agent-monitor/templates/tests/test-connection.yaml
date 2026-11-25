@@ -23,7 +23,7 @@ spec:
         - '--timeout=10'
         - '--tries=3'
         - '-qO-'
-        - 'http://{{ include "agent-monitor.fullname" . }}:{{ .Values.service.port }}/api/health'
+        - {{ printf "http://%s:%v%s/api/health" (include "agent-monitor.fullname" .) .Values.service.port (include "agent-monitor.baseUrl" .) | quote }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

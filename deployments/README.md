@@ -50,6 +50,28 @@ and Grafana. Every host port binds loopback by default.
 
 Create `agent-monitor-secrets` with `dashboard-token`, `hook-token`, and
 `mcp-token`, then use Helm or Kustomize. Prefer immutable image tags or digests.
+For Helm subpath hosting, set `config.DASHBOARD_BASE_URL` and make the Ingress path match
+it (for example, both `/dashboard`). The chart adjusts health probes,
+ServiceMonitor metrics, and the MCP sidecar URL, and the server injects the
+prefix into prebuilt client assets at runtime. Values files using the former
+`config.baseUrl` must be migrated to `config.DASHBOARD_BASE_URL`.
+
+**Kustomize subpaths require coordinated configuration.** The manifests use
+root paths by default and do not derive the other paths from the ConfigMap.
+For example, a `/dashboard` deployment needs these matching overlay patches:
+
+| Resource | Setting | Value |
+| --- | --- | --- |
+| Dashboard ConfigMap | `DASHBOARD_BASE_URL` | `/dashboard` |
+| Ingress | `spec.rules[].http.paths[].path` | `/dashboard` |
+| Dashboard Deployment | startup, readiness and liveness `httpGet.path` | `/dashboard/api/health` |
+| ServiceMonitor, if enabled | `spec.endpoints[].path` | `/dashboard/api/metrics` |
+| MCP sidecar, if enabled | `MCP_DASHBOARD_BASE_URL` | `http://127.0.0.1:4820/dashboard` |
+
+The proxy must forward the prefix without stripping it. Include the external
+hostname in `DASHBOARD_ALLOWED_HOSTS`. The deployment script reads the effective
+prefix from the running dashboard container for its post-deployment check; the
+operator must have permission to execute commands in that container.
 
 ```bash
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"

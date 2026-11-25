@@ -3,6 +3,7 @@
 ╚══════════════════════════════════════════════════════════════════════╝
 
 {{- $fullName := include "agent-monitor.fullname" . -}}
+{{- $baseUrl := include "agent-monitor.baseUrl" . -}}
 
 🎉 {{ $fullName }} has been deployed to namespace "{{ .Release.Namespace }}"!
 
@@ -20,7 +21,7 @@
 
   export NODE_PORT=$(kubectl get -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ $fullName }})
   export NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo "Dashboard URL: http://$NODE_IP:$NODE_PORT"
+  echo "Dashboard URL: http://$NODE_IP:$NODE_PORT{{ $baseUrl }}"
 
 {{- else if contains "LoadBalancer" .Values.service.type }}
 
@@ -29,21 +30,21 @@
     kubectl get -n {{ .Release.Namespace }} svc {{ $fullName }} -w
 
   export SERVICE_IP=$(kubectl get svc -n {{ .Release.Namespace }} {{ $fullName }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  echo "Dashboard URL: http://$SERVICE_IP:{{ .Values.service.port }}"
+  echo "Dashboard URL: http://$SERVICE_IP:{{ .Values.service.port }}{{ $baseUrl }}"
 
 {{- else }}
 
   Port-forward to access locally:
     kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $fullName }} 4820:{{ .Values.service.port }}
 
-  Then open: http://localhost:4820
+  Then open: http://localhost:4820{{ $baseUrl }}
 
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔍 Health Check:
-  kubectl exec -n {{ .Release.Namespace }} deploy/{{ $fullName }} -- wget -qO- http://localhost:{{ .Values.service.targetPort }}/api/health
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ $fullName }} -- wget -qO- http://localhost:{{ .Values.service.targetPort }}{{ trimSuffix "/" (include "agent-monitor.baseUrl" .) }}/api/health
 
 🧪 Run Tests:
   helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

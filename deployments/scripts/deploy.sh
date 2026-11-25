@@ -341,7 +341,15 @@ run_health_check() {
   [[ -n "$service_name" ]] || fatal "No CCAM Service found in ${NAMESPACE}"
 
   # Determine health check URL
-  local health_url=""
+  local health_url="" dashboard_prefix
+  # Resolve the same environment and dotenv file the deployed server reads.
+  # Never roll back a healthy release merely because its prefix is unknown.
+  if ! dashboard_prefix=$(kubectl exec "deployment/${deployment_name}" -n "${NAMESPACE}" \
+    -c agent-monitor -- node -e \
+    'require("./server/lib/dotenv").loadDotEnv(); process.stdout.write(require("./server/lib/base-url").normalizeBaseUrl(process.env.DASHBOARD_BASE_URL));'); then
+    err "Could not read the deployed dashboard base URL; health check was not run and no rollback was attempted."
+    return 1
+  fi
 
   # Try to get service URL from cluster
   local svc_type
@@ -354,13 +362,13 @@ run_health_check() {
         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
       [[ -z "$lb_host" ]] && lb_host=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-      [[ -n "$lb_host" ]] && health_url="http://${lb_host}/api/health"
+      [[ -n "$lb_host" ]] && health_url="http://${lb_host}${dashboard_prefix}/api/health"
       ;;
     NodePort)
       local node_port
       node_port=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
-      [[ -n "$node_port" ]] && health_url="http://localhost:${node_port}/api/health"
+      [[ -n "$node_port" ]] && health_url="http://localhost:${node_port}${dashboard_prefix}/api/health"
       ;;
     *)
       # Use port-forward for ClusterIP
@@ -369,7 +377,7 @@ run_health_check() {
       kubectl port-forward "svc/${service_name}" "${local_port}:80" -n "${NAMESPACE}" &
       local pf_pid=$!
       sleep 3
-      health_url="http://localhost:${local_port}/api/health"
+      health_url="http://localhost:${local_port}${dashboard_prefix}/api/health"
       ;;
   esac
 
@@ -397,7 +405,7 @@ run_health_check() {
       chmod 600 "$token_file"
     fi
     local health_args=(
-      --url "${health_url}"
+      --url "${health_url%/api/health}"
       --retries "${HEALTH_CHECK_RETRIES}"
       --interval "${HEALTH_CHECK_INTERVAL}"
     )
@@ -516,4 +524,6 @@ main() {
   echo ""
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

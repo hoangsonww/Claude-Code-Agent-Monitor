@@ -1200,17 +1200,12 @@ npm run dev
 
 ### Environment Variables
 
-The client uses hardcoded API URL (`http://localhost:4820`). For custom configuration, update `lib/api.ts`:
-
-```typescript
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4820';
-```
-
-Then create `.env`:
-
-```
-VITE_API_URL=http://localhost:4820
-```
+The client uses same-origin relative URLs. For reverse-proxy deployments below a path such as
+`/dashboard`, set `DASHBOARD_BASE_URL=/dashboard` in the repository-root `.env`, or in the
+environment of both the server and Vite. Express mounts its API,
+WebSocket, and production UI under that prefix and injects it into the prebuilt client at runtime.
+Vite also uses it for the development asset base and API/WebSocket proxies. Leave it empty for the
+default root deployment, and configure the reverse proxy to forward the prefix unchanged.
 
 ### Hot Module Replacement (HMR)
 

@@ -202,6 +202,10 @@ export CCAM_DASHBOARD_URL=https://agent-monitor.example.com
 export CCAM_HOOK_TOKEN_FILE=/secure/path/hook-token
 ```
 
+Include the dashboard prefix in `CCAM_DASHBOARD_URL` when deployed under a subpath,
+for example `https://agent-monitor.example.com/ai-dev`. Both Claude Code and Codex
+hook requests retain that prefix.
+
 Non-loopback `CCAM_DASHBOARD_URL` values must use HTTPS and must provide
 `CCAM_HOOK_TOKEN` or `CCAM_HOOK_TOKEN_FILE`. The handler sends the credential as
 `x-ccam-hook-token`; the dashboard verifies it against

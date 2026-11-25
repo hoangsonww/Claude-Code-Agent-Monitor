@@ -10,6 +10,7 @@
 const vscode = require("vscode");
 const http = require("http");
 const { DashboardWebviewProvider } = require("./sidebar");
+const { basePath } = require("./base-url");
 
 let statusBarItem;
 let outputChannel;
@@ -77,7 +78,7 @@ function activate(context) {
     "claude-code-agent-monitor.openInBrowser",
     async () => {
       const isDevUp = await checkPort(5173);
-      const url = isDevUp ? "http://localhost:5173" : "http://localhost:4820";
+      const url = `${isDevUp ? "http://localhost:5173" : "http://localhost:4820"}${basePath()}/`;
       vscode.env.openExternal(vscode.Uri.parse(url));
     }
   );
@@ -140,24 +141,30 @@ function checkPort(port) {
 
 function fetchJson(port, path) {
   return new Promise((res, rej) => {
-    const req = http.get({ hostname: "localhost", port, path, timeout: 800 }, (r) => {
-      let d = "";
-      r.on("data", (c) => (d += c));
-      r.on("end", () => {
-        try {
-          res(JSON.parse(d));
-        } catch (e) {
-          rej(e);
-        }
-      });
-    });
+    const req = http.get(
+      { hostname: "localhost", port, path: `${basePath()}${path}`, timeout: 800 },
+      (r) => {
+        let d = "";
+        r.on("data", (c) => (d += c));
+        r.on("end", () => {
+          try {
+            res(JSON.parse(d));
+          } catch (e) {
+            rej(e);
+          }
+        });
+      }
+    );
     req.on("error", rej);
   });
 }
 
 function request(method, port, path) {
   return new Promise((res, rej) => {
-    const req = http.request({ hostname: "localhost", port, path, method }, res);
+    const req = http.request(
+      { hostname: "localhost", port, path: `${basePath()}${path}`, method },
+      res
+    );
     req.on("error", rej);
     req.end();
   });
@@ -171,7 +178,7 @@ function getDashboardHtml(port, suffix) {
     .d{width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:8px;box-shadow:0 0 5px #10b981;}
     .u{margin-left:auto;opacity:0.5;}</style></head>
     <body><div class="t"><div class="d"></div>Live Dashboard: ${suffix || "/"} <div class="u">localhost:${port}</div></div>
-    <iframe src="http://localhost:${port}${suffix}"></iframe></body></html>`;
+    <iframe src="http://localhost:${port}${basePath()}${suffix || "/"}"></iframe></body></html>`;
 }
 
 function getErrorHtml() {

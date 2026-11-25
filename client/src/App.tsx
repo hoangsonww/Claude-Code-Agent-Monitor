@@ -225,6 +225,7 @@
  * ============================================================================= */
 
 import { BrowserRouter, Routes, Route, useLocation } from "react-router";
+import { DASHBOARD_BASE_PATH } from "./lib/baseUrl";
 import { useCallback } from "react";
 import { Layout } from "./components/Layout";
 import { DocumentTitle } from "./components/DocumentTitle";
@@ -279,7 +280,7 @@ export default function App() {
   useSoundCues();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={DASHBOARD_BASE_PATH || "/"}>
       <DashboardOnboarding />
       <DocumentTitle />
       <Routes>

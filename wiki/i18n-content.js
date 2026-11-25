@@ -497,6 +497,8 @@ window.__WIKI_CONTENT_I18N = {
     Default: "默认值",
     Description: "说明",
     "Port the Express server listens on": "Express 服务器监听的端口",
+    "Optional runtime URL path prefix for reverse-proxy deployments, such as <code>/dashboard</code>. The server injects it into the client, including prebuilt images.":
+      "反向代理部署时可选的运行时 URL 路径前缀，例如 <code>/dashboard</code>。服务器会将其注入客户端，包括预构建镜像。",
     "Explicit hook-handler port override; persist it at installation with <code>--dashboard-port N</code>":
       "Hook Handler 的显式端口覆盖；安装时使用 <code>--dashboard-port N</code> 持久化",
     "Base URL used by the local MCP server when calling dashboard APIs":
@@ -2005,6 +2007,8 @@ window.__WIKI_CONTENT_I18N = {
     Default: "Mặc định",
     Description: "Mô tả",
     "Port the Express server listens on": "Cổng mà máy chủ Express lắng nghe",
+    "Optional runtime URL path prefix for reverse-proxy deployments, such as <code>/dashboard</code>. The server injects it into the client, including prebuilt images.":
+      "Tiền tố đường dẫn URL tùy chọn lúc chạy khi triển khai sau reverse proxy, chẳng hạn <code>/dashboard</code>. Máy chủ tự chèn giá trị này vào client, kể cả ảnh đã build sẵn.",
     "Explicit hook-handler port override; persist it at installation with <code>--dashboard-port N</code>":
       "Ghi đè cổng tường minh cho trình xử lý hook; lưu bền khi cài đặt bằng <code>--dashboard-port N</code>",
     "Base URL used by the local MCP server when calling dashboard APIs":
@@ -3506,6 +3510,8 @@ window.__WIKI_CONTENT_I18N = {
     Default: "기본값",
     Description: "설명",
     "Port the Express server listens on": "Express 서버가 수신 대기하는 포트",
+    "Optional runtime URL path prefix for reverse-proxy deployments, such as <code>/dashboard</code>. The server injects it into the client, including prebuilt images.":
+      "Reverse proxy 배포에 사용할 선택적 런타임 URL 경로 접두사입니다(예: <code>/dashboard</code>). 서버가 미리 빌드된 이미지를 포함해 client에 값을 주입합니다.",
     "Explicit hook-handler port override; persist it at installation with <code>--dashboard-port N</code>":
       "Hook handler의 명시적 port override이며 설치 시 <code>--dashboard-port N</code>으로 영구 저장합니다",
     "Base URL used by the local MCP server when calling dashboard APIs":
@@ -5005,6 +5011,8 @@ window.__WIKI_CONTENT_I18N = {
     Default: "valor por defecto",
     Description: "descripción",
     "Port the Express server listens on": "Puerto en el que el servidor Express escucha",
+    "Optional runtime URL path prefix for reverse-proxy deployments, such as <code>/dashboard</code>. The server injects it into the client, including prebuilt images.":
+      "Prefijo opcional de ruta URL en tiempo de ejecución para despliegues detrás de un proxy inverso, como <code>/dashboard</code>. El servidor lo inyecta en el cliente, también en imágenes ya compiladas.",
     "Explicit hook-handler port override; persist it at installation with <code>--dashboard-port N</code>":
       "Anulación explícita del puerto del handler de hooks; se conserva al instalar con <code>--dashboard-port N</code>",
     "Base URL used by the local MCP server when calling dashboard APIs":

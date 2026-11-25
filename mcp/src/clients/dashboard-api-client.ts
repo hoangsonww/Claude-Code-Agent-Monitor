@@ -514,8 +514,15 @@ export class DashboardApiClient {
    * @returns The full request URL.
    */
   private buildUrl(path: string, query?: RequestOptions["query"]): URL {
-    const url = new URL(path, this.config.dashboardBaseUrl);
-    if (!url.pathname.startsWith("/api/")) {
+    if (!path.startsWith("/api/")) {
+      throw new ApiError(`Invalid path "${path}". MCP client can only call /api/* endpoints.`, {
+        code: "INVALID_PATH",
+      });
+    }
+    const base = this.config.dashboardBaseUrl;
+    const basePath = base.pathname.replace(/\/+$/, "");
+    const url = new URL(`${basePath}${path}`, base.origin);
+    if (url.origin !== base.origin || !url.pathname.startsWith(`${basePath}/api/`)) {
       throw new ApiError(`Invalid path "${path}". MCP client can only call /api/* endpoints.`, {
         code: "INVALID_PATH",
       });

@@ -8,12 +8,12 @@ const { isHostAllowed, isWebSocketAuthorized } = require("./lib/security");
 
 let wss = null;
 
-function initWebSocket(server) {
+function initWebSocket(server, baseUrl = "") {
   // Express middleware doesn't run on WS upgrades, so enforce the same Host
   // allowlist (anti DNS-rebinding) and optional token here (GHSA-gr74-4xfh-6jw9).
   wss = new WebSocketServer({
     server,
-    path: "/ws",
+    path: `${baseUrl}/ws`,
     maxPayload: 64 * 1024,
     verifyClient(info, done) {
       if (!isHostAllowed(info.req.headers.host)) return done(false, 403, "host not allowed");

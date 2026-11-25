@@ -50,4 +50,15 @@ describe("hook transport target validation", () => {
       fs.rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("preserves the remote dashboard subpath for both hook endpoints", () => {
+    process.env.CCAM_DASHBOARD_URL = "https://dashboard.example.com/ai-dev/";
+    process.env.CCAM_HOOK_TOKEN = "hook-secret";
+    for (const endpoint of ["/api/hooks/event", "/api/hooks/codex"]) {
+      assert.equal(
+        String(transport.buildTargets(() => [], endpoint)[0]),
+        `https://dashboard.example.com/ai-dev${endpoint}`
+      );
+    }
+  });
 });
