@@ -108,6 +108,7 @@ describe("/api/run", () => {
 
   afterEach(() => {
     delete process.env.DASHBOARD_ALLOWED_HOSTS;
+    delete process.env.POD_IP;
   });
 
   it("rejects cross-origin browser requests", async () => {
@@ -141,6 +142,14 @@ describe("/api/run", () => {
     });
     assert.equal(status, 200);
     assert.ok(Array.isArray(body.items));
+  });
+
+  it("allows an IPv6 pod Host and Origin", async () => {
+    process.env.POD_IP = "fd00:0:0:0:0:0:0:1234";
+    const { status } = await fetchJson("/api/run", {
+      headers: { Host: "[fd00::1234]:4820", Origin: "http://[fd00::1234]:4820" },
+    });
+    assert.equal(status, 200);
   });
 
   it("POST / requires prompt", async () => {
