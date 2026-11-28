@@ -1072,10 +1072,12 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
     if (!window.capped) break;
   }
   if (failed && events.length === 0) return { changed: false, events: [], failed: true };
-  // Do not touch `sessions.updated_at` for a historical analytics backfill:
-  // that timestamp drives card freshness and must remain the session's actual
-  // activity time. A live append reaches the main ingest path too, which
-  // touches the session after this tool cursor finishes.
+  // Touch updated_at when new tool events are found in a live (active) session
+  // so the working-idle watchdog does not misfire. Historical backfills skip
+  // this: their timestamps must reflect actual activity, not import time.
+  if (events.length > 0 && session.status === "active") {
+    stmts.touchSession.run(session.id);
+  }
   return {
     changed: events.length > 0,
     created: false,
@@ -1714,6 +1716,17 @@ function reconcileCodexSessionLiveness({
       }
       if (Date.now() - lastActivityMs >= workingIdleMs) {
         didChange = setCodexWaiting(session.id, "interrupted");
+      }
+    } else if (session.awaiting_reason === "interrupted" && session.transcript_path) {
+      // Safety valve: an "interrupted" session whose rollout is still being
+      // written to is not actually idle — restore it to working.
+      try {
+        const mtimeMs = fs.statSync(session.transcript_path).mtimeMs;
+        if (Date.now() - mtimeMs < workingIdleMs) {
+          didChange = setCodexWorking(session.id);
+        }
+      } catch {
+        // stat failure — leave the current state alone.
       }
     }
     if (didChange) {
